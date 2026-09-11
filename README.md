@@ -25,7 +25,7 @@ docker compose up --build
 
 Keep local environment settings in the root `.env`; `.env.example` documents the supported variables. Git ignores `.env`. Compose and both `scripts/start-dev.*` launchers use this configuration, with shell environment variables taking precedence. Existing database passwords must also be changed in PostgreSQL if you change their values in `.env`. Direct `gradlew bootRun` does not load `.env`; use the launcher for shared configuration.
 
-Open `http://localhost:3000`. The status page calls the Spring Boot health API and confirms PostgreSQL connectivity. Stop the services with `Ctrl+C`, then run `docker compose down`. Add `-v` to the down command only when you intentionally want to delete the local PostgreSQL volume.
+Open `http://localhost:3000`. The Ask AI workspace displays labeled sample content, with a live Spring Boot/database connection indicator below the main panel. Stop the services with `Ctrl+C`, then run `docker compose down`. Add `-v` to the down command only when you intentionally want to delete the local PostgreSQL volume.
 
 Compose also builds and starts [garrytan/gbrain](https://github.com/garrytan/gbrain), with its own database and role inside the shared PostgreSQL/pgvector server, plus a persistent configuration volume. Its health endpoint is `http://localhost:3131/health`; containers reach it at `http://gbrain:3131`. See [gbrain setup](docker/README.md) for configuration and limitations. `docker compose down -v` deletes gbrain data as well as the application database.
 
