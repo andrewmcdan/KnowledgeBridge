@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import "./App.css";
+import wordmark from "./assets/wordmark.png";
 
 type ServiceStatus = "UP" | "DOWN";
 
@@ -59,10 +60,7 @@ function App() {
         <main className="app-shell">
             <header className="brand-bar">
                 <a className="brand" href="/" aria-label="KnowledgeBridge home">
-                    <span className="brand-mark" aria-hidden="true">
-                        KB
-                    </span>
-                    <span>KnowledgeBridge</span>
+                    <img className="brand-wordmark" src={wordmark} alt="KnowledgeBridge" width="1164" height="204" />
                 </a>
                 <span className="environment">Development environment</span>
             </header>

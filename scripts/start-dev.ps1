@@ -62,10 +62,14 @@ try {
         }
     }
 
-    $postgresPort = if ($env:POSTGRES_PORT) { $env:POSTGRES_PORT } else { '5432' }
-    $postgresDatabase = if ($env:POSTGRES_DB) { $env:POSTGRES_DB } else { 'knowledgebridge' }
-    $postgresUser = if ($env:POSTGRES_USER) { $env:POSTGRES_USER } else { 'knowledgebridge' }
-    $postgresPassword = if ($env:POSTGRES_PASSWORD) { $env:POSTGRES_PASSWORD } else { 'knowledgebridge' }
+    # Let Compose resolve root .env quoting, interpolation, and shell precedence.
+    $composeJson = docker compose config --format json
+    if ($LASTEXITCODE -ne 0) { throw 'Could not resolve Docker Compose configuration.' }
+    $postgresConfig = ($composeJson | ConvertFrom-Json).services.postgres
+    $postgresPort = ($postgresConfig.ports | Where-Object { $_.target -eq 5432 }).published
+    $postgresDatabase = $postgresConfig.environment.POSTGRES_DB
+    $postgresUser = $postgresConfig.environment.POSTGRES_USER
+    $postgresPassword = $postgresConfig.environment.POSTGRES_PASSWORD
 
     $env:SPRING_DOCKER_COMPOSE_ENABLED = 'false'
     $env:SPRING_DATASOURCE_URL = "jdbc:postgresql://localhost:$postgresPort/$postgresDatabase"

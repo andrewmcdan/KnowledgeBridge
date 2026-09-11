@@ -31,7 +31,7 @@ cleanup() {
 }
 trap cleanup EXIT INT TERM
 
-for command in docker npm java; do
+for command in docker npm node java; do
   command -v "$command" >/dev/null 2>&1 || {
     echo "Required command '$command' was not found on PATH." >&2
     exit 1
@@ -69,9 +69,15 @@ if [[ ! -d "$PROJECT_ROOT/frontend/node_modules" ]]; then
 fi
 
 export SPRING_DOCKER_COMPOSE_ENABLED=false
-export SPRING_DATASOURCE_URL="jdbc:postgresql://localhost:${POSTGRES_PORT:-5432}/${POSTGRES_DB:-knowledgebridge}"
-export SPRING_DATASOURCE_USERNAME="${POSTGRES_USER:-knowledgebridge}"
-export SPRING_DATASOURCE_PASSWORD="${POSTGRES_PASSWORD:-knowledgebridge}"
+# Use Compose's .env parser instead of sourcing configuration as shell code.
+compose_json="$(docker compose config --format json)"
+postgres_port="$(node -pe 'JSON.parse(require("fs").readFileSync(0,"utf8")).services.postgres.ports.find(p => p.target === 5432).published' <<< "$compose_json")"
+postgres_database="$(node -pe 'JSON.parse(require("fs").readFileSync(0,"utf8")).services.postgres.environment.POSTGRES_DB' <<< "$compose_json")"
+export SPRING_DATASOURCE_URL="jdbc:postgresql://localhost:${postgres_port}/${postgres_database}"
+SPRING_DATASOURCE_USERNAME="$(node -pe 'JSON.parse(require("fs").readFileSync(0,"utf8")).services.postgres.environment.POSTGRES_USER' <<< "$compose_json")"
+SPRING_DATASOURCE_PASSWORD="$(node -pe 'JSON.parse(require("fs").readFileSync(0,"utf8")).services.postgres.environment.POSTGRES_PASSWORD' <<< "$compose_json")"
+export SPRING_DATASOURCE_USERNAME SPRING_DATASOURCE_PASSWORD
+unset compose_json
 
 echo "Starting Spring Boot and Vite..."
 (cd "$PROJECT_ROOT/backend" && ./gradlew bootRun --no-daemon --console=plain) &
