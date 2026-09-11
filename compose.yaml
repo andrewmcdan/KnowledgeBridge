@@ -5,6 +5,7 @@ services:
       POSTGRES_DB: ${POSTGRES_DB:-knowledgebridge}
       POSTGRES_USER: ${POSTGRES_USER:-knowledgebridge}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-knowledgebridge}
+      GBRAIN_DB_PASSWORD: ${GBRAIN_DB_PASSWORD:-gbrain-local}
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
       interval: 5s
@@ -14,6 +15,7 @@ services:
       - "127.0.0.1:${POSTGRES_PORT:-5432}:5432"
     volumes:
       - postgres-data:/var/lib/postgresql/data
+      - ./docker/postgres/init-gbrain.sh:/docker-entrypoint-initdb.d/10-gbrain.sh:ro
 
   backend:
     build:
@@ -24,6 +26,8 @@ services:
       SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:-knowledgebridge}
       SPRING_DOCKER_COMPOSE_ENABLED: "false"
       KNOWLEDGEBRIDGE_CORS_ALLOWED_ORIGINS: http://localhost:5173,http://localhost:3000
+      # Reserved for the future Spring gbrain adapter.
+      GBRAIN_BASE_URL: http://gbrain:3131
     depends_on:
       postgres:
         condition: service_healthy
@@ -38,5 +42,26 @@ services:
     ports:
       - "3000:80"
 
+  gbrain:
+    build:
+      context: ./docker/gbrain
+    environment:
+      GBRAIN_HOME: /data
+      GBRAIN_DATABASE_URL: postgres://gbrain:${GBRAIN_DB_PASSWORD:-gbrain-local}@postgres:5432/gbrain
+    depends_on:
+      postgres:
+        condition: service_healthy
+    ports:
+      - "127.0.0.1:${GBRAIN_PORT:-3131}:3131"
+    volumes:
+      - gbrain-data:/data
+    healthcheck:
+      test: ["CMD", "bun", "-e", "const r = await fetch('http://127.0.0.1:3131/health'); process.exit(r.ok ? 0 : 1)"]
+      interval: 10s
+      timeout: 5s
+      start_period: 120s
+      retries: 6
+
 volumes:
   postgres-data:
+  gbrain-data:
