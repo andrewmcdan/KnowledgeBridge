@@ -1,6 +1,14 @@
 # Frontend
 
-This folder contains the React application and its tests. It should hold the login experience, search and synthesis interfaces, citations and knowledge-gap messaging, entity views, and administrative knowledge and usage screens.
+The KnowledgeBridge React and TypeScript application is built with Vite. It calls only the Spring Boot `/api` boundary; it must not call gbrain or AI providers directly.
 
-Keep API access in a defined client layer. Frontend code should call only the Spring Boot API and must not call gbrain or AI providers directly.
+## Development
 
+With the backend running on port 8080:
+
+```powershell
+npm install
+npm run dev
+```
+
+Vite serves the application at `http://localhost:5173` and proxies `/api` requests to Spring Boot. Run `npm run lint` and `npm run build` before submitting frontend changes.

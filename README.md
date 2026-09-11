@@ -16,9 +16,24 @@ The gbrain knowledge engine is an external service boundary. Application code mu
 
 ## Getting started
 
-The repository currently contains the initial architecture scaffold. Build and startup commands will be added when the React, Spring Boot, PostgreSQL/pgvector, and sponsor-provided gbrain configurations are introduced.
+Prerequisites are Docker Desktop with Docker Compose. Start the current application stack from the repository root:
+
+```powershell
+docker compose up --build
+```
+
+Open `http://localhost:3000`. The status page calls the Spring Boot health API and confirms PostgreSQL connectivity. Stop the services with `Ctrl+C`, then run `docker compose down`. Add `-v` to the down command only when you intentionally want to delete the local PostgreSQL volume.
+
+For development with frontend hot-module replacement, start Spring Boot from `backend/` with `.\gradlew.bat bootRun`, then run `npm install` and `npm run dev` from `frontend/`. The Vite server is available at `http://localhost:5173` and proxies `/api` to port 8080.
+
+Alternatively, start PostgreSQL in Docker and both application processes locally with one command:
+
+```powershell
+.\scripts\start-dev.ps1
+```
+
+On macOS, Linux, or WSL, use `bash ./scripts/start-dev.sh`. Both launchers stop PostgreSQL on exit unless their keep-database option is supplied.
 
 ## MVP scope
 
 The MVP targets Markdown ingestion, admin and user roles, search and synthesis query modes, cited answers, exact-match caching, entity browsing, knowledge-gap messaging, content lifecycle management, and estimated usage reporting. Only synthetic business data should be used unless the sponsor approves another source.
-

@@ -55,5 +55,3 @@ docker-compose.override.yml
 application-local.properties
 application-local.yml
 application-local.yaml
-
-temp/
