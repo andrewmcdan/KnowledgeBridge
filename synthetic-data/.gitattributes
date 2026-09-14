@@ -1,0 +1,5 @@
+# Stable hashes across Windows, macOS, and Linux checkouts.
+*.md text eol=lf
+*.json text eol=lf
+*.jsonl text eol=lf
+*.py text eol=lf

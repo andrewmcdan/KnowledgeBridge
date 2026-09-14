@@ -1,0 +1,1100 @@
+{
+  "dataset": "acme-v1",
+  "as_of": "2026-09-11",
+  "document_count": 50,
+  "documents": [
+    {
+      "id": "ACME-001",
+      "category": "01-company",
+      "title": "Acme Corporation Company Overview",
+      "document_type": "company_overview",
+      "owner": "Maya Chen",
+      "updated": "2026-09-01",
+      "status": "current",
+      "expected_facts": [
+        "Acme has 120 employees across six departments.",
+        "Acme has four service lines: Atlas, Beacon, Harbor, and advisory services.",
+        "Maya Chen is CEO; Elena Ortiz is CFO."
+      ],
+      "related_documents": [
+        "ACME-002",
+        "ACME-003",
+        "ACME-004",
+        "ACME-005"
+      ],
+      "path": "documents/01-company/acme-001-acme-corporation-company-overview.md",
+      "sha256": "865926c715c806a780296cd4b262aeba9cb1076ba39477393c58021b0cd03625"
+    },
+    {
+      "id": "ACME-002",
+      "category": "01-company",
+      "title": "Engineering Department Charter",
+      "document_type": "department_charter",
+      "owner": "Priya Shah",
+      "updated": "2026-08-12",
+      "status": "current",
+      "expected_facts": [
+        "Engineering has 38 employees.",
+        "Priya Shah owns Engineering; Theo Park owns Atlas technical design.",
+        "Engineering owns application code, not production identity administration."
+      ],
+      "related_documents": [
+        "ACME-003",
+        "ACME-010",
+        "ACME-019",
+        "ACME-020",
+        "ACME-040"
+      ],
+      "path": "documents/01-company/acme-002-engineering-department-charter.md",
+      "sha256": "a7accd4695c7920bebb030977a6a2a09b21db09472cf78156f10a766987bffbe"
+    },
+    {
+      "id": "ACME-003",
+      "category": "01-company",
+      "title": "IT Operations Service Ownership",
+      "document_type": "service_ownership",
+      "owner": "Jordan Blake",
+      "updated": "2026-08-20",
+      "status": "current",
+      "expected_facts": [
+        "IT Operations has 12 employees and is led by Jordan Blake.",
+        "Morgan Reed is the incident commander primary; Imani Brooks is backup.",
+        "IT Operations owns SSO, backups, production access, and incident coordination."
+      ],
+      "related_documents": [
+        "ACME-007",
+        "ACME-013",
+        "ACME-015",
+        "ACME-042"
+      ],
+      "path": "documents/01-company/acme-003-it-operations-service-ownership.md",
+      "sha256": "8cb751c0320d9e309f03e62b758822b0e840a6ad0f908cbf0396f5f05fcbbb1c"
+    },
+    {
+      "id": "ACME-004",
+      "category": "01-company",
+      "title": "Finance and Procurement Operating Model",
+      "document_type": "operating_model",
+      "owner": "Elena Ortiz",
+      "updated": "2026-08-15",
+      "status": "current",
+      "expected_facts": [
+        "Finance and Procurement has 14 employees.",
+        "Ravi Desai leads the Procurement team; Elena Ortiz is CFO.",
+        "Software Budget is cost center CC-410."
+      ],
+      "related_documents": [
+        "ACME-008",
+        "ACME-011",
+        "ACME-012",
+        "ACME-049",
+        "ACME-050"
+      ],
+      "path": "documents/01-company/acme-004-finance-and-procurement-operating-model.md",
+      "sha256": "732c20fcb9c021cacc5d3e796d86fe386cd7cb7e9f30950f4b8a202f47f75f8e"
+    },
+    {
+      "id": "ACME-005",
+      "category": "01-company",
+      "title": "Customer and People Services Directory",
+      "document_type": "department_directory",
+      "owner": "Nora Ellis",
+      "updated": "2026-09-01",
+      "status": "current",
+      "expected_facts": [
+        "Customer Success has 24 employees; Sales and Marketing has 20; People Operations has 12.",
+        "Samira Cole leads Customer Success; Avery Stone leads Sales and Marketing; Nora Ellis leads People Operations.",
+        "BridgeDesk is the internal request system; ClientDesk handles customer support."
+      ],
+      "related_documents": [
+        "ACME-009",
+        "ACME-016",
+        "ACME-017",
+        "ACME-047"
+      ],
+      "path": "documents/01-company/acme-005-customer-and-people-services-directory.md",
+      "sha256": "dd3d4357e13b9e3d9fcf18dfea117cdd20bcfd901e3dfa76189c617b95114260"
+    },
+    {
+      "id": "ACME-006",
+      "category": "02-people",
+      "title": "Priya Shah Leadership Profile",
+      "document_type": "employee_profile",
+      "owner": "Nora Ellis",
+      "updated": "2026-08-18",
+      "status": "current",
+      "expected_facts": [
+        "Priya Shah is Head of Engineering and Cedar executive sponsor.",
+        "Priya approves engineering priorities but does not approve vendor payments."
+      ],
+      "related_documents": [
+        "ACME-002",
+        "ACME-010",
+        "ACME-019",
+        "ACME-026"
+      ],
+      "path": "documents/02-people/acme-006-priya-shah-leadership-profile.md",
+      "sha256": "b4514888fd752ea3be4154dda11a976f4357067237708ac35e37846239af7799"
+    },
+    {
+      "id": "ACME-007",
+      "category": "02-people",
+      "title": "Morgan Reed Operations Profile",
+      "document_type": "employee_profile",
+      "owner": "Jordan Blake",
+      "updated": "2026-08-20",
+      "status": "current",
+      "expected_facts": [
+        "Morgan Reed is SRE lead and primary incident commander.",
+        "Imani Brooks backs up Morgan for incident coordination.",
+        "Morgan owns restore-test evidence, not customer-facing messaging."
+      ],
+      "related_documents": [
+        "ACME-003",
+        "ACME-013",
+        "ACME-015",
+        "ACME-042"
+      ],
+      "path": "documents/02-people/acme-007-morgan-reed-operations-profile.md",
+      "sha256": "027502df794cfc4cd62e1e6e95f5b992749ce475e003eab706c9c2bc6938487f"
+    },
+    {
+      "id": "ACME-008",
+      "category": "02-people",
+      "title": "Ravi Desai Procurement Profile",
+      "document_type": "employee_profile",
+      "owner": "Elena Ortiz",
+      "updated": "2026-08-15",
+      "status": "current",
+      "expected_facts": [
+        "Ravi Desai leads Procurement within Finance and Procurement.",
+        "Ravi reviews vendor terms and issues purchase orders after required approvals."
+      ],
+      "related_documents": [
+        "ACME-004",
+        "ACME-011",
+        "ACME-021",
+        "ACME-049"
+      ],
+      "path": "documents/02-people/acme-008-ravi-desai-procurement-profile.md",
+      "sha256": "97cf36590f2c807936b1b5e1bbca4dee15bb9d17131a1817a6d82e9f654ccca8"
+    },
+    {
+      "id": "ACME-009",
+      "category": "02-people",
+      "title": "Samira Cole Customer Success Profile",
+      "document_type": "employee_profile",
+      "owner": "Nora Ellis",
+      "updated": "2026-08-22",
+      "status": "current",
+      "expected_facts": [
+        "Samira Cole leads Customer Success and sponsors Compass.",
+        "Samira owns customer incident communications and onboarding acceptance."
+      ],
+      "related_documents": [
+        "ACME-005",
+        "ACME-016",
+        "ACME-022",
+        "ACME-030",
+        "ACME-045"
+      ],
+      "path": "documents/02-people/acme-009-samira-cole-customer-success-profile.md",
+      "sha256": "a18738e9a4151215fcd2af99586ce83d62aa21f184d3d267d2363459271c48eb"
+    },
+    {
+      "id": "ACME-010",
+      "category": "02-people",
+      "title": "Atlas Delivery Team and RACI",
+      "document_type": "team_raci",
+      "owner": "Theo Park",
+      "updated": "2026-08-21",
+      "status": "current",
+      "expected_facts": [
+        "Theo Park is Atlas technical lead; Priya Shah is Cedar sponsor.",
+        "Cedar release readiness needs both Engineering and IT Operations review.",
+        "Imani Brooks is responsible for Atlas access configuration."
+      ],
+      "related_documents": [
+        "ACME-006",
+        "ACME-007",
+        "ACME-015",
+        "ACME-019",
+        "ACME-023"
+      ],
+      "path": "documents/02-people/acme-010-atlas-delivery-team-and-raci.md",
+      "sha256": "7261fadf2f1226f504ffd35b44c42875a785df03878aed58335e694aafaa1bd3"
+    },
+    {
+      "id": "ACME-011",
+      "category": "03-policies",
+      "title": "Procurement Policy v2.1",
+      "document_type": "policy",
+      "owner": "Elena Ortiz",
+      "updated": "2026-08-01",
+      "status": "current",
+      "expected_facts": [
+        "Effective August 1, 2026, software purchases over $5,000 require the full review sequence.",
+        "CFO approval is additionally required above $20,000.",
+        "Use annual committed cost; do not split orders to avoid thresholds."
+      ],
+      "related_documents": [
+        "ACME-012",
+        "ACME-018",
+        "ACME-008",
+        "ACME-050"
+      ],
+      "path": "documents/03-policies/acme-011-procurement-policy-v2-1.md",
+      "sha256": "6489e205b707f39962b2755b4e33becaba41142ba3227d4e30a88172dfeaa001"
+    },
+    {
+      "id": "ACME-012",
+      "category": "03-policies",
+      "title": "Finance Approval Matrix 2026",
+      "document_type": "approval_matrix",
+      "owner": "Elena Ortiz",
+      "updated": "2026-08-01",
+      "status": "current",
+      "expected_facts": [
+        "$5,000 exactly follows the lower band; $20,000 exactly does not need the additional CFO approval.",
+        "$5,000.01 through $20,000 requires manager, Finance, IT Operations, and Procurement review.",
+        "No named CFO delegate is established by this matrix."
+      ],
+      "related_documents": [
+        "ACME-011",
+        "ACME-004",
+        "ACME-049"
+      ],
+      "path": "documents/03-policies/acme-012-finance-approval-matrix-2026.md",
+      "sha256": "a0e46fdf555056046b57219c65cb4906af00e6dc9d2ee766b13e5107922b4bdc"
+    },
+    {
+      "id": "ACME-013",
+      "category": "03-policies",
+      "title": "Production Access Procedure",
+      "document_type": "access_procedure",
+      "owner": "Jordan Blake",
+      "updated": "2026-08-05",
+      "status": "current",
+      "expected_facts": [
+        "Production access requires manager approval, IT Operations approval, SSO, and MFA.",
+        "Temporary elevated production access expires after four hours.",
+        "Production access reviews occur monthly."
+      ],
+      "related_documents": [
+        "ACME-003",
+        "ACME-007",
+        "ACME-035",
+        "ACME-047"
+      ],
+      "path": "documents/03-policies/acme-013-production-access-procedure.md",
+      "sha256": "c2436ace742160d69c9f3568bf71afe661db7ae1d6a28f78ab86ff9bb149515a"
+    },
+    {
+      "id": "ACME-014",
+      "category": "03-policies",
+      "title": "Data Retention Standard v2",
+      "document_type": "retention_policy",
+      "owner": "Jordan Blake",
+      "updated": "2026-08-10",
+      "status": "current",
+      "expected_facts": [
+        "Application audit events are retained 365 days.",
+        "Support attachments are retained 90 days after case closure.",
+        "Operational backups are retained 30 days."
+      ],
+      "related_documents": [
+        "ACME-038",
+        "ACME-044",
+        "ACME-020",
+        "ACME-032"
+      ],
+      "path": "documents/03-policies/acme-014-data-retention-standard-v2.md",
+      "sha256": "1243009dcca096fd70d601fc2b5448414ecd9fa3443da96da4029653b4995c6b"
+    },
+    {
+      "id": "ACME-015",
+      "category": "03-policies",
+      "title": "Release and Rollback Procedure",
+      "document_type": "runbook",
+      "owner": "Morgan Reed",
+      "updated": "2026-08-19",
+      "status": "current",
+      "expected_facts": [
+        "Routine production releases occur Tuesdays or Thursdays from 18:00 to 20:00 UTC.",
+        "A release needs Engineering and IT Operations sign-off.",
+        "Rollback starts if error rate exceeds 2% for five consecutive minutes."
+      ],
+      "related_documents": [
+        "ACME-010",
+        "ACME-036",
+        "ACME-039",
+        "ACME-042"
+      ],
+      "path": "documents/03-policies/acme-015-release-and-rollback-procedure.md",
+      "sha256": "95cbe05f972596a3936b85a1c2d2aeaa82ce6010f3e158ae418cf835341e7a62"
+    },
+    {
+      "id": "ACME-016",
+      "category": "03-policies",
+      "title": "Customer Support Severity and Response",
+      "document_type": "support_procedure",
+      "owner": "Samira Cole",
+      "updated": "2026-08-14",
+      "status": "current",
+      "expected_facts": [
+        "P1 initial response target is 15 minutes, with updates every 30 minutes.",
+        "P2 initial response target is four business hours.",
+        "Response targets are not resolution guarantees."
+      ],
+      "related_documents": [
+        "ACME-009",
+        "ACME-003",
+        "ACME-039",
+        "ACME-045"
+      ],
+      "path": "documents/03-policies/acme-016-customer-support-severity-and-response.md",
+      "sha256": "c975c4fcd4059379098149553600f780aebe98395438b8b2eee4c48b1550bb5a"
+    },
+    {
+      "id": "ACME-017",
+      "category": "03-policies",
+      "title": "Hybrid Work and Travel Expenses",
+      "document_type": "employee_policy",
+      "owner": "Nora Ellis",
+      "updated": "2026-07-15",
+      "status": "current",
+      "expected_facts": [
+        "Travel reimbursement claims are due within 30 days of trip completion.",
+        "Meals are capped at $65 per person per travel day.",
+        "Travel requires manager approval before booking."
+      ],
+      "related_documents": [
+        "ACME-005",
+        "ACME-004",
+        "ACME-047"
+      ],
+      "path": "documents/03-policies/acme-017-hybrid-work-and-travel-expenses.md",
+      "sha256": "83d02743e55d56cf90e9d112c6398d8714b22900283c74fa72c5d537b905ee4e"
+    },
+    {
+      "id": "ACME-018",
+      "category": "03-policies",
+      "title": "Procurement Policy v1.4 Archived",
+      "document_type": "archived_policy",
+      "owner": "Elena Ortiz",
+      "updated": "2026-06-15",
+      "status": "outdated",
+      "expected_facts": [
+        "Before August 1, the full-review threshold was above $2,500.",
+        "This document was superseded by ACME-011 effective August 1, 2026."
+      ],
+      "related_documents": [
+        "ACME-011",
+        "ACME-012",
+        "ACME-029"
+      ],
+      "path": "documents/03-policies/acme-018-procurement-policy-v1-4-archived.md",
+      "sha256": "eb26ff512bc1831dcc2adc9d3b4c15880f198313a39ba63152168a2bcfddb166"
+    },
+    {
+      "id": "ACME-019",
+      "category": "04-projects",
+      "title": "Project Cedar Charter",
+      "document_type": "project_charter",
+      "owner": "Priya Shah",
+      "updated": "2026-07-20",
+      "status": "current",
+      "expected_facts": [
+        "Cedar improves Atlas approval workflows.",
+        "Cedar has a $48,000 approved project envelope.",
+        "Theo Park leads delivery; Priya Shah sponsors Cedar."
+      ],
+      "related_documents": [
+        "ACME-010",
+        "ACME-023",
+        "ACME-024",
+        "ACME-026",
+        "ACME-050"
+      ],
+      "path": "documents/04-projects/acme-019-project-cedar-charter.md",
+      "sha256": "3f68b74cf3c413233efe89af1de5e54a2ff25a93cdbb13e1fa7565b9463b7fa8"
+    },
+    {
+      "id": "ACME-020",
+      "category": "04-projects",
+      "title": "Project Aurora Reporting Plan",
+      "document_type": "project_plan",
+      "owner": "Leo Martin",
+      "updated": "2026-08-28",
+      "status": "incomplete",
+      "expected_facts": [
+        "Aurora adds regional reporting to Beacon.",
+        "Aurora pilot target is October 6, 2026, not an approved launch date.",
+        "Regional data residency and retention validation remain open gates."
+      ],
+      "related_documents": [
+        "ACME-014",
+        "ACME-027",
+        "ACME-032",
+        "ACME-038",
+        "ACME-044"
+      ],
+      "path": "documents/04-projects/acme-020-project-aurora-reporting-plan.md",
+      "sha256": "160f4e07f4b7c6ac1803a3f26ac08f17463abdca567d2eb91c51495518d17616"
+    },
+    {
+      "id": "ACME-021",
+      "category": "04-projects",
+      "title": "Project Ledger Vendor Cleanup Plan",
+      "document_type": "project_plan",
+      "owner": "Ravi Desai",
+      "updated": "2026-08-25",
+      "status": "current",
+      "expected_facts": [
+        "Ledger cleans 240 vendor records, with 36 possible duplicate pairs.",
+        "Ledger uses a $12,000 project envelope.",
+        "Vendor records are merged only after Finance review."
+      ],
+      "related_documents": [
+        "ACME-008",
+        "ACME-029",
+        "ACME-033",
+        "ACME-049",
+        "ACME-050"
+      ],
+      "path": "documents/04-projects/acme-021-project-ledger-vendor-cleanup-plan.md",
+      "sha256": "fe60b663d6195a644c9e6a99bbe5d62d0ca257db7bf7cf8e96f1746d4f0cb924"
+    },
+    {
+      "id": "ACME-022",
+      "category": "04-projects",
+      "title": "Project Compass Onboarding Plan",
+      "document_type": "project_plan",
+      "owner": "Samira Cole",
+      "updated": "2026-08-18",
+      "status": "current",
+      "expected_facts": [
+        "Compass standardizes customer onboarding and has an $8,000 envelope.",
+        "Pinecrest Services is the Compass pilot customer.",
+        "Compass targets handoff within ten business days after prerequisites are complete."
+      ],
+      "related_documents": [
+        "ACME-009",
+        "ACME-025",
+        "ACME-030",
+        "ACME-043",
+        "ACME-045"
+      ],
+      "path": "documents/04-projects/acme-022-project-compass-onboarding-plan.md",
+      "sha256": "3a0cde06ddf17e41560625dc236c15843e3832ecb5fd340ad7023743ec435f2b"
+    },
+    {
+      "id": "ACME-023",
+      "category": "04-projects",
+      "title": "Cedar Status September 4",
+      "document_type": "status_report",
+      "owner": "Theo Park",
+      "updated": "2026-09-04",
+      "status": "current",
+      "expected_facts": [
+        "Cedar current forecast is September 22, 2026.",
+        "Two release gates remain: retry regression and rollback-drill sign-off.",
+        "Cedar has $29,600 committed against its $48,000 envelope."
+      ],
+      "related_documents": [
+        "ACME-019",
+        "ACME-024",
+        "ACME-026",
+        "ACME-040",
+        "ACME-042"
+      ],
+      "path": "documents/04-projects/acme-023-cedar-status-september-4.md",
+      "sha256": "9345a2b91c40c75d50e3bf2189dfed160f3d0e427512090e4b68073ecaf985fb"
+    },
+    {
+      "id": "ACME-024",
+      "category": "04-projects",
+      "title": "Cedar Status August 21 Archived Snapshot",
+      "document_type": "status_report",
+      "owner": "Theo Park",
+      "updated": "2026-08-21",
+      "status": "outdated",
+      "expected_facts": [
+        "The August 21 Cedar snapshot reported green and a September 15 target.",
+        "ACME-023 supersedes this snapshot for current status."
+      ],
+      "related_documents": [
+        "ACME-019",
+        "ACME-023",
+        "ACME-026"
+      ],
+      "path": "documents/04-projects/acme-024-cedar-status-august-21-archived-snapshot.md",
+      "sha256": "0cc61a7fb1fe8c9f471e80870c1c88406b7a0b73a52f49b6f1ea188682cafcb0"
+    },
+    {
+      "id": "ACME-025",
+      "category": "04-projects",
+      "title": "Access Cleanup Closure Report",
+      "document_type": "closure_report",
+      "owner": "Imani Brooks",
+      "updated": "2026-07-31",
+      "status": "current",
+      "expected_facts": [
+        "Access Cleanup closed July 31, 2026.",
+        "It removed 18 stale test accounts and corrected seven ownership records.",
+        "No production customer accounts were deleted."
+      ],
+      "related_documents": [
+        "ACME-013",
+        "ACME-022",
+        "ACME-047"
+      ],
+      "path": "documents/04-projects/acme-025-access-cleanup-closure-report.md",
+      "sha256": "ff1fa541e80ea910c1530ba86d9a43b7e8c7dbf54a963110c7174b01a2a98915"
+    },
+    {
+      "id": "ACME-026",
+      "category": "05-meetings",
+      "title": "Cedar Steering September 3",
+      "document_type": "meeting_minutes",
+      "owner": "Priya Shah",
+      "updated": "2026-09-03",
+      "status": "current",
+      "expected_facts": [
+        "Priya approved a September 22 Cedar forecast.",
+        "Theo owns retry regression; Morgan owns rollback-drill sign-off.",
+        "The steering meeting did not waive release gates."
+      ],
+      "related_documents": [
+        "ACME-023",
+        "ACME-024",
+        "ACME-040",
+        "ACME-042"
+      ],
+      "path": "documents/05-meetings/acme-026-cedar-steering-september-3.md",
+      "sha256": "eef974f0883a560e64e8be42fc1d381bb3499dd1a1062be8b80f41bbe4732804"
+    },
+    {
+      "id": "ACME-027",
+      "category": "05-meetings",
+      "title": "Aurora Discovery Workshop",
+      "document_type": "workshop_notes",
+      "owner": "Leo Martin",
+      "updated": "2026-08-26",
+      "status": "incomplete",
+      "expected_facts": [
+        "Aurora European hosting region remains undecided.",
+        "Leo must prepare a region trade-off review; Jordan owns operational review."
+      ],
+      "related_documents": [
+        "ACME-020",
+        "ACME-032",
+        "ACME-038",
+        "ACME-044"
+      ],
+      "path": "documents/05-meetings/acme-027-aurora-discovery-workshop.md",
+      "sha256": "fd1d70f798774e11bc48f46aa9102059e8dd9aa75b0793b548c2c4d396c61cdb"
+    },
+    {
+      "id": "ACME-028",
+      "category": "05-meetings",
+      "title": "Procurement Office Hours Threshold Notes",
+      "document_type": "meeting_notes",
+      "owner": "Ravi Desai",
+      "updated": "2026-08-07",
+      "status": "intentionally_contradictory",
+      "expected_facts": [
+        "These unapproved notes incorrectly say CFO approval begins above $10,000.",
+        "Current controlled policy and matrix set additional CFO approval above $20,000."
+      ],
+      "related_documents": [
+        "ACME-011",
+        "ACME-012",
+        "ACME-008"
+      ],
+      "path": "documents/05-meetings/acme-028-procurement-office-hours-threshold-notes.md",
+      "sha256": "fdf770318b4a43592a05fdb6b9bec0eb3830a0c6c2a953ee7cc8b59ca3e88400"
+    },
+    {
+      "id": "ACME-029",
+      "category": "05-meetings",
+      "title": "Finance Budget Review August 12",
+      "document_type": "budget_meeting",
+      "owner": "Elena Ortiz",
+      "updated": "2026-08-12",
+      "status": "current",
+      "expected_facts": [
+        "The four project envelopes total $100,000.",
+        "Nimbus has a separate $24,000 annual renewal ceiling.",
+        "Budget allocation does not replace purchase approval."
+      ],
+      "related_documents": [
+        "ACME-018",
+        "ACME-021",
+        "ACME-049",
+        "ACME-050"
+      ],
+      "path": "documents/05-meetings/acme-029-finance-budget-review-august-12.md",
+      "sha256": "948b1b854a0d123c1f59cabcadb40a8d2ce1e0ce9e106986c02140c4ae7a4f2e"
+    },
+    {
+      "id": "ACME-030",
+      "category": "05-meetings",
+      "title": "Compass Pilot Kickoff",
+      "document_type": "customer_kickoff",
+      "owner": "Samira Cole",
+      "updated": "2026-08-24",
+      "status": "current",
+      "expected_facts": [
+        "Pinecrest Services is the Compass pilot.",
+        "Its prerequisite checklist was complete August 24.",
+        "Scope includes one Atlas workflow and one Harbor integration."
+      ],
+      "related_documents": [
+        "ACME-022",
+        "ACME-043",
+        "ACME-045",
+        "ACME-048"
+      ],
+      "path": "documents/05-meetings/acme-030-compass-pilot-kickoff.md",
+      "sha256": "2db1ce2dd0b414371c51b54de8da7abcca261d35d1baf42a5862d1994233c32e"
+    },
+    {
+      "id": "ACME-031",
+      "category": "05-meetings",
+      "title": "Incident Follow-up August 13",
+      "document_type": "action_review",
+      "owner": "Morgan Reed",
+      "updated": "2026-08-13",
+      "status": "current",
+      "expected_facts": [
+        "INC-2026-02 retry remediation requires a tenant-scoped idempotency key.",
+        "A replay test must prove one notification for repeated delivery of the same event."
+      ],
+      "related_documents": [
+        "ACME-023",
+        "ACME-034",
+        "ACME-040"
+      ],
+      "path": "documents/05-meetings/acme-031-incident-follow-up-august-13.md",
+      "sha256": "3c4dfa005d745754f3a1898f003d9d6cb39e541118ae4307940f6c824c2a7e84"
+    },
+    {
+      "id": "ACME-032",
+      "category": "05-meetings",
+      "title": "Security Retention Review August 29",
+      "document_type": "security_review",
+      "owner": "Jordan Blake",
+      "updated": "2026-08-29",
+      "status": "current",
+      "expected_facts": [
+        "The 365-day controlled audit retention standard governs Beacon.",
+        "Leo must reconcile Beacon documentation and validate implementation before Aurora pilot."
+      ],
+      "related_documents": [
+        "ACME-014",
+        "ACME-020",
+        "ACME-038",
+        "ACME-044"
+      ],
+      "path": "documents/05-meetings/acme-032-security-retention-review-august-29.md",
+      "sha256": "8518d945e13d969a2622a15fad4b8d99bc724ffeadde583a7b64634e17970c88"
+    },
+    {
+      "id": "ACME-033",
+      "category": "05-meetings",
+      "title": "Weekly Operations Review September 8",
+      "document_type": "operations_minutes",
+      "owner": "Jordan Blake",
+      "updated": "2026-09-08",
+      "status": "current",
+      "expected_facts": [
+        "Ledger has reviewed 20 of 36 candidate duplicate pairs, leaving 16 unreviewed.",
+        "Fourteen pairs were approved for merge and six rejected.",
+        "No new P1 incident was reported at the September 8 review."
+      ],
+      "related_documents": [
+        "ACME-021",
+        "ACME-022",
+        "ACME-023",
+        "ACME-042"
+      ],
+      "path": "documents/05-meetings/acme-033-weekly-operations-review-september-8.md",
+      "sha256": "3975707ef21048b1ec3290687b9e32e2f152b896b4543e737a85405909937524"
+    },
+    {
+      "id": "ACME-034",
+      "category": "06-architecture",
+      "title": "ADR-001 Tenant-scoped Idempotent Delivery",
+      "document_type": "architecture_decision",
+      "owner": "Theo Park",
+      "updated": "2026-08-14",
+      "status": "current",
+      "expected_facts": [
+        "Atlas uses tenant ID plus external event ID as the idempotency key.",
+        "Delivery remains at least once; deduplication does not make the transport exactly once."
+      ],
+      "related_documents": [
+        "ACME-031",
+        "ACME-040",
+        "ACME-043"
+      ],
+      "path": "documents/06-architecture/acme-034-adr-001-tenant-scoped-idempotent-delivery.md",
+      "sha256": "a329ed5c39152c0f2c53fb2a67896f2294cfe5ce6d2ed538ce350a40d0178f95"
+    },
+    {
+      "id": "ACME-035",
+      "category": "06-architecture",
+      "title": "ADR-002 Central Identity and Application Roles",
+      "document_type": "architecture_decision",
+      "owner": "Imani Brooks",
+      "updated": "2026-08-06",
+      "status": "current",
+      "expected_facts": [
+        "Acme uses central SSO with MFA for production access.",
+        "Application roles and infrastructure roles are separate.",
+        "Production elevation is limited to four hours under ACME-013."
+      ],
+      "related_documents": [
+        "ACME-013",
+        "ACME-025",
+        "ACME-047"
+      ],
+      "path": "documents/06-architecture/acme-035-adr-002-central-identity-and-application-roles.md",
+      "sha256": "35ec879991e47d24ede554cd45b880841e8ca02bf0d60d6650a4bc2ce94afbf4"
+    },
+    {
+      "id": "ACME-036",
+      "category": "06-architecture",
+      "title": "ADR-003 Backward-compatible Database Changes",
+      "document_type": "architecture_decision",
+      "owner": "Theo Park",
+      "updated": "2026-08-19",
+      "status": "current",
+      "expected_facts": [
+        "Use expand-and-contract migrations for customer-facing services.",
+        "Destructive cleanup is deferred until the rollback window is closed."
+      ],
+      "related_documents": [
+        "ACME-015",
+        "ACME-019",
+        "ACME-042"
+      ],
+      "path": "documents/06-architecture/acme-036-adr-003-backward-compatible-database-changes.md",
+      "sha256": "afa7a66e372e0cb79d4714fa5e5300db506eac8aa9bb113a5c33c715fce2c9a6"
+    },
+    {
+      "id": "ACME-037",
+      "category": "06-architecture",
+      "title": "ADR-004 Harbor Connector Retry Contract",
+      "document_type": "architecture_decision",
+      "owner": "Theo Park",
+      "updated": "2026-08-11",
+      "status": "current",
+      "expected_facts": [
+        "Harbor makes at most five delivery attempts total.",
+        "Retry delays after failures are 1, 2, 4, and 8 minutes.",
+        "After the fifth failed attempt the event enters the dead-letter queue."
+      ],
+      "related_documents": [
+        "ACME-034",
+        "ACME-041",
+        "ACME-045"
+      ],
+      "path": "documents/06-architecture/acme-037-adr-004-harbor-connector-retry-contract.md",
+      "sha256": "87ecfe202342baec8c78fc40643f969748750576b7cacbcbd34c59ca4befdf4c"
+    },
+    {
+      "id": "ACME-038",
+      "category": "06-architecture",
+      "title": "ADR-005 Beacon Regional Storage Decision Pending",
+      "document_type": "architecture_proposal",
+      "owner": "Leo Martin",
+      "updated": "2026-08-30",
+      "status": "incomplete",
+      "expected_facts": [
+        "ADR-005 is proposed, not accepted.",
+        "No European hosting region or cross-region recovery target has been selected."
+      ],
+      "related_documents": [
+        "ACME-020",
+        "ACME-027",
+        "ACME-032",
+        "ACME-044"
+      ],
+      "path": "documents/06-architecture/acme-038-adr-005-beacon-regional-storage-decision-pending.md",
+      "sha256": "270ef37e9510991c2abcef4de8990b428c34dbb7f9891e2d01940f2fa927eb1f"
+    },
+    {
+      "id": "ACME-039",
+      "category": "07-incidents",
+      "title": "INC-2026-01 Atlas Login Outage",
+      "document_type": "incident_report",
+      "owner": "Morgan Reed",
+      "updated": "2026-07-10",
+      "status": "current",
+      "expected_facts": [
+        "Atlas login outage lasted 42 minutes on July 9, 2026.",
+        "An expired SSO signing certificate caused the outage.",
+        "Existing sessions were unaffected; new logins failed."
+      ],
+      "related_documents": [
+        "ACME-003",
+        "ACME-013",
+        "ACME-016",
+        "ACME-035"
+      ],
+      "path": "documents/07-incidents/acme-039-inc-2026-01-atlas-login-outage.md",
+      "sha256": "38adf8856c184c10a89f6d009fe97d6790199a8ee999552e4ee0093251d98532"
+    },
+    {
+      "id": "ACME-040",
+      "category": "07-incidents",
+      "title": "INC-2026-02 Duplicate Approval Notifications",
+      "document_type": "incident_report",
+      "owner": "Theo Park",
+      "updated": "2026-08-12",
+      "status": "current",
+      "expected_facts": [
+        "A retry defect produced 27 duplicate notifications across nine Atlas workspaces.",
+        "Approval records were not duplicated.",
+        "Tenant-scoped idempotency is the corrective design."
+      ],
+      "related_documents": [
+        "ACME-016",
+        "ACME-023",
+        "ACME-031",
+        "ACME-034"
+      ],
+      "path": "documents/07-incidents/acme-040-inc-2026-02-duplicate-approval-notifications.md",
+      "sha256": "abe85847b4af87c9667b451d4eb478aca11d91ab74c3998b8f4c547f0dac7cdc"
+    },
+    {
+      "id": "ACME-041",
+      "category": "07-incidents",
+      "title": "INC-2026-03 Harbor Connector Backlog",
+      "document_type": "incident_report",
+      "owner": "Morgan Reed",
+      "updated": "2026-08-18",
+      "status": "current",
+      "expected_facts": [
+        "Harbor backlog peaked at 640 events after a vendor rate-limit change.",
+        "No events were lost in reconciliation.",
+        "Operators replayed the dead-letter queue after correcting rate limits."
+      ],
+      "related_documents": [
+        "ACME-016",
+        "ACME-034",
+        "ACME-037",
+        "ACME-045"
+      ],
+      "path": "documents/07-incidents/acme-041-inc-2026-03-harbor-connector-backlog.md",
+      "sha256": "2727c938292881a7340b53bcc2c77bfea135e894a8ccad8a76b624f89f1ee9ba"
+    },
+    {
+      "id": "ACME-042",
+      "category": "07-incidents",
+      "title": "INC-2026-04 Restore Drill Retrospective",
+      "document_type": "drill_retrospective",
+      "owner": "Morgan Reed",
+      "updated": "2026-08-28",
+      "status": "current",
+      "expected_facts": [
+        "The restore drill took 95 minutes against a 60-minute target.",
+        "A stale credential reference delayed recovery.",
+        "The drill used synthetic data and caused no customer outage."
+      ],
+      "related_documents": [
+        "ACME-003",
+        "ACME-007",
+        "ACME-015",
+        "ACME-023",
+        "ACME-026"
+      ],
+      "path": "documents/07-incidents/acme-042-inc-2026-04-restore-drill-retrospective.md",
+      "sha256": "d409f911b2bbb001a25202b5f198a2dfec4cb55b6cdc0fda7f5a6cea175d9efd"
+    },
+    {
+      "id": "ACME-043",
+      "category": "08-products",
+      "title": "Atlas Workflow Automation Service Guide",
+      "document_type": "product_guide",
+      "owner": "Theo Park",
+      "updated": "2026-08-21",
+      "status": "current",
+      "expected_facts": [
+        "Atlas automates approval routing and audit history.",
+        "Atlas supports sequential approvals; customer-defined scripting is out of scope.",
+        "Cedar is an internal improvement project for Atlas."
+      ],
+      "related_documents": [
+        "ACME-019",
+        "ACME-023",
+        "ACME-030",
+        "ACME-034"
+      ],
+      "path": "documents/08-products/acme-043-atlas-workflow-automation-service-guide.md",
+      "sha256": "3e1d7fd4d5a03ee5537bd340b2e8f9ef67beb8f1b928d57c93489e461279d079"
+    },
+    {
+      "id": "ACME-044",
+      "category": "08-products",
+      "title": "Beacon Administration Guide Draft",
+      "document_type": "draft_product_guide",
+      "owner": "Leo Martin",
+      "updated": "2026-08-23",
+      "status": "intentionally_contradictory",
+      "expected_facts": [
+        "This draft incorrectly specifies 180-day audit retention.",
+        "The approved retention standard requires 365 days.",
+        "Beacon provides aggregate operational reporting."
+      ],
+      "related_documents": [
+        "ACME-014",
+        "ACME-020",
+        "ACME-032",
+        "ACME-038"
+      ],
+      "path": "documents/08-products/acme-044-beacon-administration-guide-draft.md",
+      "sha256": "d5749959afea2c3a25f2d8ceebb9ec24ff8943f4db581e3f72eb79b3069f7e91"
+    },
+    {
+      "id": "ACME-045",
+      "category": "08-products",
+      "title": "Harbor Managed Integration Reference",
+      "document_type": "integration_reference",
+      "owner": "Theo Park",
+      "updated": "2026-08-22",
+      "status": "current",
+      "expected_facts": [
+        "Harbor uses correlation IDs for support and a dead-letter queue for exhausted retries.",
+        "Five total attempts include the initial attempt.",
+        "The standard connector scope excludes custom payroll integrations."
+      ],
+      "related_documents": [
+        "ACME-016",
+        "ACME-030",
+        "ACME-037",
+        "ACME-041"
+      ],
+      "path": "documents/08-products/acme-045-harbor-managed-integration-reference.md",
+      "sha256": "cb33643d8c7e05f918ec751299982fd0e03c26967edb09ac5dbc5526e936f378"
+    },
+    {
+      "id": "ACME-046",
+      "category": "08-products",
+      "title": "Advisory Services Statement of Work Template",
+      "document_type": "statement_of_work",
+      "owner": "Avery Stone",
+      "updated": "2026-08-04",
+      "status": "current",
+      "expected_facts": [
+        "Advisory engagements require a signed scope and explicit acceptance criteria.",
+        "The example engagement has discovery, design, and handoff milestones.",
+        "The template is not an executed customer contract or price list."
+      ],
+      "related_documents": [
+        "ACME-005",
+        "ACME-017",
+        "ACME-022",
+        "ACME-048"
+      ],
+      "path": "documents/08-products/acme-046-advisory-services-statement-of-work-template.md",
+      "sha256": "3d60bd09198cc454631798fd3057ff644dedd53be5e4f3e74b621995d5e1237f"
+    },
+    {
+      "id": "ACME-047",
+      "category": "09-training",
+      "title": "New Employee First Week Checklist",
+      "document_type": "onboarding_checklist",
+      "owner": "Nora Ellis",
+      "updated": "2026-08-08",
+      "status": "current",
+      "expected_facts": [
+        "Managers request access through BridgeDesk before employee onboarding.",
+        "Production access requires separate approval and MFA.",
+        "Day-five review checks access ownership and training completion."
+      ],
+      "related_documents": [
+        "ACME-005",
+        "ACME-013",
+        "ACME-025",
+        "ACME-035"
+      ],
+      "path": "documents/09-training/acme-047-new-employee-first-week-checklist.md",
+      "sha256": "b4dca4f7b349f20dfc7ccee1e7587e23d65b3beff581827e029b5a8d223c1185"
+    },
+    {
+      "id": "ACME-048",
+      "category": "09-training",
+      "title": "Support Analyst Citation and Handoff Exercise",
+      "document_type": "training_exercise",
+      "owner": "Samira Cole",
+      "updated": "2026-09-02",
+      "status": "current",
+      "expected_facts": [
+        "Analysts must distinguish current policy from archived or draft evidence.",
+        "Unsupported questions should be escalated or clarified rather than guessed."
+      ],
+      "related_documents": [
+        "ACME-011",
+        "ACME-012",
+        "ACME-018",
+        "ACME-028",
+        "ACME-037",
+        "ACME-038"
+      ],
+      "path": "documents/09-training/acme-048-support-analyst-citation-and-handoff-exercise.md",
+      "sha256": "96d6d57511df0389cd961b05206c381181ad4ce2d2e620f1878295a994876f14"
+    },
+    {
+      "id": "ACME-049",
+      "category": "10-finance-vendors",
+      "title": "Nimbus Compute Renewal Assessment",
+      "document_type": "vendor_assessment",
+      "owner": "Ravi Desai",
+      "updated": "2026-09-02",
+      "status": "current",
+      "expected_facts": [
+        "Nimbus Compute renewal quote is $22,800 annually against a $24,000 ceiling.",
+        "The renewal is not yet signed.",
+        "The $22,800 commitment requires CFO approval under the current matrix."
+      ],
+      "related_documents": [
+        "ACME-008",
+        "ACME-011",
+        "ACME-012",
+        "ACME-021",
+        "ACME-029"
+      ],
+      "path": "documents/10-finance-vendors/acme-049-nimbus-compute-renewal-assessment.md",
+      "sha256": "0a6ebe4b5c41e763d197ba71871b0682f41c9f2035d39953fff69aa8add2e783"
+    },
+    {
+      "id": "ACME-050",
+      "category": "10-finance-vendors",
+      "title": "September Project Budget Register",
+      "document_type": "budget_register",
+      "owner": "Elena Ortiz",
+      "updated": "2026-09-04",
+      "status": "current",
+      "expected_facts": [
+        "Project envelopes total $100,000; commitments total $50,000; uncommitted balance totals $50,000.",
+        "Cedar has $18,400 uncommitted; Aurora $22,400; Ledger $5,800; Compass $3,400.",
+        "Nimbus renewal is excluded from the project totals."
+      ],
+      "related_documents": [
+        "ACME-004",
+        "ACME-019",
+        "ACME-020",
+        "ACME-021",
+        "ACME-022",
+        "ACME-023",
+        "ACME-029",
+        "ACME-049"
+      ],
+      "path": "documents/10-finance-vendors/acme-050-september-project-budget-register.md",
+      "sha256": "e707fc74d63e07c31c7b36cc55bfd0d1135fadfe2eb34e9a02d85f948b1824c9"
+    }
+  ]
+}
