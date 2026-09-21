@@ -13,6 +13,8 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/api/health")
 public class HealthController {
 
+	public record HealthResponse(String status, String database, Instant timestamp) {}
+
 	private final JdbcTemplate jdbcTemplate;
 
 	public HealthController(JdbcTemplate jdbcTemplate) {
