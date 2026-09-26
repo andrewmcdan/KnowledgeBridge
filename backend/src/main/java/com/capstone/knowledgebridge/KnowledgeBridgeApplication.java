@@ -6,8 +6,8 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
 @SpringBootApplication
 public class KnowledgeBridgeApplication {
 
-	public static void main(String[] args) {
-		SpringApplication.run(KnowledgeBridgeApplication.class, args);
-	}
+    public static void main(String[] args) {
+        SpringApplication.run(KnowledgeBridgeApplication.class, args);
+    }
 
 }

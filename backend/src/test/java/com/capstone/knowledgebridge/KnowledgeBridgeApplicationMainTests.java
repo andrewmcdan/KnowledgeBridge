@@ -10,7 +10,7 @@ class KnowledgeBridgeApplicationMainTests {
 
     @Test
     void mainDelegatesToSpringApplication() {
-        String[] args = {"--spring.main.web-application-type=none"};
+        String[] args = { "--spring.main.web-application-type=none" };
 
         try (MockedStatic<SpringApplication> springApplication = mockStatic(SpringApplication.class)) {
             KnowledgeBridgeApplication.main(args);

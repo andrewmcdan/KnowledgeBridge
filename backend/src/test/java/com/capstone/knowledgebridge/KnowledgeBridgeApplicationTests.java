@@ -74,18 +74,18 @@ class KnowledgeBridgeApplicationTests {
     @Test
     void loginRejectsUnknownEmailWrongPasswordAndBlankInput() throws Exception {
         mockMvc.perform(post("/api/auth/login")
-                        .contentType("application/json")
-                        .content("{\"email\":\"nobody@acme.example\",\"password\":\"wrong\"}"))
+                .contentType("application/json")
+                .content("{\"email\":\"nobody@acme.example\",\"password\":\"wrong\"}"))
                 .andExpect(status().isUnauthorized());
 
         mockMvc.perform(post("/api/auth/login")
-                        .contentType("application/json")
-                        .content("{\"email\":\"user@acme.example\",\"password\":\"wrong\"}"))
+                .contentType("application/json")
+                .content("{\"email\":\"user@acme.example\",\"password\":\"wrong\"}"))
                 .andExpect(status().isUnauthorized());
 
         mockMvc.perform(post("/api/auth/login")
-                        .contentType("application/json")
-                        .content("{\"email\":\"\",\"password\":\"\"}"))
+                .contentType("application/json")
+                .content("{\"email\":\"\",\"password\":\"\"}"))
                 .andExpect(status().isBadRequest());
     }
 
@@ -94,11 +94,10 @@ class KnowledgeBridgeApplicationTests {
         jdbcTemplate.update("UPDATE app_user SET enabled = false WHERE email = ?", "user@acme.example");
         try {
             mockMvc.perform(post("/api/auth/login")
-                            .contentType("application/json")
-                            .content("{\"email\":\"user@acme.example\",\"password\":\"user123\"}"))
+                    .contentType("application/json")
+                    .content("{\"email\":\"user@acme.example\",\"password\":\"user123\"}"))
                     .andExpect(status().isUnauthorized());
-        }
-        finally {
+        } finally {
             jdbcTemplate.update("UPDATE app_user SET enabled = true WHERE email = ?", "user@acme.example");
         }
     }
@@ -135,15 +134,15 @@ class KnowledgeBridgeApplicationTests {
     void authenticatedTokenWithoutRoleHasNoGrantedRole() throws Exception {
         Instant now = Instant.now();
         JwtClaimsSet claims = JwtClaimsSet.builder()
-                        .issuer("knowledgebridge")
-                        .subject("42")
-                        .issuedAt(now)
-                        .expiresAt(now.plusSeconds(60))
-                        .claim("email", "roleless@acme.example")
-                        .claim("name", "Roleless User")
-                        .build();
+                .issuer("knowledgebridge")
+                .subject("42")
+                .issuedAt(now)
+                .expiresAt(now.plusSeconds(60))
+                .claim("email", "roleless@acme.example")
+                .claim("name", "Roleless User")
+                .build();
         String token = jwtEncoder.encode(JwtEncoderParameters.from(
-                        JwsHeader.with(MacAlgorithm.HS256).build(), claims))
+                JwsHeader.with(MacAlgorithm.HS256).build(), claims))
                 .getTokenValue();
 
         mockMvc.perform(get("/api/auth/me").header("Authorization", "Bearer " + token))
@@ -157,8 +156,8 @@ class KnowledgeBridgeApplicationTests {
     @Test
     void corsPreflightAllowsConfiguredFrontend() throws Exception {
         mockMvc.perform(options("/api/auth/login")
-                        .header("Origin", "http://localhost:5173")
-                        .header("Access-Control-Request-Method", "POST"))
+                .header("Origin", "http://localhost:5173")
+                .header("Access-Control-Request-Method", "POST"))
                 .andExpect(status().isOk())
                 .andExpect(header().string("Access-Control-Allow-Origin", "http://localhost:5173"))
                 .andExpect(header().string("Access-Control-Allow-Credentials", "true"));
@@ -166,8 +165,8 @@ class KnowledgeBridgeApplicationTests {
 
     private String loginAndGetToken(String email, String password, String role) throws Exception {
         MvcResult result = mockMvc.perform(post("/api/auth/login")
-                        .contentType("application/json")
-                        .content("{\"email\":\"" + email + "\",\"password\":\"" + password + "\"}"))
+                .contentType("application/json")
+                .content("{\"email\":\"" + email + "\",\"password\":\"" + password + "\"}"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.token").isNotEmpty())
                 .andExpect(jsonPath("$.expiresAt").isNotEmpty())
