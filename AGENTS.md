@@ -11,6 +11,48 @@ These instructions apply to the entire repository. Preserve existing architectur
 - Keep all gbrain communication behind the backend `gbrain` adapter package.
 - Do not commit secrets, root `.env`, build output, dependency directories, logs, or local database data.
 
+## General behavior
+
+- Read the existing implementation before making changes.
+- Do not modify unrelated files.
+- Prefer small, focused changes over broad refactors.
+- Explain important architectural decisions.
+- Do not install new dependencies without explaining why they are necessary.
+- When diagnosing issues, check .env and/or .env.local for missing or incorrect environment variables.
+- If .env/.env.example is missing environment variables, add them to both files comments explaining their purpose and usage.
+- Reuse existing code where possible. If a small refactor to existing code results in a smaller and more maintainable codebase, prefer that approach.
+
+## Project stack
+
+- This is a Next.js application using TypeScript.
+- Use React components and server-side rendering where appropriate.
+- Follow the existing CSS architecture and naming conventions.
+
+## TypeScript
+
+- Use strict TypeScript.
+- Do not use `any` unless there is no reasonable alternative.
+- Prefer explicit types at module boundaries.
+- Validate external and user-provided data.
+- Handle errors explicitly.
+
+## Testing and verification
+
+- Run the relevant tests after making changes.
+- Run the TypeScript compiler or project type-check command.
+- Run the configured linter.
+- Run the configured code duplication check.
+- Report any verification steps that could not be completed.
+
+## Response format
+
+At the end of each task, summarize:
+
+1. What changed
+2. Which files changed
+3. What tests or checks were run
+4. Any remaining concerns
+
 ## File formatting
 
 Match the conventions established by the most recent formatting commit and by the file being edited.
@@ -27,15 +69,16 @@ Match the conventions established by the most recent formatting commit and by th
 - Java follows the existing backend style: tabs for indentation, braces on the same line, and imports grouped as Java, third-party/Spring, project, then Jakarta where applicable.
 - Markdown should use concise headings, blank lines around lists and code fences, and LF line endings.
 
-There is currently no repository-wide formatter command. Treat surrounding code and commit `3e07591` as the frontend formatting reference. After frontend changes, run:
+The repository provides formatter commands that enforce these conventions. After frontend changes, run:
 
 ```powershell
 cd frontend
+npm run format:check
 npm run lint
 npm run build
 ```
 
-After backend changes, run the coverage-gated check with Docker available:
+To format frontend files, run `npm run format`. To format Java files, run `./gradlew.bat spotlessApply` from `backend`. After backend changes, run the formatting and coverage-gated check with Docker available:
 
 ```powershell
 cd backend
