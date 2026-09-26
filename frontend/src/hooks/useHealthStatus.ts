@@ -8,7 +8,9 @@ export function useHealthStatus() {
         const controller = new AbortController();
         void fetchHealthStatus(controller.signal)
             .then(setService)
-            .catch(() => { if (!controller.signal.aborted) setService("Backend unavailable"); });
+            .catch(() => {
+                if (!controller.signal.aborted) setService("Backend unavailable");
+            });
         return () => controller.abort();
     }, []);
 

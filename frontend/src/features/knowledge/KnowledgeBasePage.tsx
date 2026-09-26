@@ -10,6 +10,14 @@ interface KnowledgeBasePageProps {
 }
 
 export function KnowledgeBasePage({ search, saved, onOpenDetail, onToggleSaved }: KnowledgeBasePageProps) {
-    const filtered = documents.filter(document => `${document.title} ${document.type} ${document.text}`.toLowerCase().includes(search.toLowerCase()));
-    return <section className="collection panel"><h2>Sample documents</h2>{filtered.map(document => <DocumentRow key={document.title} document={document} saved={saved.includes(document.title)} onOpen={onOpenDetail} onToggleSaved={onToggleSaved} />)}{!filtered.length && <p>No sample documents match “{search}”.</p>}</section>;
+    const filtered = documents.filter((document) => `${document.title} ${document.type} ${document.text}`.toLowerCase().includes(search.toLowerCase()));
+    return (
+        <section className="collection panel">
+            <h2>Sample documents</h2>
+            {filtered.map((document) => (
+                <DocumentRow key={document.title} document={document} saved={saved.includes(document.title)} onOpen={onOpenDetail} onToggleSaved={onToggleSaved} />
+            ))}
+            {!filtered.length && <p>No sample documents match “{search}”.</p>}
+        </section>
+    );
 }
