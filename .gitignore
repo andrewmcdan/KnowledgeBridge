@@ -16,6 +16,7 @@ Thumbs.db
 # Java, Spring Boot, Gradle, and Maven
 backend/target/
 backend/build/
+backend/bin/
 backend/.gradle/
 *.class
 *.jar
