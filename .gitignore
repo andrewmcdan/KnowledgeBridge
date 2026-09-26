@@ -46,7 +46,7 @@ playwright-report/
 .nyc_output/
 
 # Local runtime and database data
-data/
+/data/
 postgres-data/
 *.pid
 *.tmp
