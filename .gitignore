@@ -22,6 +22,8 @@ backend/.gradle/
 !backend/gradle/wrapper/gradle-wrapper.jar
 *.war
 *.log
+*.log.gz
+backend/logs/
 
 # JavaScript, React, and common frontend tooling
 frontend/node_modules/
