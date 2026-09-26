@@ -2,7 +2,9 @@
 .DS_Store
 Thumbs.db
 .idea/
-.vscode/
+.vscode/*
+!.vscode/settings.json
+!.vscode/extensions.json
 *.swp
 *.swo
 
@@ -16,6 +18,7 @@ Thumbs.db
 # Java, Spring Boot, Gradle, and Maven
 backend/target/
 backend/build/
+backend/bin/
 backend/.gradle/
 *.class
 *.jar
@@ -45,7 +48,7 @@ playwright-report/
 .nyc_output/
 
 # Local runtime and database data
-data/
+/data/
 postgres-data/
 *.pid
 *.tmp

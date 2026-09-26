@@ -13,7 +13,8 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/api/health")
 public class HealthController {
 
-	public record HealthResponse(String status, String database, Instant timestamp) {}
+	public record HealthResponse(String status, String database, Instant timestamp) {
+	}
 
 	private final JdbcTemplate jdbcTemplate;
 
@@ -26,8 +27,7 @@ public class HealthController {
 		try {
 			jdbcTemplate.queryForObject("SELECT 1", Integer.class);
 			return ResponseEntity.ok(new HealthResponse("UP", "UP", Instant.now()));
-		}
-		catch (RuntimeException exception) {
+		} catch (RuntimeException exception) {
 			return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
 					.body(new HealthResponse("DOWN", "DOWN", Instant.now()));
 		}

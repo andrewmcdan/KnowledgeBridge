@@ -34,14 +34,19 @@ public class AuthController {
 
 	private static final Logger log = LoggerFactory.getLogger(AuthController.class);
 
-	public record LoginRequest(@NotBlank String email, @NotBlank String password) {}
+	public record LoginRequest(@NotBlank String email, @NotBlank String password) {
+	}
 
-	public record LoginResponse(String token, Instant expiresAt, MeResponse user) {}
+	public record LoginResponse(String token, Instant expiresAt, MeResponse user) {
+	}
 
-	public record MeResponse(long id, String email, String displayName, String role) {}
+	public record MeResponse(long id, String email, String displayName, String role) {
+	}
 
 	/** Row from app_user; password hash is only ever compared, never returned. */
-	private record AppUser(long id, String email, String passwordHash, String displayName, String role, boolean enabled) {}
+	private record AppUser(long id, String email, String passwordHash, String displayName, String role,
+			boolean enabled) {
+	}
 
 	private final JdbcTemplate jdbcTemplate;
 
@@ -67,7 +72,8 @@ public class AuthController {
 						rs.getString("display_name"), rs.getString("role"), rs.getBoolean("enabled")),
 				request.email().trim().toLowerCase());
 
-		// One generic failure path: never reveal whether the email or the password was wrong.
+		// One generic failure path: never reveal whether the email or the password was
+		// wrong.
 		if (matches.isEmpty() || !matches.get(0).enabled()
 				|| !passwordEncoder.matches(request.password(), matches.get(0).passwordHash())) {
 			log.info("Rejected login for {}", request.email());
@@ -94,9 +100,8 @@ public class AuthController {
 	}
 
 	/**
-	 * JWTs are stateless, so there is nothing to invalidate server-side; the client
-	 * discards the token. The route exists so the frontend has a single place to call
-	 * if a server-side deny-list is added later.
+	 * JWTs are stateless, so there is nothing to invalidate server-side; the client discards the token. The route
+	 * exists so the frontend has a single place to call if a server-side deny-list is added later.
 	 */
 	@PostMapping("/logout")
 	public ResponseEntity<Void> logout(@AuthenticationPrincipal Jwt jwt) {
@@ -104,7 +109,9 @@ public class AuthController {
 		return ResponseEntity.noContent().build();
 	}
 
-	/** The token was already verified by the security filter; just read its claims. */
+	/**
+	 * The token was already verified by the security filter; just read its claims.
+	 */
 	@GetMapping("/me")
 	public MeResponse me(@AuthenticationPrincipal Jwt jwt) {
 		return new MeResponse(Long.parseLong(jwt.getSubject()), jwt.getClaimAsString("email"),

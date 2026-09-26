@@ -18,8 +18,8 @@ import org.springframework.security.oauth2.jwt.NimbusJwtEncoder;
 import com.nimbusds.jose.jwk.source.ImmutableSecret;
 
 /**
- * Symmetric (HS256) JWT signing. The same secret both issues tokens in
- * AuthController and validates them on every request in SecurityConfiguration.
+ * Symmetric (HS256) JWT signing. The same secret both issues tokens in AuthController and validates them on every
+ * request in SecurityConfiguration.
  */
 @Configuration
 public class JwtConfiguration {

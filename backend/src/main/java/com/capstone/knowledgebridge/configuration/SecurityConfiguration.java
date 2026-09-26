@@ -26,21 +26,22 @@ public class SecurityConfiguration {
 	@Bean
 	SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
 		http
-			// Stateless bearer-token API: no session cookie, so no CSRF token to check.
-			.csrf(csrf -> csrf.disable())
-			.sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-			.httpBasic(basic -> basic.disable())
-			.formLogin(form -> form.disable())
-			.authorizeHttpRequests(authorize -> authorize
-				// Let Boot's /error forward render 400/404/500 bodies instead of turning them into 401.
-				.dispatcherTypeMatchers(DispatcherType.ERROR).permitAll()
-				.requestMatchers(HttpMethod.OPTIONS, "/api/**").permitAll()
-				.requestMatchers("/api/health", "/api/auth/login").permitAll()
-				.requestMatchers("/api/admin/**").hasRole("ADMIN")
-				.anyRequest().authenticated())
-			// Validates the Authorization: Bearer <jwt> header on every other request.
-			.oauth2ResourceServer(oauth2 -> oauth2
-				.jwt(jwt -> jwt.jwtAuthenticationConverter(jwtAuthenticationConverter())));
+				// Stateless bearer-token API: no session cookie, so no CSRF token to check.
+				.csrf(csrf -> csrf.disable())
+				.sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+				.httpBasic(basic -> basic.disable())
+				.formLogin(form -> form.disable())
+				.authorizeHttpRequests(authorize -> authorize
+						// Let Boot's /error forward render 400/404/500 bodies instead of turning them
+						// into 401.
+						.dispatcherTypeMatchers(DispatcherType.ERROR).permitAll()
+						.requestMatchers(HttpMethod.OPTIONS, "/api/**").permitAll()
+						.requestMatchers("/api/health", "/api/auth/login").permitAll()
+						.requestMatchers("/api/admin/**").hasRole("ADMIN")
+						.anyRequest().authenticated())
+				// Validates the Authorization: Bearer <jwt> header on every other request.
+				.oauth2ResourceServer(oauth2 -> oauth2
+						.jwt(jwt -> jwt.jwtAuthenticationConverter(jwtAuthenticationConverter())));
 
 		return http.build();
 	}
