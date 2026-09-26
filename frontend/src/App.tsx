@@ -41,7 +41,7 @@ function Workspace() {
     return (
         <div className={`workspace ${collapsed ? "collapsed" : ""}`}>
             {mobileOpen && <button className="nav-backdrop" aria-label="Close navigation" onClick={closeMobileNavigation} />}
-            <Sidebar collapsed={collapsed} mobileOpen={mobileOpen} onNavigate={closeMobileNavigation} onToggleCollapsed={() => setCollapsed((value) => !value)} />
+            <Sidebar collapsed={collapsed} mobileOpen={mobileOpen} service={service} onNavigate={closeMobileNavigation} onToggleCollapsed={() => setCollapsed((value) => !value)} />
             <div className="main-shell">
                 <Topbar search={search} onSearchChange={setSearch} onSearchSubmit={() => go("/knowledge")} onToggleNavigation={toggleNavigation} onOpenDetail={setDetail} />
                 <div className="content-layout">
@@ -57,11 +57,6 @@ function Workspace() {
                             <Route path="/admin" element={<PlaceholderPage page="Admin" service={service} onAskAi={() => go("/ask-ai")} />} />
                             <Route path="*" element={<Navigate to="/ask-ai" replace />} />
                         </Routes>
-                        <div className="connection-status">
-                            <span className={service === "API & database connected" ? "connected" : ""} />
-                            {service}
-                            <span className="session-note">Sample data · changes stay in this session</span>
-                        </div>
                     </main>
                     <ContextColumn saved={saved} onOpenDetail={setDetail} onToggleSaved={toggleSaved} onNavigate={go} />
                 </div>

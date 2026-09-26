@@ -6,11 +6,12 @@ import { Icon } from "../ui/Icon";
 interface SidebarProps {
     collapsed: boolean;
     mobileOpen: boolean;
+    service: string;
     onNavigate: () => void;
     onToggleCollapsed: () => void;
 }
 
-export function Sidebar({ collapsed, mobileOpen, onNavigate, onToggleCollapsed }: SidebarProps) {
+export function Sidebar({ collapsed, mobileOpen, service, onNavigate, onToggleCollapsed }: SidebarProps) {
     return (
         <aside className={`sidebar ${mobileOpen ? "mobile-open" : ""}`}>
             <NavLink className="brand" to="/ask-ai" aria-label="KnowledgeBridge home" onClick={onNavigate}>
@@ -40,6 +41,10 @@ export function Sidebar({ collapsed, mobileOpen, onNavigate, onToggleCollapsed }
                     </div>
                 ))}
             </section>
+            <div className="sidebar-connection" title={service}>
+                <span className={service === "API & database connected" ? "connected" : ""} />
+                <span className="sidebar-connection-label">{service}</span>
+            </div>
             <button className="collapse-button" onClick={onToggleCollapsed} aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}>
                 <span>{collapsed ? "›" : "‹"}</span>
                 <span className="collapse-label">Collapse</span>
