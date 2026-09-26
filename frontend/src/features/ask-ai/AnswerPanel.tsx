@@ -50,7 +50,13 @@ export function AnswerPanel({ mode, filteredDocuments, expanded, feedback, saved
                         <CitationList expanded={expanded} onToggle={onToggleExpanded} onOpenDetail={onOpenDetail} />
                     </>
                 ) : (
-                    <div className="search-results">{filteredDocuments.length ? filteredDocuments.map((document) => <DocumentRow key={document.title} document={document} saved={saved.includes(document.title)} onOpen={onOpenDetail} onToggleSaved={onToggleSaved} />) : <p>No sample documents match your search.</p>}</div>
+                    <div className="search-results">
+                        {filteredDocuments.length ? (
+                            filteredDocuments.map((document) => <DocumentRow key={document.title} document={document} saved={saved.includes(document.title)} onOpen={onOpenDetail} onToggleSaved={onToggleSaved} />)
+                        ) : (
+                            <p>No sample documents match your search.</p>
+                        )}
+                    </div>
                 )}
             </div>
             {mode === "Synthesis" && (

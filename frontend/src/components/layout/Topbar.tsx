@@ -25,12 +25,28 @@ export function Topbar({ search, onSearchChange, onSearchSubmit, onToggleNavigat
                 <input id="global-search" aria-label="Search sample knowledge base" placeholder="Search knowledge base, documents, entities…" value={search} onChange={(event) => onSearchChange(event.target.value)} />
                 <kbd>⌘ K</kbd>
             </form>
-            <button className="organization" onClick={() => onOpenDetail({ title: "Acme Corporation", text: "Acme Corporation is the fictional organization used in this interface preview. Organization switching will be available when accounts are connected." })}>
+            <button
+                className="organization"
+                onClick={() =>
+                    onOpenDetail({
+                        title: "Acme Corporation",
+                        text: "Acme Corporation is the fictional organization used in this interface preview. Organization switching will be available when accounts are connected.",
+                    })
+                }
+            >
                 <Icon name="home" size={18} />
                 <span>Acme Corporation</span>
                 <span>⌄</span>
             </button>
-            <button className="profile" onClick={() => onOpenDetail({ title: "Demo workspace", text: "You are viewing the frontend scaffold. Login, user profiles, and role-based access are not connected yet." })}>
+            <button
+                className="profile"
+                onClick={() =>
+                    onOpenDetail({
+                        title: "Demo workspace",
+                        text: "You are viewing the frontend scaffold. Login, user profiles, and role-based access are not connected yet.",
+                    })
+                }
+            >
                 <span className="avatar">AC</span>
                 <span>Demo user</span>
                 <span>⌄</span>

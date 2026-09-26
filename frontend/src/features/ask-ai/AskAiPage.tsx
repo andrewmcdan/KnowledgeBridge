@@ -13,12 +13,27 @@ export function AskAiPage({ search, saved, onOpenDetail, onToggleSaved }: { sear
     const filteredDocuments = documents.filter((document) => `${document.title} ${document.type} ${document.text}`.toLowerCase().includes(search.toLowerCase()));
     const submit = (event: FormEvent) => {
         event.preventDefault();
-        setNotice(question.trim() === sampleQuestion ? "Showing the sample response below. Live AI queries are not connected yet." : "Live AI queries are not connected yet. The answer below is the labeled sample, not a response to your question.");
+        setNotice(
+            question.trim() === sampleQuestion
+                ? "Showing the sample response below. Live AI queries are not connected yet."
+                : "Live AI queries are not connected yet. The answer below is the labeled sample, not a response to your question.",
+        );
     };
     return (
         <>
             <QuestionForm question={question} mode={mode} notice={notice} onQuestionChange={setQuestion} onModeChange={setMode} onSubmit={submit} />
-            <AnswerPanel mode={mode} filteredDocuments={filteredDocuments} expanded={expanded} feedback={feedback} saved={saved} onToggleExpanded={() => setExpanded((value) => !value)} onFeedback={setFeedback} onOpenDetail={onOpenDetail} onToggleSaved={onToggleSaved} onNotice={setNotice} />
+            <AnswerPanel
+                mode={mode}
+                filteredDocuments={filteredDocuments}
+                expanded={expanded}
+                feedback={feedback}
+                saved={saved}
+                onToggleExpanded={() => setExpanded((value) => !value)}
+                onFeedback={setFeedback}
+                onOpenDetail={onOpenDetail}
+                onToggleSaved={onToggleSaved}
+                onNotice={setNotice}
+            />
         </>
     );
 }

@@ -18,7 +18,16 @@ export function ContextColumn({ saved, onOpenDetail, onToggleSaved, onNavigate }
                     <Icon name="users" size={18} /> Detected Entities
                 </h2>
                 {entities.map((entity, index) => (
-                    <button key={entity} className="entity-row" onClick={() => onOpenDetail({ title: entity, text: `${entity} is part of the sample purchasing workflow. ${index === 3 ? "This cost center tracks software spending." : "This department reviews requests within its area of responsibility."}` })}>
+                    <button
+                        key={entity}
+                        className="entity-row"
+                        onClick={() =>
+                            onOpenDetail({
+                                title: entity,
+                                text: `${entity} is part of the sample purchasing workflow. ${index === 3 ? "This cost center tracks software spending." : "This department reviews requests within its area of responsibility."}`,
+                            })
+                        }
+                    >
                         <span className={`entity-icon color-${index}`}>
                             <Icon name={index === 3 ? "file" : "users"} size={19} />
                         </span>

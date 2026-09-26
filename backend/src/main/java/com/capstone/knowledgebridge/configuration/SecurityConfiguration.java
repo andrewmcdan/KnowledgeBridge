@@ -20,45 +20,45 @@ import jakarta.servlet.DispatcherType;
 @EnableMethodSecurity
 public class SecurityConfiguration {
 
-    /** Name of the JWT claim that carries the application role (ADMIN or USER). */
-    public static final String ROLE_CLAIM = "role";
+	/** Name of the JWT claim that carries the application role (ADMIN or USER). */
+	public static final String ROLE_CLAIM = "role";
 
-    @Bean
-    SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
-        http
-                // Stateless bearer-token API: no session cookie, so no CSRF token to check.
-                .csrf(csrf -> csrf.disable())
-                .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-                .httpBasic(basic -> basic.disable())
-                .formLogin(form -> form.disable())
-                .authorizeHttpRequests(authorize -> authorize
-                        // Let Boot's /error forward render 400/404/500 bodies instead of turning them
-                        // into 401.
-                        .dispatcherTypeMatchers(DispatcherType.ERROR).permitAll()
-                        .requestMatchers(HttpMethod.OPTIONS, "/api/**").permitAll()
-                        .requestMatchers("/api/health", "/api/auth/login").permitAll()
-                        .requestMatchers("/api/admin/**").hasRole("ADMIN")
-                        .anyRequest().authenticated())
-                // Validates the Authorization: Bearer <jwt> header on every other request.
-                .oauth2ResourceServer(oauth2 -> oauth2
-                        .jwt(jwt -> jwt.jwtAuthenticationConverter(jwtAuthenticationConverter())));
+	@Bean
+	SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
+		http
+				// Stateless bearer-token API: no session cookie, so no CSRF token to check.
+				.csrf(csrf -> csrf.disable())
+				.sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+				.httpBasic(basic -> basic.disable())
+				.formLogin(form -> form.disable())
+				.authorizeHttpRequests(authorize -> authorize
+						// Let Boot's /error forward render 400/404/500 bodies instead of turning them
+						// into 401.
+						.dispatcherTypeMatchers(DispatcherType.ERROR).permitAll()
+						.requestMatchers(HttpMethod.OPTIONS, "/api/**").permitAll()
+						.requestMatchers("/api/health", "/api/auth/login").permitAll()
+						.requestMatchers("/api/admin/**").hasRole("ADMIN")
+						.anyRequest().authenticated())
+				// Validates the Authorization: Bearer <jwt> header on every other request.
+				.oauth2ResourceServer(oauth2 -> oauth2
+						.jwt(jwt -> jwt.jwtAuthenticationConverter(jwtAuthenticationConverter())));
 
-        return http.build();
-    }
+		return http.build();
+	}
 
-    /** Maps the token's "role" claim to a ROLE_* authority so hasRole() works. */
-    private JwtAuthenticationConverter jwtAuthenticationConverter() {
-        JwtAuthenticationConverter converter = new JwtAuthenticationConverter();
-        converter.setJwtGrantedAuthoritiesConverter(jwt -> {
-            String role = jwt.getClaimAsString(ROLE_CLAIM);
-            return role == null ? List.of() : List.of(new SimpleGrantedAuthority("ROLE_" + role));
-        });
-        return converter;
-    }
+	/** Maps the token's "role" claim to a ROLE_* authority so hasRole() works. */
+	private JwtAuthenticationConverter jwtAuthenticationConverter() {
+		JwtAuthenticationConverter converter = new JwtAuthenticationConverter();
+		converter.setJwtGrantedAuthoritiesConverter(jwt -> {
+			String role = jwt.getClaimAsString(ROLE_CLAIM);
+			return role == null ? List.of() : List.of(new SimpleGrantedAuthority("ROLE_" + role));
+		});
+		return converter;
+	}
 
-    @Bean
-    PasswordEncoder passwordEncoder() {
-        return new BCryptPasswordEncoder();
-    }
+	@Bean
+	PasswordEncoder passwordEncoder() {
+		return new BCryptPasswordEncoder();
+	}
 
 }

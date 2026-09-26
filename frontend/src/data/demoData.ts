@@ -1,11 +1,41 @@
 import type { DocumentItem, NavigationItem } from "../types/models";
 
 export const documents: DocumentItem[] = [
-    { title: "Procurement Policy v2.1", type: "Policy", date: "Apr 12, 2024", color: "blue", text: "Software purchases over $5,000 require a purchase request, budget validation, manager approval, and Procurement review. A purchase order must be issued before ordering." },
-    { title: "Finance Approval Matrix", type: "Spreadsheet", date: "Mar 28, 2024", color: "green", text: "Finance reviews available budget and cost appropriateness. Purchases over $20,000 also require final approval from the CFO or delegated authority." },
-    { title: "IT Purchasing Guidelines", type: "Guideline", date: "Feb 15, 2024", color: "purple", text: "IT Operations reviews software for security, licensing, and integration requirements before Procurement finalizes vendor terms." },
-    { title: "Software Expense Policy", type: "Policy", date: "Jan 10, 2024", color: "blue", text: "Software costs are recorded against the Software Budget cost center. Include the business justification, vendor details, and total cost with each request." },
-    { title: "Vendor Management Policy", type: "Policy", date: "Nov 5, 2023", color: "blue", text: "Procurement reviews vendor terms and contract requirements. Approved orders are sent to the vendor by the Procurement team." },
+    {
+        title: "Procurement Policy v2.1",
+        type: "Policy",
+        date: "Apr 12, 2024",
+        color: "blue",
+        text: "Software purchases over $5,000 require a purchase request, budget validation, manager approval, and Procurement review. A purchase order must be issued before ordering.",
+    },
+    {
+        title: "Finance Approval Matrix",
+        type: "Spreadsheet",
+        date: "Mar 28, 2024",
+        color: "green",
+        text: "Finance reviews available budget and cost appropriateness. Purchases over $20,000 also require final approval from the CFO or delegated authority.",
+    },
+    {
+        title: "IT Purchasing Guidelines",
+        type: "Guideline",
+        date: "Feb 15, 2024",
+        color: "purple",
+        text: "IT Operations reviews software for security, licensing, and integration requirements before Procurement finalizes vendor terms.",
+    },
+    {
+        title: "Software Expense Policy",
+        type: "Policy",
+        date: "Jan 10, 2024",
+        color: "blue",
+        text: "Software costs are recorded against the Software Budget cost center. Include the business justification, vendor details, and total cost with each request.",
+    },
+    {
+        title: "Vendor Management Policy",
+        type: "Policy",
+        date: "Nov 5, 2023",
+        color: "blue",
+        text: "Procurement reviews vendor terms and contract requirements. Approved orders are sent to the vendor by the Procurement team.",
+    },
 ];
 
 export const entities = ["Finance Team", "Procurement", "IT Operations", "Software Budget"];

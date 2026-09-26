@@ -8,14 +8,14 @@ import org.springframework.boot.SpringApplication;
 
 class KnowledgeBridgeApplicationMainTests {
 
-    @Test
-    void mainDelegatesToSpringApplication() {
-        String[] args = { "--spring.main.web-application-type=none" };
+	@Test
+	void mainDelegatesToSpringApplication() {
+		String[] args = { "--spring.main.web-application-type=none" };
 
-        try (MockedStatic<SpringApplication> springApplication = mockStatic(SpringApplication.class)) {
-            KnowledgeBridgeApplication.main(args);
+		try (MockedStatic<SpringApplication> springApplication = mockStatic(SpringApplication.class)) {
+			KnowledgeBridgeApplication.main(args);
 
-            springApplication.verify(() -> SpringApplication.run(KnowledgeBridgeApplication.class, args));
-        }
-    }
+			springApplication.verify(() -> SpringApplication.run(KnowledgeBridgeApplication.class, args));
+		}
+	}
 }
