@@ -1,4 +1,4 @@
-1. Member 1: integration and authentication
+1. Member 1: integration and authentication Dylan
 Focus on clearing cross-team dependencies rather than implementing everyone else’s features.
 - Finalize request/response contracts for:
   - POST /api/knowledge-items/manual
@@ -17,7 +17,7 @@ Acceptance criteria:
 - All teams use the same committed API contracts.
 - The complete stack starts through the documented development workflow.
 
-2. Member 2: knowledge items and ingestion
+2. Member 2: knowledge items and ingestion Adrian
 Own the application database side of the workflow.
 - Add migrations for knowledge_item, ingestion_attempt, and knowledge revision state.
 - Implement entities and repositories.
@@ -41,7 +41,7 @@ Acceptance criteria:
 - Retrying creates a new attempt rather than destroying failure history.
 - Unit and integration tests cover every allowed transition.
 
-3. Member 3: gbrain adapter
+3. Member 3: gbrain adapter Andrew
 Keep all gbrain-specific behavior isolated in the gbrain package.
 - Define GbrainClient operations needed for ingestion.
 - Implement the agreed MCP transport without leaking MCP types into the rest of the backend.
@@ -60,7 +60,7 @@ Acceptance criteria:
 - Logs do not contain document bodies, API keys, or credentials.
 - The application can run against a mock when real gbrain is unavailable.
 
-4. Member 4: frontend ingestion workflow
+4. Member 4: frontend ingestion workflow Ethan
 Replace the relevant demo-only screens with live API behavior.
 - Build the login page.
 - Add authenticated and admin-only routes.
@@ -81,7 +81,7 @@ Acceptance criteria:
 - Visible changes include screenshots in the pull request.
 - Frontend format, lint, and build checks pass.
 
-5. Member 5: QA, corpus loading, and evaluation preparation
+5. Member 5: QA, corpus loading, and evaluation preparation Luis
 This should be a technical testing role, not just documentation.
 - Create the ingestion acceptance-test matrix.
 - Add tests for:
