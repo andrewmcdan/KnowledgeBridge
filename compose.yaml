@@ -25,6 +25,7 @@ services:
       SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER:-knowledgebridge}
       SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:-knowledgebridge}
       SPRING_DOCKER_COMPOSE_ENABLED: "false"
+      KNOWLEDGEBRIDGE_JWT_SECRET: ${KNOWLEDGEBRIDGE_JWT_SECRET:-change-me-local-development-secret-at-least-32-bytes}
       KNOWLEDGEBRIDGE_CORS_ALLOWED_ORIGINS: http://localhost:5173,http://localhost:3000
       # Reserved for the future Spring gbrain adapter.
       GBRAIN_BASE_URL: http://gbrain:3131
