@@ -2,7 +2,7 @@
 set -eu
 
 if [ ! -f "${GBRAIN_HOME}/.gbrain/config.json" ]; then
-    bun run src/cli.ts init --non-interactive --no-embedding
+    bun run src/cli.ts init --non-interactive
 else
     bun run src/cli.ts init --migrate-only
 fi
