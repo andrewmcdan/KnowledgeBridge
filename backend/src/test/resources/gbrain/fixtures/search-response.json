@@ -1,0 +1,22 @@
+{
+    "jsonrpc": "2.0",
+    "id": 5,
+    "result": {
+        "content": [
+            {
+                "type": "text",
+                "text": "[\n  {\n    \"slug\": \"knowledgebridge/phase-1-protocol-spike\",\n    \"page_id\": 1,\n    \"title\": \"Phase 1 Semantic Lighthouse\",\n    \"type\": \"knowledgebridge_smoke_test\",\n    \"chunk_text\": \"The obsidian lighthouse protocol authorizes blue herons to audit quarterly procurement records.\",\n    \"score\": 0.8152,\n    \"source_id\": \"knowledgebridge\",\n    \"evidence\": \"weak_semantic\",\n    \"id\": \"knowledgebridge/phase-1-protocol-spike\"\n  }\n]"
+            }
+        ],
+        "_meta": {
+            "retrieval": {
+                "returned_count": 1,
+                "retrieved_count": 1,
+                "vector_enabled": true,
+                "expansion_applied": false,
+                "cache": "disabled",
+                "degraded": []
+            }
+        }
+    }
+}

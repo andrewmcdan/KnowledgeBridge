@@ -8,8 +8,8 @@ The repository currently builds unmodified gbrain revision `a6be012a3bcfac42e279
 
 - gbrain exposes Streamable HTTP MCP at `POST /mcp`, not the REST ingestion and query API assumed by the original project brief.
 - `GET /health` is unauthenticated and confirms service/database health only. It does not prove that authentication, embeddings, or individual tools work.
-- MCP calls require a bearer credential. gbrain supports OAuth 2.1, but a scoped, operator-provisioned bearer token is the simpler server-to-server mechanism for the MVP.
-- The current container initializes with `--no-embedding`. This permits keyless startup but provides keyword-only retrieval. It is not sufficient for the KnowledgeBridge semantic-search requirement.
+- MCP calls require a bearer credential. The Phase 1 spike showed that legacy tokens cannot be source-bound, so the backend uses an operator-provisioned OAuth client-credentials grant and short-lived access tokens.
+- The container now initializes with an explicit OpenRouter embedding model and dimension. Existing installations still require a deliberate migration when their stored vector width differs.
 - The backend receives `GBRAIN_BASE_URL`, but no Java code currently consumes it.
 - Remote `put_page` calls save and chunk content, but upstream deliberately skips automatic link and timeline extraction for untrusted MCP writers.
 - gbrain page deletion is soft deletion. KnowledgeBridge must not claim that a permanent-delete operation physically erased engine data until that behavior is verified against the pinned revision.
@@ -56,14 +56,15 @@ Embedding readiness must be checked independently of `/health`. The release smok
 
 ## Authentication and source isolation
 
-Provision a dedicated gbrain source named `knowledgebridge` and a dedicated bearer token for the backend. Provisioning is an operator/setup responsibility, not an application startup side effect.
+Provision a dedicated gbrain source named `knowledgebridge` and a dedicated OAuth client for the backend. Provisioning is an operator/setup responsibility, not an application startup side effect. Run `scripts/provision-gbrain.ps1` after the source exists; it writes the one-time client secret only to the ignored root `.env`.
 
-The runtime token should:
+The OAuth client should:
 
 - be bound to the `knowledgebridge` source;
 - have only `read` and `write` scopes;
 - omit `admin`, `agent`, and `sources_admin` unless a separately reviewed feature requires them;
-- be stored in `GBRAIN_ACCESS_TOKEN` and passed only to the backend;
+- use the client-credentials grant and obtain short-lived access tokens from `/token`;
+- store `GBRAIN_OAUTH_CLIENT_ID` and `GBRAIN_OAUTH_CLIENT_SECRET` only in `.env` or a deployment secret store;
 - be rotatable without rebuilding the application; and
 - never appear in logs, exception messages, actuator output, or API responses.
 
@@ -100,7 +101,7 @@ Keep the low-level generic tool call private to `GbrainMcpClient`. This prevents
 
 ## MCP transport behavior
 
-The transport communicates with `${GBRAIN_BASE_URL}/mcp` using JSON-RPC 2.0 and `Authorization: Bearer ...`.
+The transport obtains an access token from `GBRAIN_OAUTH_TOKEN_URL`, then communicates with `${GBRAIN_BASE_URL}/mcp` using JSON-RPC 2.0 and `Authorization: Bearer ...`. The MCP request must accept both `application/json` and `text/event-stream`; the pinned server returns SSE-framed JSON-RPC responses.
 
 Implementation requirements:
 
@@ -183,7 +184,9 @@ Add validated backend properties with environment overrides:
 
 ```properties
 knowledgebridge.gbrain.base-url=${GBRAIN_BASE_URL:http://localhost:3131}
-knowledgebridge.gbrain.access-token=${GBRAIN_ACCESS_TOKEN:}
+knowledgebridge.gbrain.oauth-client-id=${GBRAIN_OAUTH_CLIENT_ID:}
+knowledgebridge.gbrain.oauth-client-secret=${GBRAIN_OAUTH_CLIENT_SECRET:}
+knowledgebridge.gbrain.oauth-token-url=${GBRAIN_OAUTH_TOKEN_URL:http://localhost:3131/token}
 knowledgebridge.gbrain.connect-timeout=${GBRAIN_CONNECT_TIMEOUT:PT2S}
 knowledgebridge.gbrain.read-timeout=${GBRAIN_READ_TIMEOUT:PT30S}
 knowledgebridge.gbrain.enabled=${GBRAIN_ENABLED:true}
@@ -236,12 +239,22 @@ Mock tests may prove adapter behavior, but only the live test may be reported as
 
 ### Phase 1: deployment and protocol spike
 
-- Enable and verify OpenRouter embeddings.
-- Provision the `knowledgebridge` source and scoped runtime token.
-- Capture sanitized `initialize`, `tools/list`, `put_page`, `search`, and `synthesize` fixtures from the pinned server.
-- Resolve the permanent-deletion and entity-API gaps.
+- [x] Enable OpenRouter embeddings at 1536 dimensions and verify a paraphrased semantic search with `vector_enabled: true`.
+- [x] Provision the isolated `knowledgebridge` source and a source-/slug-bound OAuth client with `read write` scopes.
+- [x] Capture sanitized `initialize`, `tools/list`, `put_page`, `search`, and `synthesize` fixtures from the pinned server.
+- [x] Add repeatable provisioning and live MCP smoke-test scripts.
+- [x] Resolve the permanent-deletion and entity-API gaps for MVP planning.
 
-Exit criterion: a scripted MCP smoke test can write and semantically retrieve one synthetic page.
+Exit criterion met on September 30, 2026: `scripts/test-gbrain-mcp.ps1` wrote a synthetic page, retrieved it with a semantic paraphrase, synthesized a cited answer, and soft-deleted the page.
+
+Phase 1 findings:
+
+- The pinned server negotiates MCP protocol `2025-03-26` and returns JSON-RPC inside `text/event-stream` responses.
+- The live scoped client saw 83 tools. The required ingestion/search/synthesis/delete/restore tools were present.
+- `search` returned retrieval metadata with `vector_enabled: true`, `expansion_applied: false`, and no degraded reasons.
+- `synthesize` requires an explicit `models.think` route. OpenRouter embeddings alone do not override its Anthropic-direct fallback; the deployment pins `openrouter:anthropic/claude-haiku-4.5`.
+- `delete_page` is recoverable soft deletion and `restore_page` reverses it. The scoped runtime surface has no safe per-page physical purge. Therefore the proposed permanent-delete API is excluded from the MVP unless an operator-reviewed retention/purge design is added.
+- The slug-bound client cannot call `extract_entities`, and the published read tools do not provide the proposed general entity list/detail contract. Entity endpoints are excluded from the first adapter increment; a later design may use application-owned entities or a separately scoped extraction workflow.
 
 ### Phase 2: transport foundation
 

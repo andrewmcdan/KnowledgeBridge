@@ -1,0 +1,12 @@
+{
+    "jsonrpc": "2.0",
+    "id": 4,
+    "result": {
+        "content": [
+            {
+                "type": "text",
+                "text": "{\n  \"slug\": \"knowledgebridge/phase-1-protocol-spike\",\n  \"status\": \"created_or_updated\",\n  \"chunks\": 1,\n  \"auto_links\": {\n    \"skipped\": \"remote\"\n  },\n  \"auto_timeline\": {\n    \"skipped\": \"remote\"\n  },\n  \"write_through\": {\n    \"written\": true,\n    \"path\": \"<sanitized>\"\n  }\n}"
+            }
+        ]
+    }
+}

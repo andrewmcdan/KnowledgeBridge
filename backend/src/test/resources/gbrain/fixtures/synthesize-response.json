@@ -1,0 +1,12 @@
+{
+    "jsonrpc": "2.0",
+    "id": 6,
+    "result": {
+        "content": [
+            {
+                "type": "text",
+                "text": "{\n  \"answer\": \"Blue herons are authorized to audit quarterly procurement records [knowledgebridge/phase-1-protocol-spike].\",\n  \"sources\": [\n    \"knowledgebridge/phase-1-protocol-spike\"\n  ],\n  \"gaps\": [],\n  \"cost\": {\n    \"model\": \"openrouter:anthropic/claude-haiku-4.5\",\n    \"input_tokens\": 672,\n    \"output_tokens\": 161,\n    \"usd_estimate\": null\n  },\n  \"synthesis_status\": \"ok\",\n  \"pages_gathered\": 1,\n  \"takes_gathered\": 0,\n  \"warnings\": [],\n  \"protocol_version\": 1\n}"
+            }
+        ]
+    }
+}
