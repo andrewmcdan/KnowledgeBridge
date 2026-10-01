@@ -12,7 +12,8 @@ The repository currently builds unmodified gbrain revision `a6be012a3bcfac42e279
 - The container now initializes with an explicit OpenRouter embedding model and dimension. Existing installations still require a deliberate migration when their stored vector width differs.
 - The Phase 2 transport consumes `knowledgebridge.gbrain.*` (including `GBRAIN_BASE_URL`), but no application service calls it yet.
 - Remote `put_page` calls save and chunk content, but upstream deliberately skips automatic link and timeline extraction for untrusted MCP writers.
-- gbrain page deletion is soft deletion. KnowledgeBridge must not claim that a permanent-delete operation physically erased engine data until that behavior is verified against the pinned revision.
+- gbrain page deletion is soft deletion. The pinned source shows gbrain's autopilot purge phase hard-deletes soft-deleted pages after a 72-hour recovery window, so restore is possible only within that window. KnowledgeBridge must not claim that a permanent-delete operation physically erased engine data until that purge is verified against the running deployment.
+- `put_page` on a soft-deleted page clears `deleted_at`, so writing a deleted item revives it in search.
 
 ## Required deployment changes
 
@@ -76,7 +77,10 @@ Use Spring's synchronous `RestClient`, which is already available through the We
 
 ```text
 gbrain/
-  GbrainClient.java                  application-facing interface (Phase 3)
+  GbrainClient.java                  application-facing interface
+  McpGbrainClient.java               GbrainClient over MCP: put/get/delete/restore page mappings
+  InMemoryGbrainClient.java          GbrainClient stand-in for GBRAIN_MODE=in-memory
+  GbrainPages.java                   slug mapping and deterministic Markdown/frontmatter rendering
   GbrainConfiguration.java           bean wiring; nothing contacts gbrain at startup
   GbrainProperties.java              validated URL, credential, size, retry, and timeout settings
   GbrainTokenProvider.java           cached OAuth client-credentials tokens
@@ -90,16 +94,20 @@ gbrain/
   mcp/                                JSON-RPC and MCP wire records and the SSE response reader
 ```
 
-`GbrainClient` should expose intent-oriented operations rather than a generic public `callTool` method:
+`GbrainClient` exposes intent-oriented operations rather than a generic public `callTool` method. The ingestion operations exist now; search and synthesis are added in Phase 4:
 
 ```java
 GbrainWriteResult upsertDocument(GbrainDocument document);
-void deleteDocument(String externalId);
+Optional<GbrainStoredDocument> getDocument(String itemKey);
+GbrainDocumentState documentState(GbrainDocument document);
+GbrainDeleteResult deleteDocument(String itemKey);
+GbrainRestoreResult restoreDocument(String itemKey);
+// Phase 4
 List<GbrainSearchHit> search(GbrainSearchRequest request);
 GbrainSynthesisResult synthesize(GbrainSynthesisRequest request);
-Optional<GbrainDocument> getDocument(String externalId);
-GbrainCapabilities capabilities();
 ```
+
+Capability discovery stays on `GbrainMcpClient.discoverCapabilities()` because it describes the MCP deployment, not the document contract.
 
 Keep the low-level generic tool call private to `GbrainMcpClient`. This prevents gbrain tool names and arbitrary JSON from spreading into service code.
 
@@ -163,6 +171,10 @@ Render a complete Markdown payload for `put_page` with controlled YAML frontmatt
 - soft-deletion state when relevant.
 
 Escape frontmatter values safely and reject user-supplied fields that could override identity, visibility, source, or engine control metadata. The body must be normalized deterministically so retries send the same content.
+
+As implemented, `GbrainPages.render` writes exactly these frontmatter keys: `title`, `type`, `knowledgebridge_id`, `knowledgebridge_owner`, `knowledgebridge_revision`, `knowledgebridge_created_at`, `knowledgebridge_updated_at`, and `knowledgebridge_digest`. All strings are YAML double-quoted, and `GbrainDocument` rejects control and line-separator characters in them. The key `id` is deliberately never written because gbrain deduplicates writes on `frontmatter.id`. Any frontmatter inside an uploaded file stays in the body as text, so it cannot set `id`, `visibility`, quarantine, or embedding controls.
+
+`knowledgebridge_digest` is the SHA-256 of every indexed field. `getDocument` reads it back, and `documentState` compares it with the expected document to report `CURRENT`, `STALE`, `MISSING`, or `DELETED`.
 
 ## Error and retry contract
 
@@ -261,7 +273,7 @@ Phase 1 findings:
 - The live scoped client saw 83 tools. The required ingestion/search/synthesis/delete/restore tools were present.
 - `search` returned retrieval metadata with `vector_enabled: true`, `expansion_applied: false`, and no degraded reasons.
 - `synthesize` requires an explicit `models.think` route. OpenRouter embeddings alone do not override its Anthropic-direct fallback; the deployment pins `openrouter:anthropic/claude-haiku-4.5`.
-- `delete_page` is recoverable soft deletion and `restore_page` reverses it. The scoped runtime surface has no safe per-page physical purge. Therefore the proposed permanent-delete API is excluded from the MVP unless an operator-reviewed retention/purge design is added.
+- `delete_page` is recoverable soft deletion and `restore_page` reverses it. The scoped runtime surface has no safe per-page physical purge; gbrain's autopilot purges all soft-deleted pages after 72 hours, which is not per-item and has not been verified live (Phase 3 source review). Therefore the proposed permanent-delete API is excluded from the MVP unless an operator-reviewed retention/purge design is added.
 - The slug-bound client cannot call `extract_entities`, and the published read tools do not provide the proposed general entity list/detail contract. Entity endpoints are excluded from the first adapter increment; a later design may use application-owned entities or a separately scoped extraction workflow.
 
 ### Phase 2: transport foundation
@@ -284,11 +296,22 @@ Phase 2 decisions:
 
 ### Phase 3: ingestion integration
 
-- Implement deterministic document rendering and `put_page`/read/delete/restore mappings.
-- Connect `IngestionService` while keeping status transitions and retry decisions outside the adapter.
-- Store the external slug only after a confirmed or reconciled write.
+- [x] Implement deterministic document rendering and `put_page`/read/delete/restore mappings.
+- [ ] Connect `IngestionService` while keeping status transitions and retry decisions outside the adapter. This is owned by the knowledge-items/ingestion work and depends on its `knowledge_item` schema.
+- [ ] Store the external slug only after a confirmed or reconciled write. The adapter provides the contract below; the ingestion service applies it.
 
 Exit criterion: manual creation and Markdown upload reach gbrain, with visible completed/failed status and safe retry behavior.
+
+Adapter status (October 1, 2026): the `GbrainClient` ingestion contract, `McpGbrainClient`, and `InMemoryGbrainClient` are complete and covered by mock-server tests. `put_page` responses come from the Phase 1 live fixture. The `get_page`, `delete_page`, and `restore_page` response shapes are derived from the pinned revision's `src/core/ops/pages.ts` and still need a live capture.
+
+Ingestion hand-off:
+
+1. Build a `GbrainDocument` from the knowledge item. `itemKey` must be immutable, unique across database resets, and 1–64 lower-case letters, digits, or hyphens. A UUID column on `knowledge_item` is recommended over the `BIGSERIAL` id: a recreated database would reuse ids and overwrite pages that the persisted gbrain volume still holds.
+2. Call `upsertDocument`. On success, store `GbrainWriteResult.externalId()` and mark the attempt completed. `UNCHANGED` is also a success.
+3. On `GbrainException`, record `code()` (and `upstreamCode()` when present) as the attempt's safe error. `VALIDATION` is permanent until the content changes. `RATE_LIMITED`, `UNAVAILABLE`, and `UNAUTHORIZED` can be retried later.
+4. On `TIMEOUT` the write may have committed. Call `documentState(document)` before any retry. `CURRENT` means the write succeeded: store the slug and do not write again. `STALE` or `MISSING` means a deliberate retry is needed.
+5. Never upsert a soft-deleted item. gbrain would revive it. Restore it first with `restoreDocument`, and treat `NOT_FOUND` from restore as "purged; re-ingest".
+6. Set `GBRAIN_MODE=in-memory` to run the application without gbrain. Writes then succeed locally, but nothing becomes searchable.
 
 ### Phase 4: retrieval and synthesis
 
