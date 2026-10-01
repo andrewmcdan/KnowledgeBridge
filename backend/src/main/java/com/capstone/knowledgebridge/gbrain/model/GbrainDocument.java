@@ -52,8 +52,11 @@ public record GbrainDocument(String itemKey, String title, String documentType, 
 
 	private static final Pattern DOCUMENT_TYPE = Pattern.compile("[a-z0-9][a-z0-9_-]{0,63}");
 
-	/** Changing the digest inputs requires bumping this so old and new digests never compare equal by accident. */
-	private static final String DIGEST_VERSION = "1";
+	/**
+	 * Changing the digest inputs or how a document is rendered for gbrain requires bumping this, so a page written in
+	 * an older format never reconciles as current. Version 2 namespaced the gbrain page type.
+	 */
+	private static final String DIGEST_VERSION = "2";
 
 	public GbrainDocument {
 		requireItemKey(itemKey);

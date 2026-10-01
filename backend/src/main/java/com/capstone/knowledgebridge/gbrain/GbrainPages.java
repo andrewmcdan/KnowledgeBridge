@@ -14,6 +14,12 @@ final class GbrainPages {
 
 	static final String SLUG_PREFIX = "knowledgebridge/";
 
+	/**
+	 * gbrain page types carry engine behavior (for example {@code person} is an entity with expert routing and
+	 * {@code meeting} is facts-extractable), so application types are namespaced and stored as undeclared types.
+	 */
+	static final String TYPE_PREFIX = "knowledgebridge_";
+
 	static final String ID_KEY = "knowledgebridge_id";
 
 	static final String REVISION_KEY = "knowledgebridge_revision";
@@ -30,7 +36,7 @@ final class GbrainPages {
 	static String render(GbrainDocument document) {
 		return "---\n"
 				+ "title: " + quote(document.title()) + "\n"
-				+ "type: " + quote(document.documentType()) + "\n"
+				+ "type: " + quote(pageType(document.documentType())) + "\n"
 				+ ID_KEY + ": " + quote(document.itemKey()) + "\n"
 				+ "knowledgebridge_owner: " + quote(document.ownerId()) + "\n"
 				+ REVISION_KEY + ": " + document.revision() + "\n"
@@ -39,6 +45,17 @@ final class GbrainPages {
 				+ DIGEST_KEY + ": " + quote(document.contentDigest()) + "\n"
 				+ "---\n\n"
 				+ document.body();
+	}
+
+	static String pageType(String documentType) {
+		return TYPE_PREFIX + documentType;
+	}
+
+	/** Reverses {@link #pageType}; a page type written by something else is returned unchanged. */
+	static String documentType(String pageType) {
+		return pageType != null && pageType.startsWith(TYPE_PREFIX)
+				? pageType.substring(TYPE_PREFIX.length())
+				: pageType;
 	}
 
 	/** YAML double-quoted scalar. {@link GbrainDocument} already rejects control and line-separator characters. */

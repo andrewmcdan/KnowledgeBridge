@@ -18,6 +18,14 @@ class GbrainPagesTests {
 	}
 
 	@Test
+	void namespacesDocumentTypesSoTheyCannotSelectGbrainBehavior() {
+		assertThat(GbrainPages.pageType("person")).isEqualTo("knowledgebridge_person");
+		assertThat(GbrainPages.documentType("knowledgebridge_person")).isEqualTo("person");
+		assertThat(GbrainPages.documentType("person")).isEqualTo("person");
+		assertThat(GbrainPages.documentType(null)).isNull();
+	}
+
+	@Test
 	void rendersCompleteMarkdownWithControlledFrontmatter() {
 		GbrainDocument document = new GbrainDocument("item-1", "Travel \"Expense\" C:\\Policy", "policy", "7", 3,
 				Instant.parse("2026-09-01T12:00:00Z"), Instant.parse("2026-09-02T08:30:00Z"),
@@ -26,7 +34,7 @@ class GbrainPagesTests {
 		assertThat(GbrainPages.render(document)).isEqualTo("""
 				---
 				title: "Travel \\"Expense\\" C:\\\\Policy"
-				type: "policy"
+				type: "knowledgebridge_policy"
 				knowledgebridge_id: "item-1"
 				knowledgebridge_owner: "7"
 				knowledgebridge_revision: 3

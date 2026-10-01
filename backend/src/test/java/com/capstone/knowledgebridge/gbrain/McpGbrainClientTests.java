@@ -2,11 +2,13 @@ package com.capstone.knowledgebridge.gbrain;
 
 import static com.capstone.knowledgebridge.gbrain.GbrainMcpClientTests.assertCode;
 import static com.capstone.knowledgebridge.gbrain.MockGbrainServer.JSON;
+import static com.capstone.knowledgebridge.gbrain.MockGbrainServer.fixture;
 import static com.capstone.knowledgebridge.gbrain.MockGbrainServer.toolResult;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import java.time.Clock;
 import java.time.Instant;
+import java.util.function.Consumer;
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
@@ -21,15 +23,22 @@ import com.capstone.knowledgebridge.gbrain.model.GbrainRestoreResult;
 import com.capstone.knowledgebridge.gbrain.model.GbrainStoredDocument;
 import com.capstone.knowledgebridge.gbrain.model.GbrainWriteResult;
 
+import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.node.ObjectNode;
 
 /**
- * Exercises the page mappings over the real transport. put_page responses come from the Phase 1 fixture; get_page,
- * delete_page, and restore_page shapes are derived from the pinned revision's src/core/ops/pages.ts.
+ * Exercises the page mappings over the real transport. put_page shapes follow the Phase 1 fixture; get_page,
+ * delete_page, and restore_page responses are the fixtures captured live by scripts/test-gbrain-mcp.sh
+ * --capture-fixtures.
  */
 class McpGbrainClientTests {
 
 	private static final String SLUG = "knowledgebridge/item-1";
+
+	/** Item key and slug of the synthetic smoke page in the captured fixtures. */
+	private static final String FIXTURE_KEY = "phase-1-protocol-spike";
+
+	private static final String FIXTURE_SLUG = "knowledgebridge/" + FIXTURE_KEY;
 
 	private final MockGbrainServer server = new MockGbrainServer();
 
@@ -101,103 +110,131 @@ class McpGbrainClientTests {
 	}
 
 	@Test
-	void getDocumentReadsKnowledgeBridgeMetadataIncludingDeletedPages() {
-		respond("get_page", page(document.contentDigest(), "3", "null"));
+	void getDocumentReadsTheCapturedPage() {
+		respondFixture("get_page", "get-page-response");
 
-		GbrainStoredDocument stored = client.getDocument("item-1").orElseThrow();
+		GbrainStoredDocument stored = client.getDocument(FIXTURE_KEY).orElseThrow();
 
-		assertThat(stored).isEqualTo(new GbrainStoredDocument(SLUG, "Travel Policy", "policy", 3L,
-				document.contentDigest(), null));
-		assertThat(client.documentState(document)).isEqualTo(GbrainDocumentState.CURRENT);
+		assertThat(stored).isEqualTo(new GbrainStoredDocument(FIXTURE_SLUG, "Phase 1 Semantic Lighthouse",
+				"smoke_test", 1L, "smoke-test-digest", null));
 		ObjectNode arguments = (ObjectNode) server.toolCalls().get(0).json().path("params").path("arguments");
+		assertThat(arguments.path("slug").asString()).isEqualTo(FIXTURE_SLUG);
 		assertThat(arguments.path("include_deleted").asBoolean()).isTrue();
 		assertThat(arguments.path("source_id").asString()).isEqualTo("knowledgebridge");
 	}
 
 	@Test
-	void getDocumentReportsSoftDeletionAndStaleOrForeignPages() {
-		respond("get_page", page("stale", "3", "\"2026-09-03T10:15:30.123Z\""));
-		assertThat(client.getDocument("item-1").orElseThrow().deletedAt())
-				.isEqualTo(Instant.parse("2026-09-03T10:15:30.123Z"));
-		assertThat(client.documentState(document)).isEqualTo(GbrainDocumentState.DELETED);
+	void documentStateComparesTheStoredDigest() {
+		GbrainDocument smokePage = new GbrainDocument(FIXTURE_KEY, "Phase 1 Semantic Lighthouse", "smoke_test",
+				"smoke-test", 1, Instant.parse("2026-09-30T00:00:00Z"), Instant.parse("2026-09-30T00:00:00Z"),
+				"The obsidian lighthouse protocol authorizes blue herons to audit quarterly procurement records.");
 
-		respond("get_page", page("stale", "\"3\"", "null"));
-		assertThat(client.getDocument("item-1").orElseThrow().revision()).isNull();
-		assertThat(client.documentState(document)).isEqualTo(GbrainDocumentState.STALE);
+		respondFixture("get_page", "get-page-response");
+		assertThat(client.documentState(smokePage)).isEqualTo(GbrainDocumentState.STALE);
 
-		respond("get_page", "{\"slug\":\"" + SLUG + "\",\"title\":\"Foreign\",\"type\":\"note\"}");
-		assertThat(client.getDocument("item-1").orElseThrow())
-				.isEqualTo(new GbrainStoredDocument(SLUG, "Foreign", "note", null, null, null));
+		respondFixture("get_page", "get-page-response",
+				page -> ((ObjectNode) page.get("frontmatter")).put("knowledgebridge_digest",
+						smokePage.contentDigest()));
+		assertThat(client.documentState(smokePage)).isEqualTo(GbrainDocumentState.CURRENT);
+
+		respondFixture("get_page", "get-page-deleted-response");
+		assertThat(client.documentState(smokePage)).isEqualTo(GbrainDocumentState.DELETED);
+
+		respondFixture("get_page", "get-page-not-found-response");
+		assertThat(client.documentState(smokePage)).isEqualTo(GbrainDocumentState.MISSING);
+	}
+
+	@Test
+	void getDocumentReportsSoftDeletion() {
+		respondFixture("get_page", "get-page-deleted-response");
+
+		GbrainStoredDocument stored = client.getDocument(FIXTURE_KEY).orElseThrow();
+
+		assertThat(stored.deleted()).isTrue();
+		assertThat(stored.deletedAt()).isEqualTo(Instant.parse("2026-10-01T22:58:52.440Z"));
 	}
 
 	@Test
 	void getDocumentMapsMissingPagesToEmpty() {
-		respondError("get_page", "page_not_found");
+		respondFixture("get_page", "get-page-not-found-response");
 
-		assertThat(client.getDocument("item-1")).isEmpty();
-		assertThat(client.documentState(document)).isEqualTo(GbrainDocumentState.MISSING);
+		assertThat(client.getDocument(FIXTURE_KEY)).isEmpty();
+	}
+
+	@Test
+	void getDocumentToleratesPagesWithoutKnowledgeBridgeMetadata() {
+		respondFixture("get_page", "get-page-response", page -> {
+			page.put("type", "note");
+			page.remove("deleted_at");
+			page.putObject("frontmatter").put("knowledgebridge_revision", "1");
+		});
+
+		assertThat(client.getDocument(FIXTURE_KEY).orElseThrow())
+				.isEqualTo(new GbrainStoredDocument(FIXTURE_SLUG, "Phase 1 Semantic Lighthouse", "note", null, null,
+						null));
 	}
 
 	@Test
 	void getDocumentRejectsOtherFailuresAndUnexpectedPages() {
 		respondError("get_page", "permission_denied");
-		assertCode(() -> client.getDocument("item-1"), GbrainErrorCode.UNAUTHORIZED);
+		assertCode(() -> client.getDocument(FIXTURE_KEY), GbrainErrorCode.UNAUTHORIZED);
 
-		respond("get_page", "{\"slug\":\"knowledgebridge/other\"}");
-		assertCode(() -> client.getDocument("item-1"), GbrainErrorCode.PROTOCOL);
+		respondFixture("get_page", "get-page-response", page -> page.put("slug", "knowledgebridge/other"));
+		assertCode(() -> client.getDocument(FIXTURE_KEY), GbrainErrorCode.PROTOCOL);
 
-		respond("get_page", page("x", "1", "\"yesterday\""));
-		assertCode(() -> client.getDocument("item-1"), GbrainErrorCode.PROTOCOL);
+		respondFixture("get_page", "get-page-deleted-response", page -> page.put("deleted_at", "yesterday"));
+		assertCode(() -> client.getDocument(FIXTURE_KEY), GbrainErrorCode.PROTOCOL);
 
 		assertCode(() -> client.getDocument("Not A Key"), GbrainErrorCode.VALIDATION);
 	}
 
 	@ParameterizedTest
 	@CsvSource({
-			"soft_deleted, DELETED",
-			"already_soft_deleted, ALREADY_DELETED"})
-	void deleteMapsGbrainStatuses(String status, GbrainDeleteResult expected) {
-		respond("delete_page", "{\"status\":\"" + status + "\",\"slug\":\"" + SLUG + "\"}");
+			"delete-page-response, DELETED",
+			"delete-page-already-deleted-response, ALREADY_DELETED"})
+	void deleteMapsCapturedStatuses(String fixtureName, GbrainDeleteResult expected) {
+		respondFixture("delete_page", fixtureName);
 
-		assertThat(client.deleteDocument("item-1")).isEqualTo(expected);
+		assertThat(client.deleteDocument(FIXTURE_KEY)).isEqualTo(expected);
 		ObjectNode arguments = (ObjectNode) server.toolCalls().get(0).json().path("params").path("arguments");
-		assertThat(arguments.path("slug").asString()).isEqualTo(SLUG);
+		assertThat(arguments.path("slug").asString()).isEqualTo(FIXTURE_SLUG);
 		assertThat(arguments.path("source_id").asString()).isEqualTo("knowledgebridge");
 	}
 
 	@Test
 	void deleteHandlesMissingUnexpectedAndFailedCalls() {
-		respondError("delete_page", "page_not_found");
-		assertThat(client.deleteDocument("item-1")).isEqualTo(GbrainDeleteResult.NOT_FOUND);
+		// delete_page and get_page raise the same OperationError page_not_found envelope.
+		respondFixture("delete_page", "get-page-not-found-response");
+		assertThat(client.deleteDocument(FIXTURE_KEY)).isEqualTo(GbrainDeleteResult.NOT_FOUND);
 
-		respond("delete_page", "{\"status\":\"purged\"}");
-		assertCode(() -> client.deleteDocument("item-1"), GbrainErrorCode.PROTOCOL);
+		respondFixture("delete_page", "delete-page-response", page -> page.put("status", "purged"));
+		assertCode(() -> client.deleteDocument(FIXTURE_KEY), GbrainErrorCode.PROTOCOL);
 
 		server.onMcp("tools/call:delete_page", request -> Response.empty(503));
-		assertCode(() -> client.deleteDocument("item-1"), GbrainErrorCode.UNAVAILABLE);
+		assertCode(() -> client.deleteDocument(FIXTURE_KEY), GbrainErrorCode.UNAVAILABLE);
 		assertThat(server.toolCalls()).hasSize(3);
 	}
 
 	@ParameterizedTest
 	@CsvSource({
-			"restored, RESTORED",
-			"already_active, ALREADY_ACTIVE"})
-	void restoreMapsGbrainStatuses(String status, GbrainRestoreResult expected) {
-		respond("restore_page", "{\"status\":\"" + status + "\",\"slug\":\"" + SLUG + "\"}");
+			"restore-page-response, RESTORED",
+			"restore-page-already-active-response, ALREADY_ACTIVE"})
+	void restoreMapsCapturedStatuses(String fixtureName, GbrainRestoreResult expected) {
+		respondFixture("restore_page", fixtureName);
 
-		assertThat(client.restoreDocument("item-1")).isEqualTo(expected);
+		assertThat(client.restoreDocument(FIXTURE_KEY)).isEqualTo(expected);
 	}
 
 	@Test
 	void restoreHandlesPurgedUnexpectedAndFailedCalls() {
-		respondError("restore_page", "page_not_found");
-		assertThat(client.restoreDocument("item-1")).isEqualTo(GbrainRestoreResult.NOT_FOUND);
+		respondFixture("restore_page", "get-page-not-found-response");
+		assertThat(client.restoreDocument(FIXTURE_KEY)).isEqualTo(GbrainRestoreResult.NOT_FOUND);
 
-		respond("restore_page", "{}");
-		assertCode(() -> client.restoreDocument("item-1"), GbrainErrorCode.PROTOCOL);
+		respondFixture("restore_page", "restore-page-response", page -> page.remove("status"));
+		assertCode(() -> client.restoreDocument(FIXTURE_KEY), GbrainErrorCode.PROTOCOL);
 
 		respondError("restore_page", "permission_denied");
-		assertCode(() -> client.restoreDocument("item-1"), GbrainErrorCode.UNAUTHORIZED);
+		assertCode(() -> client.restoreDocument(FIXTURE_KEY), GbrainErrorCode.UNAUTHORIZED);
 	}
 
 	private void respond(String tool, String payload) {
@@ -206,19 +243,24 @@ class McpGbrainClientTests {
 
 	private void respondError(String tool, String code) {
 		server.onMcp("tools/call:" + tool, request -> Response.sse(toolResult(request.rpcId(),
-				"{\"error\":\"" + code + "\",\"message\":\"Page not found: " + SLUG + "\"}", true)));
+				"{\"error\":\"" + code + "\",\"message\":\"denied\"}", true)));
 	}
 
-	/** Shape of get_page for a remote caller: the page row plus tags, with frontmatter as parsed by gbrain. */
-	private static String page(String digest, String revision, String deletedAt) {
-		return """
-				{"id":12,"slug":"%s","type":"policy","title":"Travel Policy","compiled_truth":"# Travel\\nBook early.\\n",
-				"timeline":"","frontmatter":{"title":"Travel Policy","type":"policy","knowledgebridge_id":"item-1",
-				"knowledgebridge_owner":"7","knowledgebridge_revision":%s,"knowledgebridge_digest":"%s"},
-				"content_hash":"abc","created_at":"2026-09-01T12:00:01.000Z","updated_at":"2026-09-02T08:30:01.000Z",
-				"deleted_at":%s,"source_id":"knowledgebridge","tags":[]}
-				"""
-				.formatted(SLUG, revision, digest, deletedAt);
+	private void respondFixture(String tool, String fixtureName) {
+		respondFixture(tool, fixtureName, page -> {
+		});
+	}
+
+	/** Serves a captured fixture, optionally editing the tool payload encoded in its text block. */
+	private void respondFixture(String tool, String fixtureName, Consumer<ObjectNode> edit) {
+		server.onMcp("tools/call:" + tool, request -> {
+			JsonNode response = fixture(fixtureName + ".json", request.rpcId());
+			ObjectNode content = (ObjectNode) response.path("result").path("content").get(0);
+			ObjectNode payload = (ObjectNode) JSON.readTree(content.path("text").asString());
+			edit.accept(payload);
+			content.put("text", payload.toString());
+			return Response.sse(response);
+		});
 	}
 
 }

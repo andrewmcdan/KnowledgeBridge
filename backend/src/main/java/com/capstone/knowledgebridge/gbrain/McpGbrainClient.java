@@ -69,7 +69,8 @@ class McpGbrainClient implements GbrainClient {
 		JsonNode frontmatter = page.path("frontmatter");
 		JsonNode revision = frontmatter.path(GbrainPages.REVISION_KEY);
 		return Optional.of(new GbrainStoredDocument(slug, page.path("title").asString(null),
-				page.path("type").asString(null), revision.isIntegralNumber() ? revision.asLong() : null,
+				GbrainPages.documentType(page.path("type").asString(null)),
+				revision.isIntegralNumber() ? revision.asLong() : null,
 				frontmatter.path(GbrainPages.DIGEST_KEY).asString(null), deletedAt(page.path("deleted_at"))));
 	}
 
