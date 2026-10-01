@@ -41,6 +41,13 @@ public record GbrainDocument(String itemKey, String title, String documentType, 
 
 	public static final int MAX_TITLE_LENGTH = 255;
 
+	/** Written as code points so editors cannot silently strip or normalize the characters. */
+	private static final int LINE_SEPARATOR = 0x2028;
+
+	private static final int PARAGRAPH_SEPARATOR = 0x2029;
+
+	private static final String BYTE_ORDER_MARK = Character.toString(0xFEFF);
+
 	private static final Pattern ITEM_KEY = Pattern.compile("[a-z0-9][a-z0-9-]{0,63}");
 
 	private static final Pattern DOCUMENT_TYPE = Pattern.compile("[a-z0-9][a-z0-9_-]{0,63}");
@@ -98,7 +105,7 @@ public record GbrainDocument(String itemKey, String title, String documentType, 
 			throw invalid("body is required");
 		}
 		String normalized = body.replace("\r\n", "\n").replace('\r', '\n');
-		if (normalized.startsWith("﻿")) {
+		if (normalized.startsWith(BYTE_ORDER_MARK)) {
 			normalized = normalized.substring(1);
 		}
 		normalized = normalized.stripTrailing();
@@ -126,8 +133,8 @@ public record GbrainDocument(String itemKey, String title, String documentType, 
 	}
 
 	private static boolean isUnsafe(int codePoint) {
-		return Character.isISOControl(codePoint) || codePoint == '' || codePoint == ''
-				|| codePoint == '﻿';
+		return Character.isISOControl(codePoint) || codePoint == LINE_SEPARATOR || codePoint == PARAGRAPH_SEPARATOR
+				|| codePoint == BYTE_ORDER_MARK.codePointAt(0);
 	}
 
 	private static GbrainException invalid(String message) {
