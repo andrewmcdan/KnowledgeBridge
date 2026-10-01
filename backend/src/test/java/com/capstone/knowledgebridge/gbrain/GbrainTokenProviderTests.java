@@ -90,7 +90,7 @@ class GbrainTokenProviderTests {
 		GbrainProperties configured = server.properties();
 		GbrainProperties unprovisioned = new GbrainProperties(true, configured.baseUrl(), "", "",
 				configured.oauthTokenUrl(), configured.connectTimeout(), configured.readTimeout(),
-				configured.synthesisTimeout(), configured.maxResponseSize(), 3, configured.retryMaxBackoff());
+				configured.synthesisTimeout(), configured.maxResponseSize(), 3, configured.retryMaxBackoff(), null);
 
 		assertCode(() -> provider(unprovisioned).accessToken(), GbrainErrorCode.CONFIGURATION);
 		assertThat(server.requests()).isEmpty();

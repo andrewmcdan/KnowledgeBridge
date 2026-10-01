@@ -9,7 +9,8 @@ import org.springframework.util.unit.DataSize;
 /**
  * Validated gbrain connection settings. Defaults live in application.properties; this record rejects values that would
  * make the transport unsafe or unbounded. Missing OAuth credentials are allowed at startup so the application can run
- * before provisioning; calls then fail with {@link GbrainErrorCode#CONFIGURATION}.
+ * before provisioning; calls then fail with {@link GbrainErrorCode#CONFIGURATION}. {@link Mode#IN_MEMORY} replaces
+ * gbrain with a local stand-in for development when the engine is unavailable.
  */
 @ConfigurationProperties("knowledgebridge.gbrain")
 public record GbrainProperties(
@@ -23,11 +24,20 @@ public record GbrainProperties(
 		Duration synthesisTimeout,
 		DataSize maxResponseSize,
 		int retryMaxAttempts,
-		Duration retryMaxBackoff) {
+		Duration retryMaxBackoff,
+		Mode mode) {
+
+	public enum Mode {
+		/** Index content in gbrain through MCP. */
+		MCP,
+		/** Keep pages in process memory; nothing is indexed or searchable. */
+		IN_MEMORY
+	}
 
 	static final int MAX_RETRY_ATTEMPTS = 5;
 
 	public GbrainProperties {
+		mode = mode == null ? Mode.MCP : mode;
 		requireHttpUrl("base-url", baseUrl);
 		requireHttpUrl("oauth-token-url", oauthTokenUrl);
 		requirePositive("connect-timeout", connectTimeout);
@@ -61,7 +71,8 @@ public record GbrainProperties(
 				+ ", oauthClientSecret=" + (isPresent(oauthClientSecret) ? "<redacted>" : "<unset>")
 				+ ", oauthTokenUrl=" + oauthTokenUrl + ", connectTimeout=" + connectTimeout + ", readTimeout="
 				+ readTimeout + ", synthesisTimeout=" + synthesisTimeout + ", maxResponseSize=" + maxResponseSize
-				+ ", retryMaxAttempts=" + retryMaxAttempts + ", retryMaxBackoff=" + retryMaxBackoff + "]";
+				+ ", retryMaxAttempts=" + retryMaxAttempts + ", retryMaxBackoff=" + retryMaxBackoff + ", mode=" + mode
+				+ "]";
 	}
 
 	private URI endpoint(String path) {

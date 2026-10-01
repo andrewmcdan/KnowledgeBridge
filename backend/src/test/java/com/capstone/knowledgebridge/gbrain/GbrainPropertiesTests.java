@@ -35,7 +35,7 @@ class GbrainPropertiesTests {
 	void rejectsUnsafeOrInvalidUrls(String url) {
 		assertInvalid(() -> properties(URI.create(url)), "base-url");
 		assertInvalid(() -> new GbrainProperties(true, BASE, null, null, URI.create(url), TIMEOUT, TIMEOUT, TIMEOUT,
-				DataSize.ofMegabytes(1), 3, TIMEOUT), "oauth-token-url");
+				DataSize.ofMegabytes(1), 3, TIMEOUT, null), "oauth-token-url");
 	}
 
 	@Test
@@ -56,9 +56,9 @@ class GbrainPropertiesTests {
 	@Test
 	void rejectsUnboundedResponsesAndRetryCounts() {
 		assertInvalid(() -> new GbrainProperties(true, BASE, null, null, TOKEN, TIMEOUT, TIMEOUT, TIMEOUT, null, 3,
-				TIMEOUT), "max-response-size");
+				TIMEOUT, null), "max-response-size");
 		assertInvalid(() -> new GbrainProperties(true, BASE, null, null, TOKEN, TIMEOUT, TIMEOUT, TIMEOUT,
-				DataSize.ofBytes(0), 3, TIMEOUT), "max-response-size");
+				DataSize.ofBytes(0), 3, TIMEOUT, null), "max-response-size");
 		assertInvalid(() -> withAttempts(0), "retry-max-attempts");
 		assertInvalid(() -> withAttempts(GbrainProperties.MAX_RETRY_ATTEMPTS + 1), "retry-max-attempts");
 		assertThat(withAttempts(GbrainProperties.MAX_RETRY_ATTEMPTS).retryMaxAttempts()).isEqualTo(5);
@@ -77,28 +77,28 @@ class GbrainPropertiesTests {
 	void toStringNeverExposesTheClientSecret() {
 		assertThat(withCredentials("client-id", "super-secret").toString()).contains("client-id", "<redacted>")
 				.doesNotContain("super-secret");
-		assertThat(withCredentials("client-id", "").toString()).contains("oauthClientSecret=<unset>");
+		assertThat(withCredentials("client-id", "").toString()).contains("oauthClientSecret=<unset>", "mode=MCP");
 	}
 
 	private static GbrainProperties properties(URI baseUrl) {
 		return new GbrainProperties(true, baseUrl, null, null, TOKEN, TIMEOUT, TIMEOUT, TIMEOUT,
-				DataSize.ofMegabytes(1), 3, TIMEOUT);
+				DataSize.ofMegabytes(1), 3, TIMEOUT, null);
 	}
 
 	private static GbrainProperties withDurations(Duration connect, Duration read, Duration synthesis,
 			Duration backoff) {
 		return new GbrainProperties(true, BASE, null, null, TOKEN, connect, read, synthesis, DataSize.ofMegabytes(1),
-				3, backoff);
+				3, backoff, null);
 	}
 
 	private static GbrainProperties withAttempts(int attempts) {
 		return new GbrainProperties(true, BASE, null, null, TOKEN, TIMEOUT, TIMEOUT, TIMEOUT,
-				DataSize.ofMegabytes(1), attempts, TIMEOUT);
+				DataSize.ofMegabytes(1), attempts, TIMEOUT, null);
 	}
 
 	private static GbrainProperties withCredentials(String clientId, String clientSecret) {
 		return new GbrainProperties(true, BASE, clientId, clientSecret, TOKEN, TIMEOUT, TIMEOUT, TIMEOUT,
-				DataSize.ofMegabytes(1), 3, TIMEOUT);
+				DataSize.ofMegabytes(1), 3, TIMEOUT, null);
 	}
 
 	private static void assertInvalid(ThrowingCallable call, String property) {

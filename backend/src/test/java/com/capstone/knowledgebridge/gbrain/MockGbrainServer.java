@@ -77,7 +77,7 @@ final class MockGbrainServer implements AutoCloseable {
 	GbrainProperties properties(boolean enabled, int retryMaxAttempts, Duration retryMaxBackoff) {
 		return new GbrainProperties(enabled, baseUrl(), "client-id", "client-secret-value",
 				baseUrl().resolve("/token"), Duration.ofSeconds(1), Duration.ofMillis(500), Duration.ofSeconds(3),
-				DataSize.ofKilobytes(64), retryMaxAttempts, retryMaxBackoff);
+				DataSize.ofKilobytes(64), retryMaxAttempts, retryMaxBackoff, null);
 	}
 
 	void on(String path, Function<Request, Response> handler) {

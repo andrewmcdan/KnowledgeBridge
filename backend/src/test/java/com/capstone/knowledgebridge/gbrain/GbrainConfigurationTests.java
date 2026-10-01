@@ -38,7 +38,26 @@ class GbrainConfigurationTests {
 					assertThat(properties.hasCredentials()).isFalse();
 					assertThat(context).hasSingleBean(GbrainMcpClient.class);
 					assertThat(context).hasSingleBean(GbrainTokenProvider.class);
+					assertThat(context.getBean(GbrainClient.class)).isInstanceOf(McpGbrainClient.class);
 					assertThat(context.getBean(GbrainHealthClient.class).check()).isEqualTo(GbrainHealth.disabled());
+				});
+	}
+
+	@Test
+	void inMemoryModeReplacesGbrainForLocalDevelopment() {
+		runner.withPropertyValues("knowledgebridge.gbrain.mode=in-memory",
+				"knowledgebridge.gbrain.base-url=http://gbrain:3131",
+				"knowledgebridge.gbrain.oauth-token-url=http://gbrain:3131/token",
+				"knowledgebridge.gbrain.connect-timeout=PT2S",
+				"knowledgebridge.gbrain.read-timeout=PT30S",
+				"knowledgebridge.gbrain.synthesis-timeout=PT120S",
+				"knowledgebridge.gbrain.max-response-size=4MB",
+				"knowledgebridge.gbrain.retry-max-attempts=3",
+				"knowledgebridge.gbrain.retry-max-backoff=PT5S")
+				.run(context -> {
+					assertThat(context.getBean(GbrainProperties.class).mode())
+							.isEqualTo(GbrainProperties.Mode.IN_MEMORY);
+					assertThat(context.getBean(GbrainClient.class)).isInstanceOf(InMemoryGbrainClient.class);
 				});
 	}
 
