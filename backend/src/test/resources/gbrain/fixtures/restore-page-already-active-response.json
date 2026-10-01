@@ -1,0 +1,12 @@
+{
+    "result": {
+        "content": [
+            {
+                "type": "text",
+                "text": "{\n  \"status\": \"already_active\",\n  \"slug\": \"knowledgebridge/phase-1-protocol-spike\",\n  \"source_id\": \"knowledgebridge\"\n}"
+            }
+        ]
+    },
+    "jsonrpc": "2.0",
+    "id": 12
+}

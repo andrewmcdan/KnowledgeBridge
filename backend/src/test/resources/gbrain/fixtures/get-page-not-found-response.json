@@ -1,0 +1,13 @@
+{
+    "result": {
+        "content": [
+            {
+                "type": "text",
+                "text": "{\n  \"error\": \"page_not_found\",\n  \"message\": \"Page not found: knowledgebridge/phase-1-missing-page\",\n  \"suggestion\": \"Check the slug or use fuzzy: true\"\n}"
+            }
+        ],
+        "isError": true
+    },
+    "jsonrpc": "2.0",
+    "id": 13
+}

@@ -1,0 +1,12 @@
+{
+    "result": {
+        "content": [
+            {
+                "type": "text",
+                "text": "{\n  \"status\": \"soft_deleted\",\n  \"slug\": \"knowledgebridge/phase-1-protocol-spike\",\n  \"source_id\": \"knowledgebridge\",\n  \"recoverable_until\": \"now + 72h via restore_page\",\n  \"write_through\": {\n    \"removed\": false,\n    \"skipped\": \"no_repo_configured\"\n  }\n}"
+            }
+        ]
+    },
+    "jsonrpc": "2.0",
+    "id": 8
+}

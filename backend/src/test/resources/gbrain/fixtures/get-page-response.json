@@ -1,0 +1,12 @@
+{
+    "result": {
+        "content": [
+            {
+                "type": "text",
+                "text": "{\n  \"id\": 1,\n  \"slug\": \"knowledgebridge/phase-1-protocol-spike\",\n  \"type\": \"knowledgebridge_smoke_test\",\n  \"title\": \"Phase 1 Semantic Lighthouse\",\n  \"compiled_truth\": \"The obsidian lighthouse protocol authorizes blue herons to audit quarterly procurement records. This synthetic sentence exists only to verify semantic retrieval.\",\n  \"timeline\": \"\",\n  \"frontmatter\": {\n    \"knowledgebridge_id\": \"phase-1-protocol-spike\",\n    \"knowledgebridge_owner\": \"smoke-test\",\n    \"knowledgebridge_digest\": \"smoke-test-digest\",\n    \"knowledgebridge_revision\": 1,\n    \"knowledgebridge_created_at\": \"2026-09-30T00:00:00Z\",\n    \"knowledgebridge_updated_at\": \"2026-09-30T00:00:00Z\"\n  },\n  \"content_hash\": \"841d6cd3b00097aa24fa05547c2c3d7262ec0706aa6fa38c54df954c7d0902fc\",\n  \"created_at\": \"2026-10-01T22:58:48.887Z\",\n  \"updated_at\": \"2026-10-01T22:58:48.887Z\",\n  \"deleted_at\": null,\n  \"effective_date\": \"2026-10-01T22:58:48.890Z\",\n  \"effective_date_source\": \"fallback\",\n  \"source_kind\": \"mcp:put_page\",\n  \"source_uri\": null,\n  \"ingested_via\": \"mcp:put_page\",\n  \"ingested_at\": \"2026-10-01T22:58:48.892Z\",\n  \"contextual_retrieval_mode\": \"none\",\n  \"source_id\": \"knowledgebridge\",\n  \"tags\": []\n}"
+            }
+        ]
+    },
+    "jsonrpc": "2.0",
+    "id": 7
+}

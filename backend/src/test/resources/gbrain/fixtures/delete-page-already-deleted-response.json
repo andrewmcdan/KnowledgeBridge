@@ -1,0 +1,12 @@
+{
+    "result": {
+        "content": [
+            {
+                "type": "text",
+                "text": "{\n  \"status\": \"already_soft_deleted\",\n  \"slug\": \"knowledgebridge/phase-1-protocol-spike\",\n  \"source_id\": \"knowledgebridge\",\n  \"deleted_at\": \"2026-10-01T22:58:52.440Z\"\n}"
+            }
+        ]
+    },
+    "jsonrpc": "2.0",
+    "id": 9
+}

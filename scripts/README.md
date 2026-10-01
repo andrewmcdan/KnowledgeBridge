@@ -28,6 +28,16 @@ After PostgreSQL and gbrain have been initialized, provision the source-bound ba
 
 The script stores the generated client id and one-time secret in the ignored root `.env`. When rotating credentials, it registers and saves the replacement before revoking the previous client id.
 
+On Linux or macOS, use the Bash equivalents (they need `curl` and `jq`). `provision-gbrain.sh` also creates the database-only `knowledgebridge` source if it does not exist yet:
+
+```bash
+docker compose up -d --build --wait gbrain
+bash ./scripts/provision-gbrain.sh
+bash ./scripts/test-gbrain-mcp.sh                     # --keep-smoke-page, --capture-fixtures
+```
+
+If another project already uses host port 5432, set `POSTGRES_PORT` (for example `5433`) in `.env`; gbrain reaches PostgreSQL over the Compose network either way.
+
 Start gbrain and run the live protocol/embedding smoke test:
 
 ```powershell
@@ -35,4 +45,12 @@ docker compose up -d --build --wait gbrain
 .\scripts\test-gbrain-mcp.ps1
 ```
 
-The smoke test negotiates MCP, verifies source/scopes and required tools, writes a synthetic page, retrieves it using a semantic paraphrase, requires `vector_enabled: true`, synthesizes a cited answer, and soft-deletes the page. Pass `-KeepSmokePage` only when inspecting the page manually afterward.
+The smoke test negotiates MCP, verifies source/scopes and required tools, writes a synthetic page, retrieves it using a semantic paraphrase, requires `vector_enabled: true`, and synthesizes a cited answer. It then exercises the page lifecycle the backend adapter depends on: `get_page`, `delete_page` (twice), `get_page` of the deleted page, `restore_page` (twice), and `get_page` of a missing slug. Finally it soft-deletes the page. Pass `-KeepSmokePage` only when inspecting the page manually afterward.
+
+To refresh the backend test fixtures from the live server, add `-CaptureFixtures` (`--capture-fixtures` in Bash):
+
+```powershell
+.\scripts\test-gbrain-mcp.ps1 -CaptureFixtures
+```
+
+This writes the lifecycle responses to `backend/src/test/resources/gbrain/fixtures/`. Values named `instructions`, `path`, `source_path`, and `source_uri` are replaced with `<sanitized>`. Review the diff before committing; the fixtures contain only the synthetic smoke page.
