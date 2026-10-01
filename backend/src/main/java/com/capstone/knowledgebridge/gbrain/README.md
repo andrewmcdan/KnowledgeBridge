@@ -10,7 +10,7 @@ The repository currently builds unmodified gbrain revision `a6be012a3bcfac42e279
 - `GET /health` is unauthenticated and confirms service/database health only. It does not prove that authentication, embeddings, or individual tools work.
 - MCP calls require a bearer credential. The Phase 1 spike showed that legacy tokens cannot be source-bound, so the backend uses an operator-provisioned OAuth client-credentials grant and short-lived access tokens.
 - The container now initializes with an explicit OpenRouter embedding model and dimension. Existing installations still require a deliberate migration when their stored vector width differs.
-- The backend receives `GBRAIN_BASE_URL`, but no Java code currently consumes it.
+- The Phase 2 transport consumes `knowledgebridge.gbrain.*` (including `GBRAIN_BASE_URL`), but no application service calls it yet.
 - Remote `put_page` calls save and chunk content, but upstream deliberately skips automatic link and timeline extraction for untrusted MCP writers.
 - gbrain page deletion is soft deletion. KnowledgeBridge must not claim that a permanent-delete operation physically erased engine data until that behavior is verified against the pinned revision.
 
@@ -70,20 +70,24 @@ The OAuth client should:
 
 Administrative diagnostics should use a separate credential rather than expanding the normal application token. The adapter should call `whoami` during a deployment smoke test to verify the effective source and scopes.
 
-## Proposed package design
+## Package design
 
 Use Spring's synchronous `RestClient`, which is already available through the WebMVC stack. Do not add an MCP SDK unless direct JSON-RPC proves insufficient; the subset needed by KnowledgeBridge is small and keeping it explicit reduces dependency and protocol complexity.
 
 ```text
 gbrain/
-  GbrainClient.java                  application-facing interface
-  GbrainProperties.java              validated URL, token, and timeout settings
-  GbrainMcpClient.java               MCP/JSON-RPC transport implementation
+  GbrainClient.java                  application-facing interface (Phase 3)
+  GbrainConfiguration.java           bean wiring; nothing contacts gbrain at startup
+  GbrainProperties.java              validated URL, credential, size, retry, and timeout settings
+  GbrainTokenProvider.java           cached OAuth client-credentials tokens
+  GbrainMcpClient.java               MCP/JSON-RPC transport, capability discovery, retry policy
   GbrainHealthClient.java            unauthenticated health probe
-  GbrainException.java               stable adapter exception hierarchy
+  GbrainHttpSupport.java             timeouts, bounded bodies, HTTP/transport error classification
+  GbrainTool.java                    required tool names with retry and timeout policy
+  GbrainException.java               single adapter exception carrying a GbrainErrorCode
   GbrainErrorCode.java               UNAVAILABLE, UNAUTHORIZED, RATE_LIMITED, ...
   model/                              application-owned adapter results
-  mcp/                                JSON-RPC and MCP wire records only
+  mcp/                                JSON-RPC and MCP wire records and the SSE response reader
 ```
 
 `GbrainClient` should expose intent-oriented operations rather than a generic public `callTool` method:
@@ -189,10 +193,14 @@ knowledgebridge.gbrain.oauth-client-secret=${GBRAIN_OAUTH_CLIENT_SECRET:}
 knowledgebridge.gbrain.oauth-token-url=${GBRAIN_OAUTH_TOKEN_URL:http://localhost:3131/token}
 knowledgebridge.gbrain.connect-timeout=${GBRAIN_CONNECT_TIMEOUT:PT2S}
 knowledgebridge.gbrain.read-timeout=${GBRAIN_READ_TIMEOUT:PT30S}
+knowledgebridge.gbrain.synthesis-timeout=${GBRAIN_SYNTHESIS_TIMEOUT:PT120S}
+knowledgebridge.gbrain.max-response-size=${GBRAIN_MAX_RESPONSE_SIZE:4MB}
+knowledgebridge.gbrain.retry-max-attempts=${GBRAIN_RETRY_MAX_ATTEMPTS:3}
+knowledgebridge.gbrain.retry-max-backoff=${GBRAIN_RETRY_MAX_BACKOFF:PT5S}
 knowledgebridge.gbrain.enabled=${GBRAIN_ENABLED:true}
 ```
 
-Long-running synthesis should receive a separate, larger timeout rather than increasing every adapter call. Startup should not fail solely because gbrain is temporarily unavailable, but readiness and admin diagnostics must report the degraded state accurately.
+Long-running synthesis receives a separate, larger timeout rather than increasing every adapter call. Startup should not fail solely because gbrain is temporarily unavailable, but readiness and admin diagnostics must report the degraded state accurately.
 
 ## Testing strategy
 
@@ -258,10 +266,21 @@ Phase 1 findings:
 
 ### Phase 2: transport foundation
 
-- Implement properties, JSON-RPC records, `RestClient` transport, capability discovery, typed errors, timeouts, and logging.
-- Add unit and component tests before connecting application services.
+- [x] Implement properties, JSON-RPC records, `RestClient` transport, capability discovery, typed errors, timeouts, and logging.
+- [x] Add unit and component tests before connecting application services.
 
-Exit criterion: all transport behavior is deterministic against fixtures and the mock server.
+Exit criterion met on October 1, 2026: transport behavior is covered deterministically by the Phase 1 fixtures and a local JDK `HttpServer` mock of gbrain (`MockGbrainServer`), with 100% line and branch coverage. No live gbrain call was made in this phase.
+
+Phase 2 decisions:
+
+- `GbrainMcpClient` initializes lazily, validates protocol `2025-03-26`, server name `gbrain`, and pinned server version `0.50.0.0` (a different version fails with `CONFIGURATION` until the upgrade is retested), then sends `notifications/initialized`. The pinned server is stateless, so no `Mcp-Session-Id` handling is needed.
+- `tools/list` (with cursor pagination) runs on the first tool call or an explicit `discoverCapabilities()` and is cached. A tool missing from the discovered surface fails closed with `CONFIGURATION` before any request is sent.
+- The generic `callTool` is package-private and accepts only the `GbrainTool` enum, so tool names and raw JSON stay inside the package.
+- Retry policy: an HTTP 401 refreshes the token once for any call because gbrain rejects it before dispatch. Otherwise only `whoami`, `get_page`, `search`, `initialize`, and `tools/list` retry `RATE_LIMITED`, `UNAVAILABLE`, and `TIMEOUT`, with 250 ms doubling backoff, `Retry-After` delta-seconds, and a cap; a longer `Retry-After` fails immediately. Writes and `synthesize` are never retried by the transport.
+- The JDK `HttpClient` is used under `RestClient` because it never silently re-sends a POST; redirects are disabled so bearer tokens cannot be forwarded.
+- HTTP 404 from `/mcp` is `CONFIGURATION` (wrong URL or deployment), not `NOT_FOUND`. Tool `isError` envelopes are classified from gbrain's `error` field (`page_not_found` → `NOT_FOUND`, `invalid_params` → `VALIDATION`, `permission_denied` → `UNAUTHORIZED`, and so on); unknown codes are `ENGINE`.
+- Exceptions and logs never contain tokens, the client secret, request or response bodies, or server-supplied error messages. `GbrainException.upstreamCode()` exposes only gbrain's machine-readable error code.
+- Readiness/actuator integration of `GbrainHealthClient` is deferred to the admin diagnostics work.
 
 ### Phase 3: ingestion integration
 
