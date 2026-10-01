@@ -174,6 +174,8 @@ Escape frontmatter values safely and reject user-supplied fields that could over
 
 As implemented, `GbrainPages.render` writes exactly these frontmatter keys: `title`, `type`, `knowledgebridge_id`, `knowledgebridge_owner`, `knowledgebridge_revision`, `knowledgebridge_created_at`, `knowledgebridge_updated_at`, and `knowledgebridge_digest`. All strings are YAML double-quoted, and `GbrainDocument` rejects control and line-separator characters in them. The key `id` is deliberately never written because gbrain deduplicates writes on `frontmatter.id`. Any frontmatter inside an uploaded file stays in the body as text, so it cannot set `id`, `visibility`, quarantine, or embedding controls.
 
+The page `type` is the application document type with a `knowledgebridge_` prefix, for example `knowledgebridge_policy`. gbrain page types are not inert. In the pinned base schema, `person` and `company` are entities with expert routing, `note` and `meeting` are facts-extractable, `meeting` changes link verbs, and `person` gets a surname boost in retrieval. Namespacing keeps an application type such as `meeting` from selecting that behavior. gbrain stores undeclared types literally and only records an advisory `put_page:unknown_type` schema event. Phase 4 type filters must use the prefixed value. `getDocument` strips the prefix again.
+
 `knowledgebridge_digest` is the SHA-256 of every indexed field. `getDocument` reads it back, and `documentState` compares it with the expected document to report `CURRENT`, `STALE`, `MISSING`, or `DELETED`.
 
 ## Error and retry contract
@@ -294,15 +296,24 @@ Phase 2 decisions:
 - Exceptions and logs never contain tokens, the client secret, request or response bodies, or server-supplied error messages. `GbrainException.upstreamCode()` exposes only gbrain's machine-readable error code.
 - Readiness/actuator integration of `GbrainHealthClient` is deferred to the admin diagnostics work.
 
-### Phase 3: ingestion integration
+### Phase 3: ingestion adapter
 
 - [x] Implement deterministic document rendering and `put_page`/read/delete/restore mappings.
-- [ ] Connect `IngestionService` while keeping status transitions and retry decisions outside the adapter. This is owned by the knowledge-items/ingestion work and depends on its `knowledge_item` schema.
-- [ ] Store the external slug only after a confirmed or reconciled write. The adapter provides the contract below; the ingestion service applies it.
+- [x] Provide the `GbrainClient` ingestion contract, reconciliation support, and an in-memory stand-in so ingestion can be built and tested without gbrain.
+- [x] Verify the page lifecycle against the live pinned server and test against the captured fixtures.
+
+Exit criterion met on October 1, 2026: the adapter exposes a stable ingestion contract, keeps status transitions and retry decisions outside the adapter, and its `put_page`/`get_page`/`delete_page`/`restore_page` mappings are verified live.
+
+### Ingestion service integration (knowledge-items/ingestion work)
+
+This work was split out of Phase 3 because it belongs to the knowledge-items/ingestion owners and depends on their `knowledge_item` schema. It is not complete.
+
+- [ ] Connect `IngestionService` to `GbrainClient`, following the hand-off below.
+- [ ] Store the external slug only after a confirmed or reconciled write.
 
 Exit criterion: manual creation and Markdown upload reach gbrain, with visible completed/failed status and safe retry behavior.
 
-Adapter status (October 1, 2026): the `GbrainClient` ingestion contract, `McpGbrainClient`, and `InMemoryGbrainClient` are complete and covered by mock-server tests. `put_page` responses come from the Phase 1 live fixture. The `get_page`, `delete_page`, and `restore_page` response shapes are derived from the pinned revision's `src/core/ops/pages.ts` and still need a live capture.
+Adapter status (October 1, 2026): the `GbrainClient` ingestion contract, `McpGbrainClient`, and `InMemoryGbrainClient` are complete and covered by mock-server tests. `put_page` responses come from the Phase 1 live fixture. The `get_page`, `delete_page`, and `restore_page` responses were captured live on October 1, 2026 against the pinned server with `scripts/test-gbrain-mcp.sh --capture-fixtures`. That run passed with 83 tools, `vector_enabled: true`, an `ok` cited synthesis, and every lifecycle status. `McpGbrainClientTests` uses these fixtures: `get-page-response`, `get-page-deleted-response`, `get-page-not-found-response`, `delete-page-response`, `delete-page-already-deleted-response`, `restore-page-response`, and `restore-page-already-active-response`. The capture confirmed the source-derived shapes, with one detail: gbrain lifts `title` and `type` out of `frontmatter` into top-level fields. A NOT_FOUND from delete or restore was not captured separately; it uses the same `page_not_found` envelope as `get_page`.
 
 Ingestion hand-off:
 
