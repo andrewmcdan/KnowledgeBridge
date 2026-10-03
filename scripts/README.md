@@ -54,3 +54,13 @@ To refresh the backend test fixtures from the live server, add `-CaptureFixtures
 ```
 
 This writes the lifecycle responses to `backend/src/test/resources/gbrain/fixtures/`. Values named `instructions`, `path`, `source_path`, and `source_uri` are replaced with `<sanitized>`. Review the diff before committing; the fixtures contain only the synthetic smoke page.
+
+## Disposable live adapter test
+
+`test-gbrain-live.sh` checks the backend Java adapter end to end without leaving test data on this machine. It starts PostgreSQL and gbrain as a separate Compose project (`kb-gbrain-live`, gbrain on port `3132`, PostgreSQL not published), provisions a source-bound client inside that instance, and runs `gradlew liveTest`. It then always runs `docker compose down --volumes`, so the pages, logs, caches, and OAuth client are deleted with the instance. Your dev stack and root `.env` are not touched. Only the built image is kept, and it holds no test data.
+
+```bash
+bash ./scripts/test-gbrain-live.sh
+```
+
+Provider keys and model overrides come from `.env`, exactly as for the dev stack: `OPENROUTER_API_KEY` or `OPENAI_API_KEY`, with OpenRouter used when both are set. The test sends synthetic text to the embedding provider and makes one paid synthesis call. Copies held by the provider are outside what teardown can remove.

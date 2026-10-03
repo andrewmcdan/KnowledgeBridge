@@ -330,12 +330,24 @@ Ingestion hand-off:
 - [x] Implement `search` normalization.
 - [x] Add `synthesize` with citations, AI-generated labeling, gap signals, cost/usage hooks, and its own timeout.
 - [ ] Expose search and synthesis through the Spring API.
-- [ ] Verify both through the Java adapter against the live pinned server.
+- [x] Verify both through the Java adapter against the live pinned server.
 - [ ] Add `query` only if measured retrieval quality justifies its extra expansion cost.
 
 Exit criterion: the synthetic evaluation questions produce inspectable ranked results and cited answers through the Spring API.
 
-Adapter status (October 3, 2026): `search` and `synthesize` are mapped in `McpGbrainClient` and covered by mock-server tests built on the Phase 1 `search-response` and `synthesize-response` fixtures. The argument and response contracts were taken from the pinned source (`src/core/ops/search.ts` and `src/core/verbs.ts`). No live call has been made through the Java adapter yet.
+Adapter status (October 3, 2026): `search` and `synthesize` are mapped in `McpGbrainClient` and covered by mock-server tests built on the Phase 1 `search-response` and `synthesize-response` fixtures. The argument and response contracts were taken from the pinned source (`src/core/ops/search.ts` and `src/core/verbs.ts`).
+
+Live verification (October 3, 2026): `GbrainLiveTests` passed through the Java adapter against a disposable pinned instance started by `scripts/test-gbrain-live.sh`, which deletes the instance and its volumes afterwards. The run used `openai:text-embedding-3-small` at 1536 dimensions and `openai:gpt-4o-mini` for synthesis. It verified:
+
+- the scoped identity (`knowledgebridge` source, `read` and `write` scopes only) and the required tools;
+- write, unchanged rewrite, and `CURRENT` reconciliation;
+- a semantic-paraphrase search with healthy retrieval evidence;
+- that the `types` filter excludes the page under another type;
+- a `SYNTHESIZED` answer citing the page;
+- replacement (the older document reconciles as `STALE`);
+- soft delete hiding the page from search, and restore.
+
+The live test is tagged `live`, is excluded from `test` and coverage, and runs with `gradlew liveTest`.
 
 Phase 4 decisions:
 
