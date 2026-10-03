@@ -78,7 +78,7 @@ Use Spring's synchronous `RestClient`, which is already available through the We
 ```text
 gbrain/
   GbrainClient.java                  application-facing interface
-  McpGbrainClient.java               GbrainClient over MCP: put/get/delete/restore page mappings
+  McpGbrainClient.java               GbrainClient over MCP: page, search, and synthesis mappings
   InMemoryGbrainClient.java          GbrainClient stand-in for GBRAIN_MODE=in-memory
   GbrainPages.java                   slug mapping and deterministic Markdown/frontmatter rendering
   GbrainConfiguration.java           bean wiring; nothing contacts gbrain at startup
@@ -94,7 +94,7 @@ gbrain/
   mcp/                                JSON-RPC and MCP wire records and the SSE response reader
 ```
 
-`GbrainClient` exposes intent-oriented operations rather than a generic public `callTool` method. The ingestion operations exist now; search and synthesis are added in Phase 4:
+`GbrainClient` exposes intent-oriented operations rather than a generic public `callTool` method:
 
 ```java
 GbrainWriteResult upsertDocument(GbrainDocument document);
@@ -102,10 +102,11 @@ Optional<GbrainStoredDocument> getDocument(String itemKey);
 GbrainDocumentState documentState(GbrainDocument document);
 GbrainDeleteResult deleteDocument(String itemKey);
 GbrainRestoreResult restoreDocument(String itemKey);
-// Phase 4
-List<GbrainSearchHit> search(GbrainSearchRequest request);
+GbrainSearchResult search(GbrainSearchRequest request);
 GbrainSynthesisResult synthesize(GbrainSynthesisRequest request);
 ```
+
+`search` returns the hits together with a `GbrainRetrieval` record, not a bare list, so callers can tell a clean miss from a keyword-only or degraded search.
 
 Capability discovery stays on `GbrainMcpClient.discoverCapabilities()` because it describes the MCP deployment, not the document contract.
 
@@ -326,11 +327,26 @@ Ingestion hand-off:
 
 ### Phase 4: retrieval and synthesis
 
-- Implement `search` normalization first.
-- Add `synthesize` with citations, AI-generated labeling, gap signals, cost/usage hooks, and its own timeout.
-- Add `query` only if measured retrieval quality justifies its extra expansion cost.
+- [x] Implement `search` normalization.
+- [x] Add `synthesize` with citations, AI-generated labeling, gap signals, cost/usage hooks, and its own timeout.
+- [ ] Expose search and synthesis through the Spring API.
+- [ ] Verify both through the Java adapter against the live pinned server.
+- [ ] Add `query` only if measured retrieval quality justifies its extra expansion cost.
 
 Exit criterion: the synthetic evaluation questions produce inspectable ranked results and cited answers through the Spring API.
+
+Adapter status (October 3, 2026): `search` and `synthesize` are mapped in `McpGbrainClient` and covered by mock-server tests built on the Phase 1 `search-response` and `synthesize-response` fixtures. The argument and response contracts were taken from the pinned source (`src/core/ops/search.ts` and `src/core/verbs.ts`). No live call has been made through the Java adapter yet.
+
+Phase 4 decisions:
+
+- `search` always sends `source_id: knowledgebridge`. Type filters are sent as gbrain's `types` array, using the prefixed page types (`knowledgebridge_<type>`). Hits are returned in gbrain's ranked order with the item key, slug, title, unprefixed document type, chunk text, and fused score. A long item can produce several hits.
+- `_meta.retrieval` is required. A response without it fails as `PROTOCOL`, because otherwise a keyword-only result would look like semantic retrieval. `GbrainRetrieval` carries `vector_enabled`, `expansion_applied`, and the `degraded` stage and reason codes from gbrain's closed vocabulary. `healthy()` is true only when the vector arm ran and no stage degraded.
+- Hits and citations whose slug is outside `knowledgebridge/` are dropped, and only their count is logged. The client is source-bound, so such pages can only be operator-written content that does not map to a knowledge item.
+- `synthesize` sends only `question`. The pinned tool takes no `source_id` and scopes to the credential's source. `synthesis_status: ok` maps to `SYNTHESIZED`, and `extractive_fallback` (the model call failed, so the answer is quoted excerpts) maps to `EXTRACTIVE_FALLBACK`. Any other status is `PROTOCOL`. When gbrain has neither an answer nor excerpts, it returns an `unavailable` tool error, which becomes `UNAVAILABLE`.
+- Citations come from gbrain's `sources` list, deduplicated in order. The answer text keeps gbrain's inline `[knowledgebridge/<item-key>]` markers; mapping them to links is the API layer's job. Gaps, compose warnings, and the best-effort cost block (model, token counts, USD estimate, each nullable) are passed through.
+- `search` is retried on transient failures. `synthesize` uses the synthesis timeout and is never retried.
+- Query text is limited to 1,000 characters and questions to 2,000. Neither may contain NUL. Neither is ever logged.
+- `InMemoryGbrainClient` returns no hits with `vectorEnabled=false` and fails synthesis as `UNAVAILABLE` instead of inventing an answer.
 
 ### Phase 5: hardening
 
