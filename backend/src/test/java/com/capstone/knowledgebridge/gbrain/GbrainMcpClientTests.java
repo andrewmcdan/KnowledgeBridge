@@ -45,7 +45,7 @@ class GbrainMcpClientTests {
 		GbrainCapabilities second = client.discoverCapabilities();
 
 		assertThat(first.serverName()).isEqualTo("gbrain");
-		assertThat(first.serverVersion()).isEqualTo("0.50.0.0");
+		assertThat(first.serverVersion()).isEqualTo("0.60.37.0");
 		assertThat(first.protocolVersion()).isEqualTo("2025-03-26");
 		assertThat(first.tools()).containsExactlyInAnyOrder(MockGbrainServer.allTools());
 		assertThat(first.ready()).isTrue();
@@ -113,9 +113,9 @@ class GbrainMcpClientTests {
 
 	@ParameterizedTest
 	@CsvSource({
-			"2024-11-05, gbrain, 0.50.0.0, PROTOCOL",
-			"2025-03-26, other, 0.50.0.0, PROTOCOL",
-			"2025-03-26, gbrain, 0.51.0.0, CONFIGURATION"})
+			"2024-11-05, gbrain, 0.60.37.0, PROTOCOL",
+			"2025-03-26, other, 0.60.37.0, PROTOCOL",
+			"2025-03-26, gbrain, 0.50.0.0, CONFIGURATION"})
 	void initializeValidatesProtocolServerAndPinnedVersion(String protocol, String name, String version,
 			GbrainErrorCode expected) {
 		server.onMcp("initialize", request -> {
@@ -179,13 +179,20 @@ class GbrainMcpClientTests {
 			"source_binding_required, UNAUTHORIZED",
 			"missing_source_scope, UNAUTHORIZED",
 			"rate_limited, RATE_LIMITED",
+			"request_too_large, VALIDATION",
+			"write_pending, TIMEOUT",
+			"writer_lock_unavailable, UNAVAILABLE",
+			"writer_pool_capacity, UNAVAILABLE",
+			"owner_unavailable, UNAVAILABLE",
+			"queue_capacity, UNAVAILABLE",
+			"storage_error, UNAVAILABLE",
 			"unavailable, UNAVAILABLE",
 			"embedding_failed, UNAVAILABLE",
 			"database_error, UNAVAILABLE",
 			"unknown_tool, CONFIGURATION",
 			"unknown_operation, CONFIGURATION",
 			"config_error, CONFIGURATION",
-			"storage_error, ENGINE"})
+			"revision_conflict, ENGINE"})
 	void toolErrorsAreClassifiedFromGbrainErrorCodes(String upstream, GbrainErrorCode expected) {
 		server.onMcp("tools/call:delete_page", request -> Response.sse(toolResult(request.rpcId(),
 				"{\"error\":\"" + upstream + "\",\"message\":\"secret page content\"}", true)));

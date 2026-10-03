@@ -32,6 +32,12 @@ import tools.jackson.databind.JsonNode;
  * {@link GbrainClient} backed by the MCP transport. Response shapes follow the pinned revision's {@code put_page},
  * {@code get_page}, {@code delete_page}, {@code restore_page}, {@code search}, and {@code synthesize} operations;
  * anything else is a protocol failure.
+ *
+ * <p>
+ * Page writes use gbrain's coordinated write protocol with {@code force}: the application owns these pages, so each
+ * write replaces whatever revision gbrain holds, exactly as the reconciliation contract in {@link GbrainClient}
+ * assumes. Only a committed receipt is a success; a write still pending when gbrain stops waiting fails as
+ * {@link GbrainErrorCode#TIMEOUT}.
  */
 class McpGbrainClient implements GbrainClient {
 
@@ -46,9 +52,8 @@ class McpGbrainClient implements GbrainClient {
 	@Override
 	public GbrainWriteResult upsertDocument(GbrainDocument document) {
 		String slug = GbrainPages.slugFor(document.itemKey());
-		JsonNode payload = transport
-				.callTool(GbrainTool.PUT_PAGE, Map.of("slug", slug, "content", GbrainPages.render(document)))
-				.payload();
+		JsonNode payload = transport.callTool(GbrainTool.PUT_PAGE, Map.of("slug", slug, "content",
+				GbrainPages.render(document), "source_id", GbrainPages.SOURCE_ID, "force", true)).payload();
 		// gbrain can dedup a write onto another page; never report that as this item's write.
 		if (!slug.equals(payload.path("slug").asString(""))) {
 			throw new GbrainException(GbrainErrorCode.ENGINE, "gbrain put_page resolved to a different page");
@@ -95,11 +100,13 @@ class McpGbrainClient implements GbrainClient {
 	@Override
 	public GbrainDeleteResult deleteDocument(String itemKey) {
 		try {
-			return switch (writeStatus(GbrainTool.DELETE_PAGE, itemKey)) {
-				case "soft_deleted" -> GbrainDeleteResult.DELETED;
-				case "already_soft_deleted" -> GbrainDeleteResult.ALREADY_DELETED;
-				default -> throw unexpected("delete_page");
-			};
+			JsonNode receipt = write(GbrainTool.DELETE_PAGE, itemKey);
+			if (!"soft_deleted".equals(receipt.path("status").asString(""))) {
+				throw unexpected("delete_page");
+			}
+			return receipt.path("noop").asBoolean(false)
+					? GbrainDeleteResult.ALREADY_DELETED
+					: GbrainDeleteResult.DELETED;
 		} catch (GbrainException exception) {
 			return notFound(exception, GbrainDeleteResult.NOT_FOUND);
 		}
@@ -108,9 +115,10 @@ class McpGbrainClient implements GbrainClient {
 	@Override
 	public GbrainRestoreResult restoreDocument(String itemKey) {
 		try {
-			return switch (writeStatus(GbrainTool.RESTORE_PAGE, itemKey)) {
+			// Restoring an active page is a committed no-op that gbrain reports as skipped.
+			return switch (write(GbrainTool.RESTORE_PAGE, itemKey).path("status").asString("")) {
 				case "restored" -> GbrainRestoreResult.RESTORED;
-				case "already_active" -> GbrainRestoreResult.ALREADY_ACTIVE;
+				case "skipped" -> GbrainRestoreResult.ALREADY_ACTIVE;
 				default -> throw unexpected("restore_page");
 			};
 		} catch (GbrainException exception) {
@@ -143,9 +151,13 @@ class McpGbrainClient implements GbrainClient {
 			if (!hit.path("score").isNumber() || !hit.path("chunk_text").isString()) {
 				throw unexpected("search");
 			}
-			hits.add(new GbrainSearchHit(itemKey.get(), slug, hit.path("title").asString(null),
-					GbrainPages.documentType(hit.path("type").asString(null)), hit.path("chunk_text").asString(),
-					hit.path("score").asDouble()));
+			String documentType = GbrainPages.documentType(hit.path("type").asString(null));
+			// gbrain drops a type filter that matches no page and searches every type, so enforce it here.
+			if (!request.documentTypes().isEmpty() && !request.documentTypes().contains(documentType)) {
+				continue;
+			}
+			hits.add(new GbrainSearchHit(itemKey.get(), slug, hit.path("title").asString(null), documentType,
+					hit.path("chunk_text").asString(), hit.path("score").asDouble()));
 		}
 		warnForeignPages("search", foreign);
 		return new GbrainSearchResult(hits, retrieval(result.metadata().path("retrieval")));
@@ -201,7 +213,8 @@ class McpGbrainClient implements GbrainClient {
 					stage.path("reason").asString(null)));
 		}
 		return new GbrainRetrieval(retrieval.path("vector_enabled").asBoolean(false),
-				retrieval.path("expansion_applied").asBoolean(false), degraded);
+				retrieval.path("expansion_applied").asBoolean(false),
+				retrieval.path("projection_readiness").path("ready").asBoolean(true), degraded);
 	}
 
 	/** Reads an optional array of strings; any other shape is a protocol failure. */
@@ -233,12 +246,10 @@ class McpGbrainClient implements GbrainClient {
 		}
 	}
 
-	private String writeStatus(GbrainTool tool, String itemKey) {
-		return transport
-				.callTool(tool, Map.of("slug", GbrainPages.slugFor(itemKey), "source_id", GbrainPages.SOURCE_ID))
-				.payload()
-				.path("status")
-				.asString("");
+	private JsonNode write(GbrainTool tool, String itemKey) {
+		return transport.callTool(tool,
+				Map.of("slug", GbrainPages.slugFor(itemKey), "source_id", GbrainPages.SOURCE_ID, "force", true))
+				.payload();
 	}
 
 	private static <T> T notFound(GbrainException exception, T result) {

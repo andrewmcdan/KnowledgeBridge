@@ -1,13 +1,5 @@
 {
-    "jsonrpc": "2.0",
-    "id": 5,
     "result": {
-        "content": [
-            {
-                "type": "text",
-                "text": "[\n  {\n    \"slug\": \"knowledgebridge/phase-1-protocol-spike\",\n    \"page_id\": 1,\n    \"title\": \"Phase 1 Semantic Lighthouse\",\n    \"type\": \"knowledgebridge_smoke_test\",\n    \"chunk_text\": \"The obsidian lighthouse protocol authorizes blue herons to audit quarterly procurement records.\",\n    \"score\": 0.8152,\n    \"source_id\": \"knowledgebridge\",\n    \"evidence\": \"weak_semantic\",\n    \"id\": \"knowledgebridge/phase-1-protocol-spike\"\n  }\n]"
-            }
-        ],
         "_meta": {
             "retrieval": {
                 "returned_count": 1,
@@ -15,8 +7,20 @@
                 "vector_enabled": true,
                 "expansion_applied": false,
                 "cache": "disabled",
-                "degraded": []
+                "degraded": [],
+                "projection_readiness": {
+                    "status": "ready",
+                    "ready": true
+                }
             }
-        }
-    }
+        },
+        "content": [
+            {
+                "type": "text",
+                "text": "[\n  {\n    \"slug\": \"knowledgebridge/phase-1-protocol-spike\",\n    \"page_id\": 1,\n    \"title\": \"Phase 1 Semantic Lighthouse\",\n    \"type\": \"knowledgebridge_smoke_test\",\n    \"chunk_text\": \"The obsidian lighthouse protocol authorizes blue herons to audit quarterly procurement records. This synthetic sentence exists only to verify semantic retrieval.\",\n    \"chunk_source\": \"compiled_truth\",\n    \"chunk_id\": 1,\n    \"chunk_index\": 0,\n    \"score\": 0.7988870469269639,\n    \"stale\": false,\n    \"source_id\": \"knowledgebridge\",\n    \"effective_date\": \"2026-10-03\",\n    \"effective_date_source\": \"fallback\",\n    \"modality\": \"text\",\n    \"cosine\": 0.3296234897565466,\n    \"base_score\": 0.7988870469269639,\n    \"evidence\": \"weak_semantic\",\n    \"create_safety\": \"unknown\",\n    \"id\": \"gbrain-page:v1:WyJrbm93bGVkZ2VicmlkZ2UiLCJrbm93bGVkZ2VicmlkZ2UvcGhhc2UtMS1wcm90b2NvbC1zcGlrZSJd\"\n  }\n]"
+            }
+        ]
+    },
+    "jsonrpc": "2.0",
+    "id": 5
 }

@@ -30,7 +30,7 @@ import tools.jackson.databind.node.ObjectNode;
 
 /**
  * Local HTTP server that mimics the pinned gbrain endpoints so tests exercise the real RestClient transport. By default
- * it issues tokens, answers initialize and tools/list like revision a6be012a, and accepts the initialized notification;
+ * it issues tokens, answers initialize and tools/list like revision 109b9921, and accepts the initialized notification;
  * tests override individual paths or MCP methods.
  */
 final class MockGbrainServer implements AutoCloseable {

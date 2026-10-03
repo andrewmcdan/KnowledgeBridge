@@ -82,7 +82,7 @@ class InMemoryGbrainClient implements GbrainClient {
 
 	@Override
 	public GbrainSearchResult search(GbrainSearchRequest request) {
-		return new GbrainSearchResult(List.of(), new GbrainRetrieval(false, false, List.of()));
+		return new GbrainSearchResult(List.of(), new GbrainRetrieval(false, false, true, List.of()));
 	}
 
 	@Override

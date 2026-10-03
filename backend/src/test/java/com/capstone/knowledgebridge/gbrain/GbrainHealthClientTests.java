@@ -23,9 +23,9 @@ class GbrainHealthClientTests {
 	@Test
 	void reportsUpWithoutCredentials() {
 		server.on("/health",
-				request -> Response.json(200, "{\"status\":\"ok\",\"version\":\"0.50.0.0\",\"engine\":\"postgres\"}"));
+				request -> Response.json(200, "{\"status\":\"ok\",\"version\":\"0.60.37.0\",\"engine\":\"postgres\"}"));
 
-		assertThat(check()).isEqualTo(GbrainHealth.up("0.50.0.0"));
+		assertThat(check()).isEqualTo(GbrainHealth.up("0.60.37.0"));
 		assertThat(server.requests("/health").get(0).header("Authorization")).isNull();
 		assertThat(server.requests("/token")).isEmpty();
 	}

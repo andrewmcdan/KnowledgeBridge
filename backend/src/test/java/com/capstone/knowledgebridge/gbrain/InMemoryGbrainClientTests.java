@@ -69,7 +69,7 @@ class InMemoryGbrainClientTests {
 		client.upsertDocument(document(1, "Body"));
 
 		assertThat(client.search(new GbrainSearchRequest("Body", 10, Set.of())))
-				.isEqualTo(new GbrainSearchResult(List.of(), new GbrainRetrieval(false, false, List.of())));
+				.isEqualTo(new GbrainSearchResult(List.of(), new GbrainRetrieval(false, false, true, List.of())));
 	}
 
 	@Test

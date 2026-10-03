@@ -127,12 +127,14 @@ function Assert-ToolStatus {
     param(
         [Parameter(Mandatory)] $Response,
         [Parameter(Mandatory)] [string] $Tool,
-        [Parameter(Mandatory)] [string] $Expected
+        [Parameter(Mandatory)] [string] $Expected,
+        [Parameter(Mandatory)] [bool] $Noop
     )
 
-    $status = (Get-ToolPayload -Response $Response).status
-    if ($status -ne $Expected) {
-        throw "gbrain $Tool returned status '$status', expected '$Expected'."
+    # Asserts a committed write receipt's status and noop flag.
+    $receipt = Get-ToolPayload -Response $Response
+    if ($receipt.status -ne $Expected -or $receipt.noop -ne $Noop) {
+        throw "gbrain $Tool returned status '$($receipt.status)' (noop $($receipt.noop)), expected '$Expected' (noop $Noop)."
     }
 }
 
@@ -205,16 +207,34 @@ The obsidian lighthouse protocol authorizes blue herons to audit quarterly procu
 '@
 
 try {
-    $null = Invoke-GbrainTool -Id 4 -Name 'put_page' -Arguments @{ slug = $smokeSlug; content = $content }
-
-    $searchResponse = Invoke-GbrainTool -Id 5 -Name 'search' -Arguments @{
-        query = 'Which birds inspect purchasing documents every three months?'
-        limit = 5
+    # Page writes use the coordinated write protocol; force replaces whatever revision exists, as the adapter does.
+    $putResponse = Invoke-GbrainTool -Id 4 -Name 'put_page' -Arguments @{
+        slug = $smokeSlug
+        content = $content
         source_id = 'knowledgebridge'
+        force = $true
     }
-    $searchResults = $searchResponse.result.content[0].text | ConvertFrom-Json -Depth 100
-    if ($smokeSlug -notin @($searchResults | ForEach-Object { $_.slug })) {
-        throw 'Semantic paraphrase search did not return the smoke page.'
+    $put = Get-ToolPayload -Response $putResponse
+    if ($put.state -ne 'committed' -or $put.status -ne 'created_or_updated') {
+        throw 'put_page did not commit the smoke page.'
+    }
+    Save-Fixture -Name 'put-page-response' -Response $putResponse
+
+    # Embedding runs after the write commits, so poll briefly before requiring a semantic hit.
+    for ($attempt = 1; $attempt -le 20; $attempt++) {
+        $searchResponse = Invoke-GbrainTool -Id 5 -Name 'search' -Arguments @{
+            query = 'Which birds inspect purchasing documents every three months?'
+            limit = 5
+            source_id = 'knowledgebridge'
+        }
+        $searchResults = $searchResponse.result.content[0].text | ConvertFrom-Json -Depth 100
+        if ($smokeSlug -in @($searchResults | ForEach-Object { $_.slug })) {
+            break
+        }
+        if ($attempt -eq 20) {
+            throw 'Semantic paraphrase search did not return the smoke page within 20 seconds.'
+        }
+        Start-Sleep -Seconds 1
     }
     if ($searchResponse.result._meta.retrieval.vector_enabled -ne $true) {
         throw 'Search returned the page without proving vector retrieval was enabled.'
@@ -222,6 +242,7 @@ try {
     if (@($searchResponse.result._meta.retrieval.degraded).Count -gt 0) {
         throw "Search reported degraded retrieval: $($searchResponse.result._meta.retrieval.degraded -join ', ')"
     }
+    Save-Fixture -Name 'search-response' -Response $searchResponse
 
     $synthesisResponse = Invoke-GbrainTool -Id 6 -Name 'synthesize' -Arguments @{
         question = 'Which birds are authorized to audit quarterly procurement records?'
@@ -230,9 +251,10 @@ try {
     if ($synthesis.synthesis_status -ne 'ok' -or $smokeSlug -notin $synthesis.sources) {
         throw 'Synthesis did not return an OK cited answer from the smoke page.'
     }
+    Save-Fixture -Name 'synthesize-response' -Response $synthesisResponse
 
     # Page lifecycle used by McpGbrainClient: read, soft-delete, read deleted, restore, and a missing read.
-    $pageArguments = @{ slug = $smokeSlug; source_id = 'knowledgebridge' }
+    $pageArguments = @{ slug = $smokeSlug; source_id = 'knowledgebridge'; force = $true }
     $readArguments = @{ slug = $smokeSlug; source_id = 'knowledgebridge'; include_deleted = $true }
 
     $pageResponse = Invoke-GbrainTool -Id 7 -Name 'get_page' -Arguments $readArguments
@@ -243,11 +265,11 @@ try {
     Save-Fixture -Name 'get-page-response' -Response $pageResponse
 
     $deleteResponse = Invoke-GbrainTool -Id 8 -Name 'delete_page' -Arguments $pageArguments
-    Assert-ToolStatus -Response $deleteResponse -Tool 'delete_page' -Expected 'soft_deleted'
+    Assert-ToolStatus -Response $deleteResponse -Tool 'delete_page' -Expected 'soft_deleted' -Noop $false
     Save-Fixture -Name 'delete-page-response' -Response $deleteResponse
 
     $deleteAgainResponse = Invoke-GbrainTool -Id 9 -Name 'delete_page' -Arguments $pageArguments
-    Assert-ToolStatus -Response $deleteAgainResponse -Tool 'delete_page' -Expected 'already_soft_deleted'
+    Assert-ToolStatus -Response $deleteAgainResponse -Tool 'delete_page' -Expected 'soft_deleted' -Noop $true
     Save-Fixture -Name 'delete-page-already-deleted-response' -Response $deleteAgainResponse
 
     $deletedPageResponse = Invoke-GbrainTool -Id 10 -Name 'get_page' -Arguments $readArguments
@@ -257,11 +279,11 @@ try {
     Save-Fixture -Name 'get-page-deleted-response' -Response $deletedPageResponse
 
     $restoreResponse = Invoke-GbrainTool -Id 11 -Name 'restore_page' -Arguments $pageArguments
-    Assert-ToolStatus -Response $restoreResponse -Tool 'restore_page' -Expected 'restored'
+    Assert-ToolStatus -Response $restoreResponse -Tool 'restore_page' -Expected 'restored' -Noop $false
     Save-Fixture -Name 'restore-page-response' -Response $restoreResponse
 
     $restoreAgainResponse = Invoke-GbrainTool -Id 12 -Name 'restore_page' -Arguments $pageArguments
-    Assert-ToolStatus -Response $restoreAgainResponse -Tool 'restore_page' -Expected 'already_active'
+    Assert-ToolStatus -Response $restoreAgainResponse -Tool 'restore_page' -Expected 'skipped' -Noop $true
     Save-Fixture -Name 'restore-page-already-active-response' -Response $restoreAgainResponse
 
     $missingResponse = Invoke-GbrainTool -Id 13 -Name 'get_page' -AllowError -Arguments @{
@@ -277,6 +299,6 @@ try {
     Write-Host "gbrain MCP smoke test passed: server=$($initialize.result.serverInfo.version), tools=$($toolNames.Count), vector=true, synthesis=ok, page lifecycle=ok."
 } finally {
     if (-not $KeepSmokePage) {
-        $null = Invoke-GbrainTool -Id 14 -Name 'delete_page' -AllowError -Arguments @{ slug = $smokeSlug; source_id = 'knowledgebridge' }
+        $null = Invoke-GbrainTool -Id 14 -Name 'delete_page' -AllowError -Arguments @{ slug = $smokeSlug; source_id = 'knowledgebridge'; force = $true }
     }
 }

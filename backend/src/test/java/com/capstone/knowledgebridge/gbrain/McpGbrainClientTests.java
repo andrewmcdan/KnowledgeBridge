@@ -38,9 +38,8 @@ import tools.jackson.databind.node.ArrayNode;
 import tools.jackson.databind.node.ObjectNode;
 
 /**
- * Exercises the page, search, and synthesis mappings over the real transport. put_page, search, and synthesize shapes
- * follow the Phase 1 fixtures; get_page, delete_page, and restore_page responses are the fixtures captured live by
- * scripts/test-gbrain-mcp.sh --capture-fixtures.
+ * Exercises the page, search, and synthesis mappings over the real transport. Responses are the fixtures captured from
+ * the pinned server by scripts/test-gbrain-mcp.sh --capture-fixtures.
  */
 class McpGbrainClientTests {
 
@@ -77,6 +76,10 @@ class McpGbrainClientTests {
 		ObjectNode arguments = (ObjectNode) server.toolCalls().get(0).json().path("params").path("arguments");
 		assertThat(arguments.path("slug").asString()).isEqualTo(SLUG);
 		assertThat(arguments.path("content").asString()).isEqualTo(GbrainPages.render(document));
+		// The application owns its pages, so writes replace any revision through the coordinated write protocol.
+		assertThat(arguments.path("source_id").asString()).isEqualTo("knowledgebridge");
+		assertThat(arguments.path("force").asBoolean()).isTrue();
+		assertThat(arguments.has("expected_revision")).isFalse();
 	}
 
 	@Test
@@ -162,7 +165,7 @@ class McpGbrainClientTests {
 		GbrainStoredDocument stored = client.getDocument(FIXTURE_KEY).orElseThrow();
 
 		assertThat(stored.deleted()).isTrue();
-		assertThat(stored.deletedAt()).isEqualTo(Instant.parse("2026-10-01T22:58:52.440Z"));
+		assertThat(stored.deletedAt()).isEqualTo(Instant.parse("2026-10-03T21:16:12.271Z"));
 	}
 
 	@Test
@@ -210,6 +213,7 @@ class McpGbrainClientTests {
 		ObjectNode arguments = (ObjectNode) server.toolCalls().get(0).json().path("params").path("arguments");
 		assertThat(arguments.path("slug").asString()).isEqualTo(FIXTURE_SLUG);
 		assertThat(arguments.path("source_id").asString()).isEqualTo("knowledgebridge");
+		assertThat(arguments.path("force").asBoolean()).isTrue();
 	}
 
 	@Test
@@ -234,6 +238,8 @@ class McpGbrainClientTests {
 		respondFixture("restore_page", fixtureName);
 
 		assertThat(client.restoreDocument(FIXTURE_KEY)).isEqualTo(expected);
+		assertThat(server.toolCalls().get(0).json().path("params").path("arguments").path("force").asBoolean())
+				.isTrue();
 	}
 
 	@Test
@@ -259,9 +265,10 @@ class McpGbrainClientTests {
 
 		assertThat(result).isEqualTo(new GbrainSearchResult(
 				List.of(new GbrainSearchHit(FIXTURE_KEY, FIXTURE_SLUG, "Phase 1 Semantic Lighthouse", "smoke_test",
-						"The obsidian lighthouse protocol authorizes blue herons to audit quarterly procurement records.",
-						0.8152)),
-				new GbrainRetrieval(true, false, List.of())));
+						"The obsidian lighthouse protocol authorizes blue herons to audit quarterly procurement records."
+								+ " This synthetic sentence exists only to verify semantic retrieval.",
+						0.7988870469269639)),
+				new GbrainRetrieval(true, false, true, List.of())));
 		ObjectNode arguments = (ObjectNode) server.toolCalls().get(0).json().path("params").path("arguments");
 		assertThat(arguments.path("query").asString()).isEqualTo("Which birds review purchasing?");
 		assertThat(arguments.path("limit").asInt()).isEqualTo(5);
@@ -285,11 +292,25 @@ class McpGbrainClientTests {
 	}
 
 	@Test
+	void searchEnforcesTheTypeFilterWhenGbrainDropsIt() {
+		// gbrain searches every type when no page has a requested type, so other types can come back.
+		respondSearch(hits -> {
+		}, meta -> {
+		});
+
+		assertThat(client.search(new GbrainSearchRequest("herons", 10, Set.of("policy"))).hits()).isEmpty();
+		assertThat(client.search(new GbrainSearchRequest("herons", 10, Set.of("policy", "smoke_test"))).hits())
+				.extracting(GbrainSearchHit::itemKey)
+				.containsExactly(FIXTURE_KEY);
+	}
+
+	@Test
 	void searchReportsDegradedRetrieval() {
 		respondSearch(hits -> {
 		}, meta -> {
 			ObjectNode retrieval = (ObjectNode) meta.path("retrieval");
 			retrieval.put("vector_enabled", false);
+			retrieval.putObject("projection_readiness").put("status", "projection_pending").put("ready", false);
 			ArrayNode degraded = retrieval.putArray("degraded");
 			degraded.addObject().put("stage", "embed_unavailable").put("reason", "no_provider");
 			degraded.addObject().put("stage", "keyword_zero");
@@ -297,7 +318,7 @@ class McpGbrainClientTests {
 
 		GbrainRetrieval retrieval = client.search(new GbrainSearchRequest("herons", 10, Set.of())).retrieval();
 
-		assertThat(retrieval).isEqualTo(new GbrainRetrieval(false, false,
+		assertThat(retrieval).isEqualTo(new GbrainRetrieval(false, false, false,
 				List.of(new GbrainRetrieval.Degradation("embed_unavailable", "no_provider"),
 						new GbrainRetrieval.Degradation("keyword_zero", null))));
 		assertThat(retrieval.healthy()).isFalse();
@@ -309,7 +330,7 @@ class McpGbrainClientTests {
 		}, meta -> meta.putObject("retrieval").put("returned_count", 1));
 
 		assertThat(client.search(new GbrainSearchRequest("herons", 10, Set.of())).retrieval())
-				.isEqualTo(new GbrainRetrieval(false, false, List.of()));
+				.isEqualTo(new GbrainRetrieval(false, false, true, List.of()));
 	}
 
 	@Test
@@ -347,10 +368,11 @@ class McpGbrainClientTests {
 		GbrainSynthesisResult result = client.synthesize(new GbrainSynthesisRequest("Who audits procurement?"));
 
 		assertThat(result).isEqualTo(new GbrainSynthesisResult(
-				"Blue herons are authorized to audit quarterly procurement records [" + FIXTURE_SLUG + "].",
+				"The obsidian lighthouse protocol authorizes blue herons to audit quarterly procurement records ["
+						+ FIXTURE_SLUG + "].",
 				GbrainSynthesisResult.Status.SYNTHESIZED, List.of(new GbrainCitation(FIXTURE_KEY, FIXTURE_SLUG)),
 				List.of(),
-				new GbrainSynthesisResult.Usage("openrouter:anthropic/claude-haiku-4.5", 672L, 161L, null),
+				new GbrainSynthesisResult.Usage("openai:gpt-4o-mini", 600L, 80L, new BigDecimal("0.000138")),
 				List.of()));
 		assertThat(server.toolCalls().get(0).json().path("params").path("arguments").toString())
 				.isEqualTo("{\"question\":\"Who audits procurement?\"}");
@@ -372,8 +394,8 @@ class McpGbrainClientTests {
 		assertThat(result.citations()).containsExactly(new GbrainCitation(FIXTURE_KEY, FIXTURE_SLUG));
 		assertThat(result.gaps()).containsExactly("No data on Q3 audits");
 		assertThat(result.warnings()).containsExactly("LLM_OUTPUT_TRUNCATED");
-		assertThat(result.usage()).isEqualTo(new GbrainSynthesisResult.Usage("openrouter:anthropic/claude-haiku-4.5",
-				null, 161L, new BigDecimal("0.0012")));
+		assertThat(result.usage()).isEqualTo(new GbrainSynthesisResult.Usage("openai:gpt-4o-mini", null, 80L,
+				new BigDecimal("0.0012")));
 	}
 
 	@Test

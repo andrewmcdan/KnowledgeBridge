@@ -2,36 +2,39 @@
 
 This package is the only KnowledgeBridge code allowed to communicate with the external [gbrain](https://github.com/garrytan/gbrain) knowledge engine. Controllers, ingestion, query, entities, and administration services depend on application-owned interfaces in this package; they must not know about MCP, JSON-RPC, OAuth, or gbrain response shapes.
 
-The repository currently builds unmodified gbrain revision `a6be012a3bcfac42e279630aedec5cda4a450e29`. That pinned revision, rather than the current upstream main branch, is the adapter contract until the container revision is deliberately upgraded and retested.
+The repository currently builds unmodified gbrain `v0.60.37.0`, revision `109b992172e1f49107f9de9841758c1d043a2668`, on Bun 1.4.2. That pinned revision, rather than the current upstream main branch, is the adapter contract until the container revision is deliberately upgraded and retested.
 
 ## Current constraints
 
 - gbrain exposes Streamable HTTP MCP at `POST /mcp`, not the REST ingestion and query API assumed by the original project brief.
 - `GET /health` is unauthenticated and confirms service/database health only. It does not prove that authentication, embeddings, or individual tools work.
 - MCP calls require a bearer credential. The Phase 1 spike showed that legacy tokens cannot be source-bound, so the backend uses an operator-provisioned OAuth client-credentials grant and short-lived access tokens.
-- The container now initializes with an explicit OpenRouter embedding model and dimension. Existing installations still require a deliberate migration when their stored vector width differs.
+- The container picks its provider from whichever key is set (`OPENROUTER_API_KEY` wins over `OPENAI_API_KEY`) and initializes with an explicit embedding model and dimension. Existing installations still require a deliberate migration when their stored vector width differs.
 - The Phase 2 transport consumes `knowledgebridge.gbrain.*` (including `GBRAIN_BASE_URL`), but no application service calls it yet.
 - Remote `put_page` calls save and chunk content, but upstream deliberately skips automatic link and timeline extraction for untrusted MCP writers.
 - gbrain page deletion is soft deletion. The pinned source shows gbrain's autopilot purge phase hard-deletes soft-deleted pages after a 72-hour recovery window, so restore is possible only within that window. KnowledgeBridge must not claim that a permanent-delete operation physically erased engine data until that purge is verified against the running deployment.
 - `put_page` on a soft-deleted page clears `deleted_at`, so writing a deleted item revives it in search.
+- Page writes go through gbrain's coordinated write protocol. Replacing, deleting, or restoring an existing page requires `expected_revision` or `force`; the adapter sends `force` (see "Upgrade to v0.60.37.0").
+- Embedding runs after a write commits. A new page is searchable by keyword immediately and by meaning a moment later (1-2 seconds in local tests).
+- `search` drops a type filter that matches no page and searches every type instead; the adapter re-applies the filter to the hits.
 
 ## Required deployment changes
 
 Semantic and hybrid search require embeddings to be enabled before the adapter is considered ready.
 
-For this project, use the existing `OPENROUTER_API_KEY` with an explicitly pinned embedding model:
+Set `OPENROUTER_API_KEY` or `OPENAI_API_KEY`. `docker/gbrain/entrypoint.sh` chooses the models from the available key unless `GBRAIN_EMBEDDING_MODEL` or `GBRAIN_SYNTHESIS_MODEL` overrides them, and refuses to start when a chosen model has no key:
 
-```text
-openrouter:openai/text-embedding-3-small
-dimensions: 1536
-```
+| Key available | Embedding | Synthesis (`models.think`) |
+|---|---|---|
+| `OPENROUTER_API_KEY` (wins when both are set) | `openrouter:openai/text-embedding-3-small`, 1536 dimensions | `openrouter:anthropic/claude-haiku-4.5` |
+| `OPENAI_API_KEY` only | `openai:text-embedding-3-small`, 1536 dimensions | `openai:gpt-4o-mini` |
 
-The model and dimensions are part of the stored vector schema and must not change implicitly. A provider or dimension change requires gbrain's supported embedding migration process, not a normal configuration edit.
+Both embedding routes serve the same OpenAI model at the same width, so switching the available key keeps stored vectors comparable. gbrain records the route on each chunk it embeds, and the setting in `config.json` from initialization stays as written; the environment variable wins at runtime. The embedding model and dimensions themselves are part of the stored vector schema and must not change implicitly. A model or dimension change requires gbrain's supported embedding migration process, not a normal configuration edit.
 
 Deployment work must:
 
-1. Pass `OPENROUTER_API_KEY` to the gbrain container, not to the browser. The Spring backend does not need the provider key when gbrain owns embedding and synthesis calls.
-2. Replace the clean-install `--no-embedding` initialization with explicit OpenRouter embedding configuration.
+1. Pass the provider key to the gbrain container, not to the browser. The Spring backend does not need the provider key when gbrain owns embedding and synthesis calls.
+2. Replace the clean-install `--no-embedding` initialization with explicit embedding configuration.
 3. For an existing gbrain volume, run the upstream migration/status workflow. Preview migration cost and scope before approving a re-embedding operation.
 4. Run the provider smoke test and verify the returned vector width before ingesting the corpus.
 5. Backfill any pages created while embeddings were disabled.
@@ -288,7 +291,7 @@ Exit criterion met on October 1, 2026: transport behavior is covered determinist
 
 Phase 2 decisions:
 
-- `GbrainMcpClient` initializes lazily, validates protocol `2025-03-26`, server name `gbrain`, and pinned server version `0.50.0.0` (a different version fails with `CONFIGURATION` until the upgrade is retested), then sends `notifications/initialized`. The pinned server is stateless, so no `Mcp-Session-Id` handling is needed.
+- `GbrainMcpClient` initializes lazily, validates protocol `2025-03-26`, server name `gbrain`, and the pinned server version (`0.50.0.0` at the time, now `0.60.37.0`; a different version fails with `CONFIGURATION` until the upgrade is retested), then sends `notifications/initialized`. The pinned server is stateless, so no `Mcp-Session-Id` handling is needed.
 - `tools/list` (with cursor pagination) runs on the first tool call or an explicit `discoverCapabilities()` and is cached. A tool missing from the discovered surface fails closed with `CONFIGURATION` before any request is sent.
 - The generic `callTool` is package-private and accepts only the `GbrainTool` enum, so tool names and raw JSON stay inside the package.
 - Retry policy: an HTTP 401 refreshes the token once for any call because gbrain rejects it before dispatch. Otherwise only `whoami`, `get_page`, `search`, `initialize`, and `tools/list` retry `RATE_LIMITED`, `UNAVAILABLE`, and `TIMEOUT`, with 250 ms doubling backoff, `Retry-After` delta-seconds, and a cap; a longer `Retry-After` fails immediately. Writes and `synthesize` are never retried by the transport.
@@ -359,6 +362,25 @@ Phase 4 decisions:
 - `search` is retried on transient failures. `synthesize` uses the synthesis timeout and is never retried.
 - Query text is limited to 1,000 characters and questions to 2,000. Neither may contain NUL. Neither is ever logged.
 - `InMemoryGbrainClient` returns no hits with `vectorEnabled=false` and fails synthesis as `UNAVAILABLE` instead of inventing an answer.
+
+### Upgrade to v0.60.37.0
+
+Upgraded from `v0.50.0.0` (`a6be012a`) on October 3, 2026. The release requires Bun 1.4 or later, so the image moved from Bun 1.3.13 to 1.4.2. The MCP protocol (`2025-03-26`), the required tools, and the read shapes (`get_page`, `search` hits, `synthesize`) are unchanged.
+
+What changed for the adapter:
+
+- **Coordinated writes.** `put_page`, `delete_page`, and `restore_page` now return write receipts. Without `expected_revision` or `force`, `put_page` can only create a page; other writes fail with `revision_conflict`. The adapter sends `force: true` and `source_id` on every write. KnowledgeBridge owns its pages and already reconciles through `knowledgebridge_digest`, so replace-on-write keeps the existing contract in one call.
+- **Statuses.** A write of identical content is still `skipped` (`UNCHANGED`). Deleting a deleted page is now `soft_deleted` with `noop: true` (`ALREADY_DELETED`), and restoring an active page is `skipped` with `noop: true` (`ALREADY_ACTIVE`). A missing page is still `page_not_found`.
+- **Write errors.** A receipt that is not committed comes back as a tool error. `write_pending` (accepted but not yet committed) maps to `TIMEOUT`, so ingestion reconciles before retrying. Writer, queue, and storage capacity errors map to `UNAVAILABLE`, `request_too_large` maps to `VALIDATION`, and `revision_conflict` stays `ENGINE`, since `force` should never produce it.
+- **Asynchronous embedding.** A write returns `embedding_state: queued`. `CURRENT` from `documentState` therefore means the page is stored, not that it is already searchable by meaning.
+- **Type filters.** When no page has a requested type, gbrain drops the filter and searches every type. `McpGbrainClient.search` removes hits of unrequested types, so a filter never widens.
+- **Retrieval evidence.** `_meta.retrieval.projection_readiness` reports whether every page in scope is ready for search. `GbrainRetrieval.projectionReady` carries it, and `healthy()` requires it.
+
+Verification:
+
+- The fixtures were recaptured from a fresh v0.60.37.0 instance with `scripts/test-gbrain-mcp.sh --capture-fixtures`. All unit and component tests pass with 100% line and branch coverage.
+- `scripts/test-gbrain-live.sh` passed `GbrainLiveTests` on a disposable v0.60.37.0 stack with only `OPENAI_API_KEY` set. The same test passed on v0.50.0.0 before the upgrade.
+- **In-place upgrade.** A copy of the local dev volumes (one soft-deleted page, one embedded chunk, one OAuth client, all from v0.50.0.0) was started on the new image. gbrain migrated the schema from 149 to 196. The existing OAuth client still authenticated, and both the smoke test and `GbrainLiveTests` passed against the migrated copy, which was then deleted. The original dev volumes were not modified.
 
 ### Phase 5: hardening
 

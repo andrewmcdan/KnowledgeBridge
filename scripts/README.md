@@ -28,7 +28,7 @@ After PostgreSQL and gbrain have been initialized, provision the source-bound ba
 
 The script stores the generated client id and one-time secret in the ignored root `.env`. When rotating credentials, it registers and saves the replacement before revoking the previous client id.
 
-On Linux or macOS, use the Bash equivalents (they need `curl` and `jq`). `provision-gbrain.sh` also creates the database-only `knowledgebridge` source if it does not exist yet:
+On Linux or macOS, use the Bash equivalents (they need `curl` and `jq`). `test-gbrain-mcp.sh` reads `GBRAIN_OAUTH_*` and `GBRAIN_PORT` from the shell before `.env`, so it can target another instance. `provision-gbrain.sh` also creates the database-only `knowledgebridge` source if it does not exist yet:
 
 ```bash
 docker compose up -d --build --wait gbrain

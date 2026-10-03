@@ -34,7 +34,12 @@ if [[ ! -f "$ENV_FILE" ]]; then
   exit 1
 fi
 
+# An exported shell variable wins over .env, so the test can target another instance (for example a disposable one).
 read_env() {
+  if [[ -n "${!1:-}" ]]; then
+    printf '%s' "${!1}"
+    return
+  fi
   sed -n "s/^$1=//p" "$ENV_FILE" | tail -n 1 | sed 's/[[:space:]]*$//'
 }
 
@@ -106,10 +111,13 @@ payload() {
   jq -r '.result.content[0].text' <<<"$1"
 }
 
+# Asserts a committed write receipt's status and noop flag.
 assert_status() {
-  local status
+  local status noop
   status="$(payload "$1" | jq -r '.status')"
-  [[ "$status" == "$3" ]] || fail "gbrain $2 returned status '$status', expected '$3'."
+  noop="$(payload "$1" | jq -r '.noop')"
+  [[ "$status" == "$3" && "$noop" == "$4" ]] \
+    || fail "gbrain $2 returned status '$status' (noop $noop), expected '$3' (noop $4)."
 }
 
 # Same format as test-gbrain-mcp.ps1: four-space JSON, with the tool payload re-encoded as two-space JSON text.
@@ -124,7 +132,8 @@ save_fixture() {
 cleanup() {
   local exit_code=$?
   if [[ "$PAGE_WRITTEN" == true && "$KEEP_SMOKE_PAGE" == false ]]; then
-    tool 14 delete_page "{\"slug\":\"$SMOKE_SLUG\",\"source_id\":\"knowledgebridge\"}" allow-error >/dev/null || true
+    tool 14 delete_page "{\"slug\":\"$SMOKE_SLUG\",\"source_id\":\"knowledgebridge\",\"force\":true}" allow-error \
+      >/dev/null || true
   fi
   rm -rf "$WORK_DIR"
   exit "$exit_code"
@@ -164,25 +173,35 @@ The obsidian lighthouse protocol authorizes blue herons to audit quarterly procu
 MARKDOWN
 )"
 
+# Page writes use the coordinated write protocol; force replaces whatever revision exists, as the adapter does.
 PAGE_WRITTEN=true
-tool 4 put_page "$(jq -nc --arg slug "$SMOKE_SLUG" --arg content "$content" '{slug: $slug, content: $content}')" \
-  >/dev/null
+put_response="$(tool 4 put_page "$(jq -nc --arg slug "$SMOKE_SLUG" --arg content "$content" \
+  '{slug: $slug, content: $content, source_id: "knowledgebridge", force: true}')")"
+payload "$put_response" | jq -e '.state == "committed" and .status == "created_or_updated"' >/dev/null \
+  || fail "put_page did not commit the smoke page."
+save_fixture put-page-response "$put_response"
 
-search="$(tool 5 search "{\"query\":\"Which birds inspect purchasing documents every three months?\",\"limit\":5,\"source_id\":\"knowledgebridge\"}")"
-payload "$search" | jq -e --arg slug "$SMOKE_SLUG" 'map(.slug) | index($slug)' >/dev/null \
-  || fail "Semantic paraphrase search did not return the smoke page."
+# Embedding runs after the write commits, so poll briefly before requiring a semantic hit.
+for attempt in $(seq 1 20); do
+  search="$(tool 5 search "{\"query\":\"Which birds inspect purchasing documents every three months?\",\"limit\":5,\"source_id\":\"knowledgebridge\"}")"
+  payload "$search" | jq -e --arg slug "$SMOKE_SLUG" 'map(.slug) | index($slug)' >/dev/null && break
+  [[ "$attempt" -lt 20 ]] || fail "Semantic paraphrase search did not return the smoke page within 20 seconds."
+  sleep 1
+done
 jq -e '.result._meta.retrieval.vector_enabled == true' <<<"$search" >/dev/null \
   || fail "Search returned the page without proving vector retrieval was enabled."
 jq -e '(.result._meta.retrieval.degraded // []) | length == 0' <<<"$search" >/dev/null \
   || fail "Search reported degraded retrieval: $(jq -c '.result._meta.retrieval.degraded' <<<"$search")"
+save_fixture search-response "$search"
 
 synthesis_response="$(tool 6 synthesize '{"question":"Which birds are authorized to audit quarterly procurement records?"}')"
 synthesis="$(payload "$synthesis_response")"
 jq -e --arg slug "$SMOKE_SLUG" '.synthesis_status == "ok" and (.sources | index($slug))' <<<"$synthesis" >/dev/null \
   || fail "Synthesis did not return an OK cited answer from the smoke page."
+save_fixture synthesize-response "$synthesis_response"
 
 # Page lifecycle used by McpGbrainClient: read, soft-delete, read deleted, restore, and a missing read.
-page_arguments="{\"slug\":\"$SMOKE_SLUG\",\"source_id\":\"knowledgebridge\"}"
+page_arguments="{\"slug\":\"$SMOKE_SLUG\",\"source_id\":\"knowledgebridge\",\"force\":true}"
 read_arguments="{\"slug\":\"$SMOKE_SLUG\",\"source_id\":\"knowledgebridge\",\"include_deleted\":true}"
 
 page_response="$(tool 7 get_page "$read_arguments")"
@@ -192,11 +211,11 @@ payload "$page_response" | jq -e --arg slug "$SMOKE_SLUG" \
 save_fixture get-page-response "$page_response"
 
 delete_response="$(tool 8 delete_page "$page_arguments")"
-assert_status "$delete_response" delete_page soft_deleted
+assert_status "$delete_response" delete_page soft_deleted false
 save_fixture delete-page-response "$delete_response"
 
 delete_again_response="$(tool 9 delete_page "$page_arguments")"
-assert_status "$delete_again_response" delete_page already_soft_deleted
+assert_status "$delete_again_response" delete_page soft_deleted true
 save_fixture delete-page-already-deleted-response "$delete_again_response"
 
 deleted_page_response="$(tool 10 get_page "$read_arguments")"
@@ -205,11 +224,11 @@ payload "$deleted_page_response" | jq -e '.deleted_at' >/dev/null \
 save_fixture get-page-deleted-response "$deleted_page_response"
 
 restore_response="$(tool 11 restore_page "$page_arguments")"
-assert_status "$restore_response" restore_page restored
+assert_status "$restore_response" restore_page restored false
 save_fixture restore-page-response "$restore_response"
 
 restore_again_response="$(tool 12 restore_page "$page_arguments")"
-assert_status "$restore_again_response" restore_page already_active
+assert_status "$restore_again_response" restore_page skipped true
 save_fixture restore-page-already-active-response "$restore_again_response"
 
 missing_response="$(tool 13 get_page \

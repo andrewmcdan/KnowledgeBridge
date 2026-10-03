@@ -10,18 +10,22 @@ import java.util.List;
  *            whether the vector arm ran; false means keyword-only retrieval
  * @param expansionApplied
  *            whether LLM query expansion ran; always false for {@code search}
+ * @param projectionReady
+ *            false while gbrain is still preparing some pages in scope for search, so results can be incomplete; true
+ *            when gbrain does not report readiness
  * @param degraded
  *            stages that failed open, such as {@code embed_unavailable}; empty for a clean run
  */
-public record GbrainRetrieval(boolean vectorEnabled, boolean expansionApplied, List<Degradation> degraded) {
+public record GbrainRetrieval(boolean vectorEnabled, boolean expansionApplied, boolean projectionReady,
+		List<Degradation> degraded) {
 
 	public GbrainRetrieval {
 		degraded = List.copyOf(degraded);
 	}
 
-	/** True when semantic retrieval ran and no stage degraded. */
+	/** True when semantic retrieval ran over fully prepared pages and no stage degraded. */
 	public boolean healthy() {
-		return vectorEnabled && degraded.isEmpty();
+		return vectorEnabled && projectionReady && degraded.isEmpty();
 	}
 
 	/**

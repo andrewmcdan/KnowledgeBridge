@@ -17,7 +17,7 @@ The setup is repeatable and preserves existing databases and passwords. Keep `PO
 
 The local migration from the former `gbrain-postgres` service preserved all 70 tables (row counts verified). The retired `knowledgebridge_gbrain-postgres-data` volume and ignored `temp/gbrain-migration.dump` remain as rollback copies; the active stack uses only `postgres-data` for database storage. A clean-volume gbrain initialization and a restart against the migrated database were also verified.
 
-`gbrain/Dockerfile` builds the unmodified [garrytan/gbrain upstream](https://github.com/garrytan/gbrain) at revision `a6be012a3bcfac42e279630aedec5cda4a450e29`, using Bun 1.3.13 and upstream's frozen dependency lockfile. This is our container packaging, not the sponsor-provided configuration mentioned in the brief.
+`gbrain/Dockerfile` builds the unmodified [garrytan/gbrain upstream](https://github.com/garrytan/gbrain) at `v0.60.37.0` (revision `109b992172e1f49107f9de9841758c1d043a2668`), using Bun 1.4.2 and upstream's frozen dependency lockfile. The entrypoint chooses embedding and synthesis models from whichever of `OPENROUTER_API_KEY` or `OPENAI_API_KEY` is set (OpenRouter when both are); see the gbrain adapter README for the model table. This is our container packaging, not the sponsor-provided configuration mentioned in the brief.
 
 From the repository root:
 

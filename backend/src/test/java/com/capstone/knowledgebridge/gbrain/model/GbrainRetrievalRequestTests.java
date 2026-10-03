@@ -51,13 +51,14 @@ class GbrainRetrievalRequestTests {
 	}
 
 	@Test
-	void retrievalIsHealthyOnlyWhenSemanticAndUndegraded() {
+	void retrievalIsHealthyOnlyWhenSemanticReadyAndUndegraded() {
 		GbrainRetrieval.Degradation embedFailed = new GbrainRetrieval.Degradation("embed_unavailable",
 				"provider_error");
 
-		assertThat(new GbrainRetrieval(true, false, List.of()).healthy()).isTrue();
-		assertThat(new GbrainRetrieval(false, false, List.of()).healthy()).isFalse();
-		assertThat(new GbrainRetrieval(true, false, List.of(embedFailed)).healthy()).isFalse();
+		assertThat(new GbrainRetrieval(true, false, true, List.of()).healthy()).isTrue();
+		assertThat(new GbrainRetrieval(false, false, true, List.of()).healthy()).isFalse();
+		assertThat(new GbrainRetrieval(true, false, false, List.of()).healthy()).isFalse();
+		assertThat(new GbrainRetrieval(true, false, true, List.of(embedFailed)).healthy()).isFalse();
 	}
 
 	private static void assertValidation(ThrowingCallable call) {

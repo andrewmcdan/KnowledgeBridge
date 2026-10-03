@@ -38,8 +38,8 @@ public class GbrainMcpClient {
 
 	static final String SERVER_NAME = "gbrain";
 
-	/** Version reported by revision a6be012a; changing it requires rerunning the compatibility smoke test. */
-	static final String SERVER_VERSION = "0.50.0.0";
+	/** Version reported by revision 109b9921; changing it requires rerunning the compatibility smoke test. */
+	static final String SERVER_VERSION = "0.60.37.0";
 
 	static final Duration INITIAL_BACKOFF = Duration.ofMillis(250);
 
@@ -61,6 +61,14 @@ public class GbrainMcpClient {
 			Map.entry("source_binding_required", GbrainErrorCode.UNAUTHORIZED),
 			Map.entry("missing_source_scope", GbrainErrorCode.UNAUTHORIZED),
 			Map.entry("rate_limited", GbrainErrorCode.RATE_LIMITED),
+			Map.entry("request_too_large", GbrainErrorCode.VALIDATION),
+			// A coordinated write that was accepted but had not committed when gbrain stopped waiting.
+			Map.entry("write_pending", GbrainErrorCode.TIMEOUT),
+			Map.entry("writer_lock_unavailable", GbrainErrorCode.UNAVAILABLE),
+			Map.entry("writer_pool_capacity", GbrainErrorCode.UNAVAILABLE),
+			Map.entry("owner_unavailable", GbrainErrorCode.UNAVAILABLE),
+			Map.entry("queue_capacity", GbrainErrorCode.UNAVAILABLE),
+			Map.entry("storage_error", GbrainErrorCode.UNAVAILABLE),
 			Map.entry("unavailable", GbrainErrorCode.UNAVAILABLE),
 			Map.entry("embedding_failed", GbrainErrorCode.UNAVAILABLE),
 			Map.entry("database_error", GbrainErrorCode.UNAVAILABLE),
