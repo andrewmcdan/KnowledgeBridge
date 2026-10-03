@@ -1,5 +1,7 @@
 package com.capstone.knowledgebridge.gbrain;
 
+import java.util.Optional;
+
 import com.capstone.knowledgebridge.gbrain.model.GbrainDocument;
 
 /**
@@ -31,6 +33,15 @@ final class GbrainPages {
 
 	static String slugFor(String itemKey) {
 		return SLUG_PREFIX + GbrainDocument.requireItemKey(itemKey);
+	}
+
+	/** Reverses {@link #slugFor}; empty for a slug outside the application's prefix or with an invalid key. */
+	static Optional<String> itemKey(String slug) {
+		if (!slug.startsWith(SLUG_PREFIX)) {
+			return Optional.empty();
+		}
+		String itemKey = slug.substring(SLUG_PREFIX.length());
+		return GbrainDocument.isItemKey(itemKey) ? Optional.of(itemKey) : Optional.empty();
 	}
 
 	static String render(GbrainDocument document) {

@@ -6,7 +6,11 @@ import com.capstone.knowledgebridge.gbrain.model.GbrainDeleteResult;
 import com.capstone.knowledgebridge.gbrain.model.GbrainDocument;
 import com.capstone.knowledgebridge.gbrain.model.GbrainDocumentState;
 import com.capstone.knowledgebridge.gbrain.model.GbrainRestoreResult;
+import com.capstone.knowledgebridge.gbrain.model.GbrainSearchRequest;
+import com.capstone.knowledgebridge.gbrain.model.GbrainSearchResult;
 import com.capstone.knowledgebridge.gbrain.model.GbrainStoredDocument;
+import com.capstone.knowledgebridge.gbrain.model.GbrainSynthesisRequest;
+import com.capstone.knowledgebridge.gbrain.model.GbrainSynthesisResult;
 import com.capstone.knowledgebridge.gbrain.model.GbrainWriteResult;
 
 /**
@@ -30,6 +34,18 @@ public interface GbrainClient {
 
 	/** Restores a soft-deleted page for an item. Not retried automatically. */
 	GbrainRestoreResult restoreDocument(String itemKey);
+
+	/**
+	 * Ranks indexed knowledge-item chunks for a query. Only items under the application's slug prefix are returned.
+	 * Transient failures are retried by the transport.
+	 */
+	GbrainSearchResult search(GbrainSearchRequest request);
+
+	/**
+	 * Answers a question from indexed knowledge items with an LLM. Costly and slow; uses the synthesis timeout and is
+	 * never retried automatically.
+	 */
+	GbrainSynthesisResult synthesize(GbrainSynthesisRequest request);
 
 	/** Reconciles what gbrain holds with the document the application expects. */
 	default GbrainDocumentState documentState(GbrainDocument document) {

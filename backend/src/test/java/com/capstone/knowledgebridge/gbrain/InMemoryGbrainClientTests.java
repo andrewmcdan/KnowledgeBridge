@@ -5,6 +5,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
+import java.util.List;
+import java.util.Set;
 
 import org.junit.jupiter.api.Test;
 
@@ -12,6 +14,10 @@ import com.capstone.knowledgebridge.gbrain.model.GbrainDeleteResult;
 import com.capstone.knowledgebridge.gbrain.model.GbrainDocument;
 import com.capstone.knowledgebridge.gbrain.model.GbrainDocumentState;
 import com.capstone.knowledgebridge.gbrain.model.GbrainRestoreResult;
+import com.capstone.knowledgebridge.gbrain.model.GbrainRetrieval;
+import com.capstone.knowledgebridge.gbrain.model.GbrainSearchRequest;
+import com.capstone.knowledgebridge.gbrain.model.GbrainSearchResult;
+import com.capstone.knowledgebridge.gbrain.model.GbrainSynthesisRequest;
 import com.capstone.knowledgebridge.gbrain.model.GbrainWriteResult;
 
 class InMemoryGbrainClientTests {
@@ -56,6 +62,20 @@ class InMemoryGbrainClientTests {
 
 		assertThat(client.upsertDocument(document).status()).isEqualTo(GbrainWriteResult.Status.WRITTEN);
 		assertThat(client.documentState(document)).isEqualTo(GbrainDocumentState.CURRENT);
+	}
+
+	@Test
+	void searchFindsNothingAndReportsNoVectorArm() {
+		client.upsertDocument(document(1, "Body"));
+
+		assertThat(client.search(new GbrainSearchRequest("Body", 10, Set.of())))
+				.isEqualTo(new GbrainSearchResult(List.of(), new GbrainRetrieval(false, false, List.of())));
+	}
+
+	@Test
+	void synthesisIsUnavailable() {
+		GbrainMcpClientTests.assertCode(() -> client.synthesize(new GbrainSynthesisRequest("Why?")),
+				GbrainErrorCode.UNAVAILABLE);
 	}
 
 	private static GbrainDocument document(long revision, String body) {

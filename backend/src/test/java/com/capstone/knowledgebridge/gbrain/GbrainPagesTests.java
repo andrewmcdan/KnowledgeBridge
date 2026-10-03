@@ -18,6 +18,13 @@ class GbrainPagesTests {
 	}
 
 	@Test
+	void reversesSlugsOnlyInsideTheBoundPrefix() {
+		assertThat(GbrainPages.itemKey("knowledgebridge/item-1")).contains("item-1");
+		assertThat(GbrainPages.itemKey("people/alice-example")).isEmpty();
+		assertThat(GbrainPages.itemKey("knowledgebridge/Nested/Page")).isEmpty();
+	}
+
+	@Test
 	void namespacesDocumentTypesSoTheyCannotSelectGbrainBehavior() {
 		assertThat(GbrainPages.pageType("person")).isEqualTo("knowledgebridge_person");
 		assertThat(GbrainPages.documentType("knowledgebridge_person")).isEqualTo("person");

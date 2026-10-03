@@ -6,8 +6,11 @@ import static com.capstone.knowledgebridge.gbrain.MockGbrainServer.fixture;
 import static com.capstone.knowledgebridge.gbrain.MockGbrainServer.toolResult;
 import static org.assertj.core.api.Assertions.assertThat;
 
+import java.math.BigDecimal;
 import java.time.Clock;
 import java.time.Instant;
+import java.util.List;
+import java.util.Set;
 import java.util.function.Consumer;
 
 import org.junit.jupiter.api.AfterEach;
@@ -20,16 +23,24 @@ import com.capstone.knowledgebridge.gbrain.model.GbrainDeleteResult;
 import com.capstone.knowledgebridge.gbrain.model.GbrainDocument;
 import com.capstone.knowledgebridge.gbrain.model.GbrainDocumentState;
 import com.capstone.knowledgebridge.gbrain.model.GbrainRestoreResult;
+import com.capstone.knowledgebridge.gbrain.model.GbrainRetrieval;
+import com.capstone.knowledgebridge.gbrain.model.GbrainSearchHit;
+import com.capstone.knowledgebridge.gbrain.model.GbrainSearchRequest;
+import com.capstone.knowledgebridge.gbrain.model.GbrainSearchResult;
 import com.capstone.knowledgebridge.gbrain.model.GbrainStoredDocument;
+import com.capstone.knowledgebridge.gbrain.model.GbrainSynthesisRequest;
+import com.capstone.knowledgebridge.gbrain.model.GbrainSynthesisResult;
+import com.capstone.knowledgebridge.gbrain.model.GbrainSynthesisResult.GbrainCitation;
 import com.capstone.knowledgebridge.gbrain.model.GbrainWriteResult;
 
 import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.node.ArrayNode;
 import tools.jackson.databind.node.ObjectNode;
 
 /**
- * Exercises the page mappings over the real transport. put_page shapes follow the Phase 1 fixture; get_page,
- * delete_page, and restore_page responses are the fixtures captured live by scripts/test-gbrain-mcp.sh
- * --capture-fixtures.
+ * Exercises the page, search, and synthesis mappings over the real transport. put_page, search, and synthesize shapes
+ * follow the Phase 1 fixtures; get_page, delete_page, and restore_page responses are the fixtures captured live by
+ * scripts/test-gbrain-mcp.sh --capture-fixtures.
  */
 class McpGbrainClientTests {
 
@@ -237,6 +248,177 @@ class McpGbrainClientTests {
 		assertCode(() -> client.restoreDocument(FIXTURE_KEY), GbrainErrorCode.UNAUTHORIZED);
 	}
 
+	@Test
+	void searchMapsTheCapturedHitsAndRetrievalEvidence() {
+		respondSearch(hits -> {
+		}, meta -> {
+		});
+
+		GbrainSearchResult result = client
+				.search(new GbrainSearchRequest("Which birds review purchasing?", 5, Set.of("smoke_test", "note")));
+
+		assertThat(result).isEqualTo(new GbrainSearchResult(
+				List.of(new GbrainSearchHit(FIXTURE_KEY, FIXTURE_SLUG, "Phase 1 Semantic Lighthouse", "smoke_test",
+						"The obsidian lighthouse protocol authorizes blue herons to audit quarterly procurement records.",
+						0.8152)),
+				new GbrainRetrieval(true, false, List.of())));
+		ObjectNode arguments = (ObjectNode) server.toolCalls().get(0).json().path("params").path("arguments");
+		assertThat(arguments.path("query").asString()).isEqualTo("Which birds review purchasing?");
+		assertThat(arguments.path("limit").asInt()).isEqualTo(5);
+		assertThat(arguments.path("source_id").asString()).isEqualTo("knowledgebridge");
+		assertThat(arguments.path("types").toString())
+				.isEqualTo("[\"knowledgebridge_note\",\"knowledgebridge_smoke_test\"]");
+	}
+
+	@Test
+	void searchOmitsPagesOutsideTheSlugPrefixAndUnfilteredTypes() {
+		respondSearch(hits -> {
+			hits.addObject().put("slug", "people/alice-example").put("score", 0.9);
+			hits.addObject().put("slug", "knowledgebridge/Not A Key").put("score", 0.7);
+		}, meta -> {
+		});
+
+		assertThat(client.search(new GbrainSearchRequest("herons", 10, Set.of())).hits())
+				.extracting(GbrainSearchHit::itemKey)
+				.containsExactly(FIXTURE_KEY);
+		assertThat(server.toolCalls().get(0).json().path("params").path("arguments").has("types")).isFalse();
+	}
+
+	@Test
+	void searchReportsDegradedRetrieval() {
+		respondSearch(hits -> {
+		}, meta -> {
+			ObjectNode retrieval = (ObjectNode) meta.path("retrieval");
+			retrieval.put("vector_enabled", false);
+			ArrayNode degraded = retrieval.putArray("degraded");
+			degraded.addObject().put("stage", "embed_unavailable").put("reason", "no_provider");
+			degraded.addObject().put("stage", "keyword_zero");
+		});
+
+		GbrainRetrieval retrieval = client.search(new GbrainSearchRequest("herons", 10, Set.of())).retrieval();
+
+		assertThat(retrieval).isEqualTo(new GbrainRetrieval(false, false,
+				List.of(new GbrainRetrieval.Degradation("embed_unavailable", "no_provider"),
+						new GbrainRetrieval.Degradation("keyword_zero", null))));
+		assertThat(retrieval.healthy()).isFalse();
+	}
+
+	@Test
+	void searchToleratesRetrievalMetadataWithoutOptionalFields() {
+		respondSearch(hits -> {
+		}, meta -> meta.putObject("retrieval").put("returned_count", 1));
+
+		assertThat(client.search(new GbrainSearchRequest("herons", 10, Set.of())).retrieval())
+				.isEqualTo(new GbrainRetrieval(false, false, List.of()));
+	}
+
+	@Test
+	void searchRejectsMalformedResponses() {
+		GbrainSearchRequest request = new GbrainSearchRequest("herons", 10, Set.of());
+
+		respond("search", "{}");
+		assertCode(() -> client.search(request), GbrainErrorCode.PROTOCOL);
+
+		// A bare tool result carries no _meta.retrieval evidence.
+		respond("search", "[]");
+		assertCode(() -> client.search(request), GbrainErrorCode.PROTOCOL);
+
+		respondSearch(hits -> ((ObjectNode) hits.get(0)).put("score", "high"), meta -> {
+		});
+		assertCode(() -> client.search(request), GbrainErrorCode.PROTOCOL);
+
+		respondSearch(hits -> ((ObjectNode) hits.get(0)).remove("chunk_text"), meta -> {
+		});
+		assertCode(() -> client.search(request), GbrainErrorCode.PROTOCOL);
+
+		respondSearch(hits -> {
+		}, meta -> ((ObjectNode) meta.path("retrieval")).put("degraded", "embed_unavailable"));
+		assertCode(() -> client.search(request), GbrainErrorCode.PROTOCOL);
+
+		respondSearch(hits -> {
+		}, meta -> ((ObjectNode) meta.path("retrieval")).putArray("degraded").addObject().put("reason", "timeout"));
+		assertCode(() -> client.search(request), GbrainErrorCode.PROTOCOL);
+	}
+
+	@Test
+	void synthesizeMapsTheCapturedAnswer() {
+		respondFixture("synthesize", "synthesize-response");
+
+		GbrainSynthesisResult result = client.synthesize(new GbrainSynthesisRequest("Who audits procurement?"));
+
+		assertThat(result).isEqualTo(new GbrainSynthesisResult(
+				"Blue herons are authorized to audit quarterly procurement records [" + FIXTURE_SLUG + "].",
+				GbrainSynthesisResult.Status.SYNTHESIZED, List.of(new GbrainCitation(FIXTURE_KEY, FIXTURE_SLUG)),
+				List.of(),
+				new GbrainSynthesisResult.Usage("openrouter:anthropic/claude-haiku-4.5", 672L, 161L, null),
+				List.of()));
+		assertThat(server.toolCalls().get(0).json().path("params").path("arguments").toString())
+				.isEqualTo("{\"question\":\"Who audits procurement?\"}");
+	}
+
+	@Test
+	void synthesizeReportsExtractiveFallbackGapsAndDeduplicatedCitations() {
+		respondFixture("synthesize", "synthesize-response", payload -> {
+			payload.put("synthesis_status", "extractive_fallback");
+			payload.putArray("sources").add(FIXTURE_SLUG).add("people/alice-example").add(FIXTURE_SLUG);
+			payload.putArray("gaps").add("No data on Q3 audits");
+			payload.putArray("warnings").add("LLM_OUTPUT_TRUNCATED");
+			((ObjectNode) payload.path("cost")).putNull("input_tokens").put("usd_estimate", new BigDecimal("0.0012"));
+		});
+
+		GbrainSynthesisResult result = client.synthesize(new GbrainSynthesisRequest("Who audits procurement?"));
+
+		assertThat(result.status()).isEqualTo(GbrainSynthesisResult.Status.EXTRACTIVE_FALLBACK);
+		assertThat(result.citations()).containsExactly(new GbrainCitation(FIXTURE_KEY, FIXTURE_SLUG));
+		assertThat(result.gaps()).containsExactly("No data on Q3 audits");
+		assertThat(result.warnings()).containsExactly("LLM_OUTPUT_TRUNCATED");
+		assertThat(result.usage()).isEqualTo(new GbrainSynthesisResult.Usage("openrouter:anthropic/claude-haiku-4.5",
+				null, 161L, new BigDecimal("0.0012")));
+	}
+
+	@Test
+	void synthesizeToleratesMissingAccountingAndOptionalLists() {
+		respondFixture("synthesize", "synthesize-response", payload -> {
+			payload.remove("cost");
+			payload.remove("sources");
+			payload.remove("gaps");
+			payload.remove("warnings");
+		});
+
+		GbrainSynthesisResult result = client.synthesize(new GbrainSynthesisRequest("Who audits procurement?"));
+
+		assertThat(result.usage()).isEqualTo(new GbrainSynthesisResult.Usage(null, null, null, null));
+		assertThat(result.citations()).isEmpty();
+		assertThat(result.gaps()).isEmpty();
+	}
+
+	@Test
+	void synthesizeRejectsMalformedResponses() {
+		GbrainSynthesisRequest request = new GbrainSynthesisRequest("Who audits procurement?");
+
+		respondFixture("synthesize", "synthesize-response", payload -> payload.put("synthesis_status", "pending"));
+		assertCode(() -> client.synthesize(request), GbrainErrorCode.PROTOCOL);
+
+		respondFixture("synthesize", "synthesize-response", payload -> payload.remove("answer"));
+		assertCode(() -> client.synthesize(request), GbrainErrorCode.PROTOCOL);
+
+		respondFixture("synthesize", "synthesize-response", payload -> payload.put("sources", FIXTURE_SLUG));
+		assertCode(() -> client.synthesize(request), GbrainErrorCode.PROTOCOL);
+
+		respondFixture("synthesize", "synthesize-response", payload -> payload.putArray("gaps").add(3));
+		assertCode(() -> client.synthesize(request), GbrainErrorCode.PROTOCOL);
+	}
+
+	@Test
+	void synthesizeIsNeverRetried() {
+		respondError("synthesize", "unavailable");
+		assertCode(() -> client.synthesize(new GbrainSynthesisRequest("Why?")), GbrainErrorCode.UNAVAILABLE);
+
+		server.onMcp("tools/call:synthesize", request -> Response.empty(503));
+		assertCode(() -> client.synthesize(new GbrainSynthesisRequest("Why?")), GbrainErrorCode.UNAVAILABLE);
+		assertThat(server.toolCalls()).hasSize(2);
+	}
+
 	private void respond(String tool, String payload) {
 		server.onMcp("tools/call:" + tool, request -> Response.sse(toolResult(request.rpcId(), payload, false)));
 	}
@@ -248,6 +430,19 @@ class McpGbrainClientTests {
 
 	private void respondFixture(String tool, String fixtureName) {
 		respondFixture(tool, fixtureName, page -> {
+		});
+	}
+
+	/** Serves the captured search fixture after editing its hits and its {@code _meta} block. */
+	private void respondSearch(Consumer<ArrayNode> editHits, Consumer<ObjectNode> editMeta) {
+		server.onMcp("tools/call:search", request -> {
+			JsonNode response = fixture("search-response.json", request.rpcId());
+			ObjectNode content = (ObjectNode) response.path("result").path("content").get(0);
+			ArrayNode hits = (ArrayNode) JSON.readTree(content.path("text").asString());
+			editHits.accept(hits);
+			content.put("text", hits.toString());
+			editMeta.accept((ObjectNode) response.path("result").path("_meta"));
+			return Response.sse(response);
 		});
 	}
 
