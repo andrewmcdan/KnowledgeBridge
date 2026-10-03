@@ -6,7 +6,7 @@ $repositoryRoot = Split-Path -Parent $PSScriptRoot
 $environmentPath = Join-Path $repositoryRoot '.env'
 
 if (-not (Test-Path -LiteralPath $environmentPath)) {
-    throw 'Root .env file is required. Copy .env.example first and set OPENROUTER_API_KEY.'
+    throw 'Root .env file is required. Copy .env.example first and set OPENROUTER_API_KEY or OPENAI_API_KEY.'
 }
 
 function Set-DotEnvValue {

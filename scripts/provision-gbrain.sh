@@ -8,7 +8,7 @@ ENV_FILE="$PROJECT_ROOT/.env"
 SOURCE_ID="knowledgebridge"
 
 if [[ ! -f "$ENV_FILE" ]]; then
-  echo "Root .env file is required. Copy .env.example first and set OPENROUTER_API_KEY." >&2
+  echo "Root .env file is required. Copy .env.example first and set OPENROUTER_API_KEY or OPENAI_API_KEY." >&2
   exit 1
 fi
 

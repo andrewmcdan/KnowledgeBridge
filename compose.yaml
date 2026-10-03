@@ -52,10 +52,13 @@ services:
     environment:
       GBRAIN_HOME: /data
       GBRAIN_DATABASE_URL: postgres://gbrain:${GBRAIN_DB_PASSWORD:-gbrain-local}@postgres:5432/gbrain
-      GBRAIN_EMBEDDING_MODEL: ${GBRAIN_EMBEDDING_MODEL:-openrouter:openai/text-embedding-3-small}
+      # Empty model values let docker/gbrain/entrypoint.sh pick defaults for the available provider key.
+      GBRAIN_EMBEDDING_MODEL: ${GBRAIN_EMBEDDING_MODEL:-}
       GBRAIN_EMBEDDING_DIMENSIONS: ${GBRAIN_EMBEDDING_DIMENSIONS:-1536}
-      GBRAIN_SYNTHESIS_MODEL: ${GBRAIN_SYNTHESIS_MODEL:-openrouter:anthropic/claude-haiku-4.5}
-      OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:?Set OPENROUTER_API_KEY in the root .env file}
+      GBRAIN_SYNTHESIS_MODEL: ${GBRAIN_SYNTHESIS_MODEL:-}
+      # Set at least one key; OpenRouter is used when both are present.
+      OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:-}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
       OPENROUTER_REFERER: ${OPENROUTER_REFERER:-http://localhost:3000}
       OPENROUTER_TITLE: ${OPENROUTER_TITLE:-KnowledgeBridge}
     depends_on:
