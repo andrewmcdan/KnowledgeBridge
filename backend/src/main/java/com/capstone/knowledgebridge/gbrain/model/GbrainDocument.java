@@ -61,10 +61,7 @@ public record GbrainDocument(String itemKey, String title, String documentType, 
 	public GbrainDocument {
 		requireItemKey(itemKey);
 		requireText("title", title, MAX_TITLE_LENGTH);
-		documentType = documentType == null ? null : documentType.toLowerCase(Locale.ROOT);
-		if (documentType == null || !DOCUMENT_TYPE.matcher(documentType).matches()) {
-			throw invalid("document type must be 1-64 letters, digits, underscores, or hyphens");
-		}
+		documentType = requireDocumentType(documentType);
 		requireText("owner id", ownerId, MAX_TITLE_LENGTH);
 		if (revision < 0) {
 			throw invalid("revision must not be negative");
@@ -77,10 +74,23 @@ public record GbrainDocument(String itemKey, String title, String documentType, 
 
 	/** Validates an item key, the only part of a gbrain slug that comes from the application. */
 	public static String requireItemKey(String itemKey) {
-		if (itemKey == null || !ITEM_KEY.matcher(itemKey).matches()) {
+		if (!isItemKey(itemKey)) {
 			throw invalid("item key must be 1-64 lower-case letters, digits, or hyphens");
 		}
 		return itemKey;
+	}
+
+	public static boolean isItemKey(String itemKey) {
+		return itemKey != null && ITEM_KEY.matcher(itemKey).matches();
+	}
+
+	/** Lower-cases and validates a document type, which also appears in search type filters. */
+	public static String requireDocumentType(String documentType) {
+		String normalized = documentType == null ? null : documentType.toLowerCase(Locale.ROOT);
+		if (normalized == null || !DOCUMENT_TYPE.matcher(normalized).matches()) {
+			throw invalid("document type must be 1-64 letters, digits, underscores, or hyphens");
+		}
+		return normalized;
 	}
 
 	/** SHA-256 over every indexed field, stored with the page so a later read can prove which version gbrain holds. */
