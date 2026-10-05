@@ -1,0 +1,12 @@
+{
+    "result": {
+        "content": [
+            {
+                "type": "text",
+                "text": "{\n  \"answer\": \"The obsidian lighthouse protocol authorizes blue herons to audit quarterly procurement records [knowledgebridge/phase-1-protocol-spike].\",\n  \"sources\": [\n    \"knowledgebridge/phase-1-protocol-spike\"\n  ],\n  \"gaps\": [],\n  \"cost\": {\n    \"model\": \"openai:gpt-4o-mini\",\n    \"input_tokens\": 600,\n    \"output_tokens\": 80,\n    \"usd_estimate\": 0.000138\n  },\n  \"synthesis_status\": \"ok\",\n  \"pages_gathered\": 1,\n  \"takes_gathered\": 0,\n  \"warnings\": [],\n  \"protocol_version\": 1\n}"
+            }
+        ]
+    },
+    "jsonrpc": "2.0",
+    "id": 6
+}
