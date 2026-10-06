@@ -3,25 +3,34 @@ package com.capstone.knowledgebridge.knowledge;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import java.time.Instant;
+import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
+import org.springframework.data.domain.Sort;
 
+import com.capstone.knowledgebridge.ingestion.IngestionAttempt;
+import com.capstone.knowledgebridge.ingestion.IngestionAttemptRepository;
 import com.capstone.knowledgebridge.ingestion.IngestionService;
 
 class KnowledgeItemServiceTests {
 
 	private final KnowledgeItemRepository knowledgeItemRepository = mock(KnowledgeItemRepository.class);
 
+	private final IngestionAttemptRepository ingestionAttemptRepository = mock(IngestionAttemptRepository.class);
+
 	private final IngestionService ingestionService = mock(IngestionService.class);
 
 	private final KnowledgeItemService knowledgeItemService = new KnowledgeItemService(knowledgeItemRepository,
-			ingestionService);
+			ingestionAttemptRepository, ingestionService);
 
 	@Test
 	void createAndIngestTrimsFieldsSavesTwiceAndCallsIngestion() {
@@ -48,6 +57,31 @@ class KnowledgeItemServiceTests {
 
 		assertThat(knowledgeItemService.findById(1L)).contains(item);
 		assertThat(knowledgeItemService.findById(2L)).isEmpty();
+	}
+
+	@Test
+	void findAllReturnsNewestFirst() {
+		KnowledgeItem item = new KnowledgeItem("Title", "Policy", 7L, "body");
+		Sort newestFirst = Sort.by(Sort.Direction.DESC, "createdAt", "id");
+		when(knowledgeItemRepository.findAll(newestFirst)).thenReturn(List.of(item));
+
+		assertThat(knowledgeItemService.findAll()).containsExactly(item);
+	}
+
+	@Test
+	void findLatestAttemptsKeysAttemptsByItemId() {
+		IngestionAttempt attempt = IngestionAttempt.failed(1L, 2, Instant.now(), "TIMEOUT", "timed out");
+		when(ingestionAttemptRepository.findLatestByKnowledgeItemIdIn(List.of(1L, 2L))).thenReturn(List.of(attempt));
+
+		Map<Long, IngestionAttempt> latest = knowledgeItemService.findLatestAttempts(List.of(1L, 2L));
+
+		assertThat(latest).containsOnly(Map.entry(1L, attempt));
+	}
+
+	@Test
+	void findLatestAttemptsSkipsTheQueryForNoItems() {
+		assertThat(knowledgeItemService.findLatestAttempts(List.of())).isEmpty();
+		verify(ingestionAttemptRepository, never()).findLatestByKnowledgeItemIdIn(any());
 	}
 
 	@Test

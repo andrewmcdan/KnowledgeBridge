@@ -9,6 +9,9 @@ import static org.mockito.Mockito.when;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.time.Instant;
+import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 import org.junit.jupiter.api.Test;
@@ -19,6 +22,8 @@ import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.web.multipart.MultipartFile;
 
+import com.capstone.knowledgebridge.gbrain.model.GbrainDocument;
+import com.capstone.knowledgebridge.ingestion.IngestionAttempt;
 import com.capstone.knowledgebridge.knowledge.KnowledgeItemController.KnowledgeItemResponse;
 import com.capstone.knowledgebridge.knowledge.KnowledgeItemController.ManualKnowledgeItemRequest;
 
@@ -27,6 +32,8 @@ class KnowledgeItemControllerTests {
 	private final KnowledgeItemService knowledgeItemService = mock(KnowledgeItemService.class);
 
 	private final KnowledgeItemController controller = new KnowledgeItemController(knowledgeItemService);
+
+	private static final String OVER_GBRAIN_LIMIT = "a".repeat(GbrainDocument.MAX_BODY_BYTES);
 
 	private static Jwt jwtFor(String subject) {
 		Jwt jwt = mock(Jwt.class);
@@ -46,6 +53,49 @@ class KnowledgeItemControllerTests {
 		assertThat(response.getStatusCode()).isEqualTo(HttpStatus.CREATED);
 		assertThat(response.getBody().title()).isEqualTo("Title");
 		assertThat(response.getBody().status()).isEqualTo("PENDING");
+	}
+
+	@Test
+	void listReturnsItemsWithTheirLatestFailure() {
+		KnowledgeItem failed = new KnowledgeItem("Failed", "Policy", 7L, "body");
+		ReflectionTestUtils.setField(failed, "id", 1L);
+		failed.markFailed();
+		KnowledgeItem pending = new KnowledgeItem("Pending", "Policy", 7L, "body");
+		ReflectionTestUtils.setField(pending, "id", 2L);
+		when(knowledgeItemService.findAll()).thenReturn(List.of(failed, pending));
+		when(knowledgeItemService.findLatestAttempts(List.of(1L, 2L))).thenReturn(
+				Map.of(1L, IngestionAttempt.failed(1L, 1, Instant.now(), "TIMEOUT", "gbrain timed out")));
+
+		List<KnowledgeItemResponse> responses = controller.list();
+
+		assertThat(responses).extracting(KnowledgeItemResponse::title).containsExactly("Failed", "Pending");
+		assertThat(responses.get(0).status()).isEqualTo("FAILED");
+		assertThat(responses.get(0).lastErrorCode()).isEqualTo("TIMEOUT");
+		assertThat(responses.get(0).lastErrorMessage()).isEqualTo("gbrain timed out");
+		assertThat(responses.get(1).lastErrorCode()).isNull();
+		assertThat(responses.get(1).lastErrorMessage()).isNull();
+	}
+
+	@Test
+	void getReturnsItemOrNotFound() {
+		KnowledgeItem item = new KnowledgeItem("Title", "Policy", 7L, "body");
+		ReflectionTestUtils.setField(item, "id", 1L);
+		when(knowledgeItemService.findById(1L)).thenReturn(Optional.of(item));
+		when(knowledgeItemService.findById(2L)).thenReturn(Optional.empty());
+
+		ResponseEntity<KnowledgeItemResponse> found = controller.get(1L);
+
+		assertThat(found.getStatusCode()).isEqualTo(HttpStatus.OK);
+		assertThat(found.getBody().id()).isEqualTo(1L);
+		assertThat(controller.get(2L).getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
+	}
+
+	@Test
+	void createManualRejectsBodyOverGbrainLimit() {
+		ResponseEntity<KnowledgeItemResponse> response = controller
+				.createManual(new ManualKnowledgeItemRequest("Title", "Policy", OVER_GBRAIN_LIMIT), jwtFor("7"));
+
+		assertThat(response.getStatusCode()).isEqualTo(HttpStatus.CONTENT_TOO_LARGE);
 	}
 
 	@Test
@@ -76,6 +126,29 @@ class KnowledgeItemControllerTests {
 		ResponseEntity<KnowledgeItemResponse> response = controller.uploadDocument(file, "Title", "  ", jwtFor("7"));
 
 		assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+	}
+
+	@Test
+	void uploadRejectsOverlongTitleAndType() {
+		MultipartFile file = new MockMultipartFile("file", "doc.md", "text/markdown",
+				"content".getBytes(StandardCharsets.UTF_8));
+		String overlong = "x".repeat(256);
+
+		assertThat(controller.uploadDocument(file, overlong, "Policy", jwtFor("7")).getStatusCode())
+				.isEqualTo(HttpStatus.BAD_REQUEST);
+		assertThat(controller.uploadDocument(file, "Title", overlong, jwtFor("7")).getStatusCode())
+				.isEqualTo(HttpStatus.BAD_REQUEST);
+	}
+
+	@Test
+	void uploadRejectsBodyOverGbrainLimit() {
+		MultipartFile file = new MockMultipartFile("file", "doc.md", "text/markdown",
+				OVER_GBRAIN_LIMIT.getBytes(StandardCharsets.UTF_8));
+
+		ResponseEntity<KnowledgeItemResponse> response = controller.uploadDocument(file, "Title", "Policy",
+				jwtFor("7"));
+
+		assertThat(response.getStatusCode()).isEqualTo(HttpStatus.CONTENT_TOO_LARGE);
 	}
 
 	@Test

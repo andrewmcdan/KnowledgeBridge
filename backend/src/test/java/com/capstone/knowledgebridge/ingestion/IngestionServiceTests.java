@@ -16,6 +16,7 @@ import org.springframework.test.util.ReflectionTestUtils;
 import com.capstone.knowledgebridge.gbrain.GbrainClient;
 import com.capstone.knowledgebridge.gbrain.GbrainErrorCode;
 import com.capstone.knowledgebridge.gbrain.GbrainException;
+import com.capstone.knowledgebridge.gbrain.model.GbrainDocument;
 import com.capstone.knowledgebridge.gbrain.model.GbrainWriteResult;
 import com.capstone.knowledgebridge.knowledge.KnowledgeItem;
 import com.capstone.knowledgebridge.knowledge.KnowledgeItemStatus;
@@ -139,6 +140,16 @@ class IngestionServiceTests {
 		ArgumentCaptor<IngestionAttempt> captor = ArgumentCaptor.forClass(IngestionAttempt.class);
 		verify(ingestionAttemptRepository).save(captor.capture());
 		assertThat(captor.getValue().getErrorMessage()).isNull();
+	}
+
+	@Test
+	void exceedsBodyLimitMatchesGbrainsNormalizedSize() {
+		// GbrainDocument strips trailing whitespace and appends one newline before checking its limit.
+		String atLimit = "a".repeat(GbrainDocument.MAX_BODY_BYTES - 1);
+
+		assertThat(IngestionService.exceedsBodyLimit(atLimit)).isFalse();
+		assertThat(IngestionService.exceedsBodyLimit(atLimit + "   \n\n")).isFalse();
+		assertThat(IngestionService.exceedsBodyLimit(atLimit + "a")).isTrue();
 	}
 
 }

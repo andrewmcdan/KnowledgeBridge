@@ -1,5 +1,6 @@
 package com.capstone.knowledgebridge.ingestion;
 
+import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 
 import org.slf4j.Logger;
@@ -38,6 +39,16 @@ public class IngestionService {
 		this.gbrainClient = gbrainClient;
 		this.ingestionAttemptRepository = ingestionAttemptRepository;
 		this.knowledgeRevisionService = knowledgeRevisionService;
+	}
+
+	/**
+	 * True when gbrain would reject this body for size. Lets the endpoints answer 413 up front instead of saving an
+	 * item that can only ever fail. Mirrors GbrainDocument's normalization (strip trailing whitespace, append one
+	 * newline); its CRLF and byte-order-mark handling only shrink the body, so this never lets an oversized body
+	 * through.
+	 */
+	public static boolean exceedsBodyLimit(String body) {
+		return body.stripTrailing().getBytes(StandardCharsets.UTF_8).length + 1 > GbrainDocument.MAX_BODY_BYTES;
 	}
 
 	/**

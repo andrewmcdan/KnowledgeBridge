@@ -2,6 +2,7 @@ package com.capstone.knowledgebridge;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
@@ -36,6 +37,8 @@ import org.testcontainers.postgresql.PostgreSQLContainer;
 import org.testcontainers.utility.DockerImageName;
 
 import com.capstone.knowledgebridge.gbrain.GbrainClient;
+import com.capstone.knowledgebridge.gbrain.GbrainErrorCode;
+import com.capstone.knowledgebridge.gbrain.GbrainException;
 import com.capstone.knowledgebridge.gbrain.model.GbrainWriteResult;
 
 @Testcontainers
@@ -63,8 +66,8 @@ class KnowledgeBridgeApplicationTests {
 	@Autowired
 	private JwtEncoder jwtEncoder;
 
-	// Replaces whatever GbrainClient bean is on the classpath (right now, the throwaway local stub) so
-	// these tests control gbrain's response deterministically instead of depending on it.
+	// Replaces the real GbrainClient bean so these tests control gbrain's response deterministically
+	// instead of depending on a running gbrain.
 	@MockitoBean
 	private GbrainClient gbrainClient;
 
@@ -235,24 +238,73 @@ class KnowledgeBridgeApplicationTests {
 	}
 
 	@Test
-	void uploadFailsGracefullyWhenContentExceedsGbrainsBodyLimit() throws Exception {
-		// Note: Spring's own spring.servlet.multipart.max-file-size (413) can't be exercised through
-		// MockMvc's multipart() builder - it bypasses real servlet-container multipart parsing entirely,
-		// which is where that limit is actually enforced. Verified live against a real running server
-		// instead. This test covers something MockMvc *can* prove: GbrainDocument's own 1MB body limit
-		// (smaller than our 5MB upload limit) throwing during construction gets caught the same as any
-		// other gbrain failure, instead of escaping as an uncaught 500.
+	void uploadRejectsContentOverGbrainsBodyLimitWithoutCreatingAnItem() throws Exception {
+		// MockMvc's multipart() bypasses servlet-container multipart parsing, so this reaches the
+		// controller's own gbrain body-limit check rather than spring.servlet.multipart.max-file-size.
 		String adminToken = loginAndGetToken("admin@acme.example", "admin123", "ADMIN");
 		byte[] overGbrainLimitContent = "a".repeat(2 * 1024 * 1024).getBytes(StandardCharsets.UTF_8);
 		MockMultipartFile file = new MockMultipartFile("file", "big.md", "text/markdown", overGbrainLimitContent);
+		Integer itemsBefore = jdbcTemplate.queryForObject("SELECT COUNT(*) FROM knowledge_item", Integer.class);
 
 		mockMvc.perform(multipart("/api/knowledge-items/upload")
 				.file(file)
 				.param("title", "Too Big For Gbrain")
 				.param("type", "Policy")
 				.header("Authorization", "Bearer " + adminToken))
+				.andExpect(status().isContentTooLarge());
+
+		Integer itemsAfter = jdbcTemplate.queryForObject("SELECT COUNT(*) FROM knowledge_item", Integer.class);
+		assertThat(itemsAfter).isEqualTo(itemsBefore);
+	}
+
+	@Test
+	void listAndGetExposeStatusAndLatestFailureToAdminsOnly() throws Exception {
+		String adminToken = loginAndGetToken("admin@acme.example", "admin123", "ADMIN");
+		when(gbrainClient.upsertDocument(any()))
+				.thenThrow(new GbrainException(GbrainErrorCode.TIMEOUT, "gbrain did not respond in time"));
+
+		MvcResult createResult = mockMvc.perform(post("/api/knowledge-items/manual")
+				.header("Authorization", "Bearer " + adminToken)
+				.contentType("application/json")
+				.content("{\"title\":\"Listed Failure\",\"type\":\"Policy\",\"text\":\"Body.\"}"))
 				.andExpect(status().isCreated())
-				.andExpect(jsonPath("$.status").value("FAILED"));
+				.andExpect(jsonPath("$.status").value("FAILED"))
+				.andExpect(jsonPath("$.lastErrorCode").value("TIMEOUT"))
+				.andReturn();
+		long id = ((Number) com.jayway.jsonpath.JsonPath.read(createResult.getResponse().getContentAsString(), "$.id"))
+				.longValue();
+
+		// Newest first, so the item just created leads the list.
+		mockMvc.perform(get("/api/knowledge-items").header("Authorization", "Bearer " + adminToken))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$[0].id").value(id))
+				.andExpect(jsonPath("$[0].status").value("FAILED"))
+				.andExpect(jsonPath("$[0].lastErrorCode").value("TIMEOUT"))
+				.andExpect(jsonPath("$[0].lastErrorMessage").value("gbrain did not respond in time"));
+
+		mockMvc.perform(get("/api/knowledge-items/" + id).header("Authorization", "Bearer " + adminToken))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.title").value("Listed Failure"))
+				.andExpect(jsonPath("$.lastErrorCode").value("TIMEOUT"));
+
+		mockMvc.perform(get("/api/knowledge-items/999999").header("Authorization", "Bearer " + adminToken))
+				.andExpect(status().isNotFound());
+
+		String userToken = loginAndGetToken("user@acme.example", "user123", "USER");
+		mockMvc.perform(get("/api/knowledge-items").header("Authorization", "Bearer " + userToken))
+				.andExpect(status().isForbidden());
+		mockMvc.perform(get("/api/knowledge-items/" + id).header("Authorization", "Bearer " + userToken))
+				.andExpect(status().isForbidden());
+
+		// A successful retry clears the error fields - they only describe the latest attempt. doReturn
+		// because when(...) would invoke the mock, which is still stubbed to throw.
+		doReturn(new GbrainWriteResult("stub-id", GbrainWriteResult.Status.WRITTEN, 1)).when(gbrainClient)
+				.upsertDocument(any());
+		mockMvc.perform(post("/api/knowledge-items/" + id + "/retry-ingestion")
+				.header("Authorization", "Bearer " + adminToken))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.status").value("COMPLETED"))
+				.andExpect(jsonPath("$.lastErrorCode").doesNotExist());
 	}
 
 	@Test
