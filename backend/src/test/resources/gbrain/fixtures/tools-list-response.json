@@ -1,0 +1,81 @@
+{
+    "jsonrpc": "2.0",
+    "id": 2,
+    "result": {
+        "tools": [
+            {
+                "name": "whoami",
+                "description": "Introspect the calling identity.",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {},
+                    "required": []
+                }
+            },
+            {
+                "name": "put_page",
+                "description": "Write or replace a page.",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "slug": {
+                            "type": "string"
+                        },
+                        "content": {
+                            "type": "string"
+                        },
+                        "allow_empty": {
+                            "type": "boolean"
+                        }
+                    },
+                    "required": [
+                        "slug",
+                        "content"
+                    ]
+                }
+            },
+            {
+                "name": "search",
+                "description": "Cheap hybrid search.",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "query": {
+                            "type": "string"
+                        },
+                        "limit": {
+                            "type": "number"
+                        },
+                        "source_id": {
+                            "type": "string"
+                        }
+                    },
+                    "required": [
+                        "query"
+                    ]
+                }
+            },
+            {
+                "name": "synthesize",
+                "description": "LLM-backed synthesis with citations and gaps.",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "question": {
+                            "type": "string"
+                        },
+                        "since": {
+                            "type": "string"
+                        },
+                        "until": {
+                            "type": "string"
+                        }
+                    },
+                    "required": [
+                        "question"
+                    ]
+                }
+            }
+        ]
+    }
+}

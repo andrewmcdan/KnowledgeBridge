@@ -54,8 +54,22 @@ dependencies {
 }
 
 tasks.named('test') {
-	useJUnitPlatform()
+	useJUnitPlatform {
+		excludeTags 'live'
+	}
 	finalizedBy tasks.named('jacocoTestReport')
+}
+
+// Live gbrain checks need a running instance and paid provider calls; run them through scripts/test-gbrain-live.sh.
+tasks.register('liveTest', Test) {
+	description = 'Runs tests tagged live against the gbrain instance named by GBRAIN_LIVE_BASE_URL.'
+	group = 'verification'
+	testClassesDirs = sourceSets.test.output.classesDirs
+	classpath = sourceSets.test.runtimeClasspath
+	useJUnitPlatform {
+		includeTags 'live'
+	}
+	outputs.upToDateWhen { false }
 }
 
 jacoco {
