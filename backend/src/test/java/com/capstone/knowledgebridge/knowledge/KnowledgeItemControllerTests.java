@@ -90,6 +90,19 @@ class KnowledgeItemControllerTests {
 	}
 
 	@Test
+	void uploadRejectsMissingFilename() {
+		// MockMultipartFile turns a null filename into "", so mock the interface to reach the null check.
+		MultipartFile file = mock(MultipartFile.class);
+		when(file.isEmpty()).thenReturn(false);
+		when(file.getOriginalFilename()).thenReturn(null);
+
+		ResponseEntity<KnowledgeItemResponse> response = controller.uploadDocument(file, "Title", "Policy",
+				jwtFor("7"));
+
+		assertThat(response.getStatusCode()).isEqualTo(HttpStatus.UNSUPPORTED_MEDIA_TYPE);
+	}
+
+	@Test
 	void uploadRejectsBlankContentAfterDecoding() {
 		MultipartFile file = new MockMultipartFile("file", "doc.md", "text/markdown",
 				"   \n  ".getBytes(StandardCharsets.UTF_8));
