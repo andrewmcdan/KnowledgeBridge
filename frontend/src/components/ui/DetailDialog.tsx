@@ -16,7 +16,7 @@ export function DetailDialog({ detail, onClose }: { detail: Detail; onClose: () 
                 if (event.target === event.currentTarget) dialog.current?.close();
             }}
         >
-            <span className="preview-badge">Sample content</span>
+            <span className="preview-badge">Knowledge item</span>
             <h2 id="detail-title">{detail.title}</h2>
             <p>{detail.text}</p>
             <button className="primary-button" autoFocus onClick={() => dialog.current?.close()}>
