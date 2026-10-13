@@ -1,16 +1,26 @@
 import type { FormEvent } from "react";
 import { Icon } from "../ui/Icon";
-import type { Detail } from "../../types/models";
+import type { AuthUser } from "../../features/auth/authApi";
 
 interface TopbarProps {
     search: string;
     onSearchChange: (value: string) => void;
     onSearchSubmit: () => void;
     onToggleNavigation: () => void;
-    onOpenDetail: (detail: Detail) => void;
+    onLogout: () => void;
+    user: AuthUser;
 }
 
-export function Topbar({ search, onSearchChange, onSearchSubmit, onToggleNavigation, onOpenDetail }: TopbarProps) {
+function initials(name: string): string {
+    return name
+        .split(/\s+/)
+        .filter(Boolean)
+        .slice(0, 2)
+        .map((part) => part[0]?.toUpperCase())
+        .join("");
+}
+
+export function Topbar({ search, onSearchChange, onSearchSubmit, onToggleNavigation, onLogout, user }: TopbarProps) {
     const submit = (event: FormEvent) => {
         event.preventDefault();
         onSearchSubmit();
@@ -22,35 +32,24 @@ export function Topbar({ search, onSearchChange, onSearchSubmit, onToggleNavigat
             </button>
             <form className="global-search" onSubmit={submit}>
                 <Icon name="search" size={18} />
-                <input id="global-search" aria-label="Search sample knowledge base" placeholder="Search knowledge base, documents, entities…" value={search} onChange={(event) => onSearchChange(event.target.value)} />
+                <input id="global-search" aria-label="Search knowledge base" placeholder="Search knowledge base…" value={search} onChange={(event) => onSearchChange(event.target.value)} />
                 <kbd>⌘ K</kbd>
             </form>
-            <button
-                className="organization"
-                onClick={() =>
-                    onOpenDetail({
-                        title: "Acme Corporation",
-                        text: "Acme Corporation is the fictional organization used in this interface preview. Organization switching will be available when accounts are connected.",
-                    })
-                }
-            >
+            <div className="organization">
                 <Icon name="home" size={18} />
-                <span>Acme Corporation</span>
-                <span>⌄</span>
-            </button>
-            <button
-                className="profile"
-                onClick={() =>
-                    onOpenDetail({
-                        title: "Demo workspace",
-                        text: "You are viewing the frontend scaffold. Login, user profiles, and role-based access are not connected yet.",
-                    })
-                }
-            >
-                <span className="avatar">AC</span>
-                <span>Demo user</span>
-                <span>⌄</span>
-            </button>
+                <span>Workspace</span>
+            </div>
+            <details className="profile-menu">
+                <summary className="profile">
+                    <span className="avatar">{initials(user.displayName)}</span>
+                    <span>{user.displayName}</span>
+                    <span aria-hidden="true">⌄</span>
+                </summary>
+                <div className="profile-popover">
+                    <p>{user.email}</p>
+                    <button onClick={onLogout}>Sign out</button>
+                </div>
+            </details>
         </header>
     );
 }

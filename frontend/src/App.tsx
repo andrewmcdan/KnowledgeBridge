@@ -5,17 +5,22 @@ import { PageHeading } from "./components/layout/PageHeading";
 import { Sidebar } from "./components/layout/Sidebar";
 import { Topbar } from "./components/layout/Topbar";
 import { DetailDialog } from "./components/ui/DetailDialog";
-import { navigation } from "./data/demoData";
+import { navigation } from "./data/navigation";
 import { AskAiPage } from "./features/ask-ai/AskAiPage";
 import { EntitiesPage } from "./features/entities/EntitiesPage";
 import { KnowledgeBasePage } from "./features/knowledge/KnowledgeBasePage";
+import { UploadsPage } from "./features/knowledge/UploadsPage";
 import { PlaceholderPage } from "./features/overview/PlaceholderPage";
+import { LoginPage } from "./features/auth/LoginPage";
+import { AuthProvider } from "./features/auth/AuthProvider";
+import { useAuth } from "./features/auth/useAuth";
 import { useGlobalShortcuts } from "./hooks/useGlobalShortcuts";
 import { useHealthStatus } from "./hooks/useHealthStatus";
 import type { Detail } from "./types/models";
 import "./App.css";
 
 function Workspace() {
+    const { signOut, user } = useAuth();
     const navigate = useNavigate();
     const location = useLocation();
     const [collapsed, setCollapsed] = useState(false);
@@ -41,24 +46,36 @@ function Workspace() {
     return (
         <div className={`workspace ${collapsed ? "collapsed" : ""}`}>
             {mobileOpen && <button className="nav-backdrop" aria-label="Close navigation" onClick={closeMobileNavigation} />}
-            <Sidebar collapsed={collapsed} mobileOpen={mobileOpen} service={service} onNavigate={closeMobileNavigation} onToggleCollapsed={() => setCollapsed((value) => !value)} />
+            <Sidebar collapsed={collapsed} isAdmin={user?.role === "ADMIN"} mobileOpen={mobileOpen} service={service} onNavigate={closeMobileNavigation} onToggleCollapsed={() => setCollapsed((value) => !value)} />
             <div className="main-shell">
-                <Topbar search={search} onSearchChange={setSearch} onSearchSubmit={() => go("/knowledge")} onToggleNavigation={toggleNavigation} onOpenDetail={setDetail} />
+                {user && (
+                    <Topbar
+                        search={search}
+                        onSearchChange={setSearch}
+                        onSearchSubmit={() => go("/knowledge")}
+                        onToggleNavigation={toggleNavigation}
+                        onLogout={() => {
+                            signOut();
+                            navigate("/", { replace: true });
+                        }}
+                        user={user}
+                    />
+                )}
                 <div className="content-layout">
                     <main className="main-content">
                         <PageHeading title={page} />
                         <Routes>
-                            <Route path="/ask-ai" element={<AskAiPage search={search} saved={saved} onOpenDetail={setDetail} onToggleSaved={toggleSaved} />} />
+                            <Route path="/ask-ai" element={<AskAiPage />} />
                             <Route path="/knowledge" element={<KnowledgeBasePage search={search} saved={saved} onOpenDetail={setDetail} onToggleSaved={toggleSaved} />} />
-                            <Route path="/entities" element={<EntitiesPage onOpenDetail={setDetail} />} />
+                            <Route path="/entities" element={<EntitiesPage />} />
                             <Route path="/dashboard" element={<PlaceholderPage page="Dashboard" service={service} onAskAi={() => go("/ask-ai")} />} />
-                            <Route path="/uploads" element={<PlaceholderPage page="Uploads" service={service} onAskAi={() => go("/ask-ai")} />} />
+                            <Route path="/uploads" element={user?.role === "ADMIN" ? <UploadsPage /> : <Navigate to="/ask-ai" replace />} />
                             <Route path="/usage" element={<PlaceholderPage page="Usage" service={service} onAskAi={() => go("/ask-ai")} />} />
-                            <Route path="/admin" element={<PlaceholderPage page="Admin" service={service} onAskAi={() => go("/ask-ai")} />} />
+                            <Route path="/admin" element={user?.role === "ADMIN" ? <PlaceholderPage page="Admin" service={service} onAskAi={() => go("/ask-ai")} /> : <Navigate to="/ask-ai" replace />} />
                             <Route path="*" element={<Navigate to="/ask-ai" replace />} />
                         </Routes>
                     </main>
-                    <ContextColumn saved={saved} onOpenDetail={setDetail} onToggleSaved={toggleSaved} onNavigate={go} />
+                    <ContextColumn onNavigate={go} />
                 </div>
             </div>
             {detail && <DetailDialog detail={detail} onClose={() => setDetail(null)} />}
@@ -66,11 +83,32 @@ function Workspace() {
     );
 }
 
-function App() {
+function AppRoutes() {
+    const { status } = useAuth();
+
+    if (status === "loading") return <main className="auth-loading">Restoring your session…</main>;
+
     return (
         <BrowserRouter>
-            <Workspace />
+            <Routes>
+                {status === "authenticated" ? (
+                    <>
+                        <Route path="/" element={<Navigate to="/ask-ai" replace />} />
+                        <Route path="/*" element={<Workspace />} />
+                    </>
+                ) : (
+                    <Route path="*" element={<LoginPage />} />
+                )}
+            </Routes>
         </BrowserRouter>
+    );
+}
+
+function App() {
+    return (
+        <AuthProvider>
+            <AppRoutes />
+        </AuthProvider>
     );
 }
 

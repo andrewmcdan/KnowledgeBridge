@@ -2,10 +2,13 @@
 
 Search and synthesis orchestration — the `/api/query` routes behind the Ask AI page.
 
-Expected contents:
+Implemented:
 
-- `QueryController` — `POST /search` (ranked documents, no LLM cost) and `POST /synthesize` (LLM answer with citations and a low-confidence/gap flag), plus answer feedback and per-user history.
-- `QueryService` — checks the exact-match cache first, otherwise calls the `gbrain` adapter, then records a `query_event` with character counts and estimated tokens/cost.
-- Response records carrying citations, `cacheHit`, and an `aiGenerated` marker so the UI can label AI output.
+- `QueryController` — authenticated `POST /search` for ranked documents and `POST /synthesize` for an LLM answer with citations, gap signals, warnings, and usage.
+- `QueryService` — validates through the application-owned gbrain request models, invokes the adapter, and resolves synthesis citations to local knowledge-item metadata when available.
+- Response records carry an `aiGenerated` marker and `extractiveFallback` flag so the UI can distinguish an LLM answer from excerpts.
 
-Cache storage and invalidation belong in a separate `cache` package; token/cost estimation in `usage`.
+Deferred:
+
+- Exact-match cache storage and invalidation belong in `cache`.
+- Query-event history, feedback, and durable cost accounting belong in `usage`.

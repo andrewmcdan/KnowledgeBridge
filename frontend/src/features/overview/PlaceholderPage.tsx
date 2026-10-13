@@ -6,8 +6,8 @@ interface PlaceholderPageProps {
 
 const descriptions: Record<PlaceholderPageProps["page"], (service: string) => string> = {
     Dashboard: (service) => service,
-    Uploads: () => "Document upload and ingestion are not connected yet. The queue at right shows sample statuses.",
-    Usage: () => "The sidebar shows sample metrics. Live usage tracking and cost estimates are not connected yet.",
+    Uploads: () => "Use the Uploads page to add Markdown files or notes. Ingestion will be connected in a future update.",
+    Usage: () => "Live usage tracking and cost estimates will appear here when connected.",
     Admin: () => "Account management and role settings will appear here once authentication is connected.",
 };
 

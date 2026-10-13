@@ -1,78 +1,82 @@
-import { approvalSteps } from "../../data/demoData";
-import type { DocumentItem } from "../../types/models";
-import type { Detail } from "../../types/models";
-import { DocumentRow } from "../../components/ui/DocumentRow";
 import { Icon } from "../../components/ui/Icon";
-import { CitationList } from "./CitationList";
+import type { AskAiMode, QueryResult, SearchResponse, SynthesisResponse } from "./askAiApi";
 
 interface AnswerPanelProps {
-    mode: string;
-    filteredDocuments: DocumentItem[];
-    expanded: boolean;
-    feedback: string;
-    saved: string[];
-    onToggleExpanded: () => void;
-    onFeedback: (value: string) => void;
-    onOpenDetail: (detail: Detail) => void;
-    onToggleSaved: (title: string) => void;
-    onNotice: (notice: string) => void;
+    mode: AskAiMode;
+    result: QueryResult | null;
+    submitting: boolean;
+    error: string | null;
 }
 
-export function AnswerPanel({ mode, filteredDocuments, expanded, feedback, saved, onToggleExpanded, onFeedback, onOpenDetail, onToggleSaved, onNotice }: AnswerPanelProps) {
-    const copyAnswer = () => {
-        void navigator.clipboard
-            .writeText(`Sample answer\n${approvalSteps.map(([title, text], index) => `${index + 1}. ${title}: ${text}`).join("\n")}`)
-            .then(() => onNotice("Sample answer copied."))
-            .catch(() => onNotice("Clipboard access is unavailable. Select the answer text to copy it."));
-    };
+export function AnswerPanel({ mode, result, submitting, error }: AnswerPanelProps) {
+    const isSynthesis = result?.mode === "Synthesis";
+
     return (
-        <section className="answer-panel panel">
+        <section className="answer-panel panel" aria-live="polite">
             <div className="answer-body">
                 <div className="section-heading">
                     <h2>
                         <Icon name={mode === "Synthesis" ? "spark" : "search"} />
                         {mode === "Synthesis" ? "AI Answer" : "Search Results"}
                     </h2>
-                    <span className="grounding">
-                        <Icon name="shield" size={17} /> Sample content · live AI not connected
-                    </span>
+                    {isSynthesis && (
+                        <span className="grounding">
+                            <Icon name="shield" size={17} /> {result.response.aiGenerated ? "AI-generated with citations" : "Extractive fallback"}
+                        </span>
+                    )}
                 </div>
-                {mode === "Synthesis" ? (
-                    <>
-                        <p>For software purchases over $5,000, Acme Corporation requires a multi-step approval process to ensure financial oversight, vendor compliance, and alignment with IT standards.</p>
-                        <ol className="approval-steps">
-                            {approvalSteps.map(([title, text]) => (
-                                <li key={title}>
-                                    <strong>{title}:</strong> {text}
-                                </li>
-                            ))}
-                        </ol>
-                        <CitationList expanded={expanded} onToggle={onToggleExpanded} onOpenDetail={onOpenDetail} />
-                    </>
-                ) : (
-                    <div className="search-results">
-                        {filteredDocuments.length ? (
-                            filteredDocuments.map((document) => <DocumentRow key={document.title} document={document} saved={saved.includes(document.title)} onOpen={onOpenDetail} onToggleSaved={onToggleSaved} />)
-                        ) : (
-                            <p>No sample documents match your search.</p>
-                        )}
-                    </div>
+                {submitting && <p>Searching indexed knowledge…</p>}
+                {!submitting && error && (
+                    <p className="query-error" role="alert">
+                        {error}
+                    </p>
                 )}
+                {!submitting && !error && !result && <p>Ask a question to search indexed knowledge or generate a cited AI answer.</p>}
+                {!submitting && !error && result?.mode === "Search" && <SearchResults result={result.response} />}
+                {!submitting && !error && result?.mode === "Synthesis" && <SynthesisAnswer result={result.response} />}
             </div>
-            {mode === "Synthesis" && (
-                <footer className="answer-footer">
-                    <span>{feedback ? "Thanks — feedback recorded for this session." : "Was this answer helpful?"}</span>
-                    <button className="icon-button" aria-label="Helpful" aria-pressed={feedback === "yes"} onClick={() => onFeedback("yes")}>
-                        <Icon name="up" size={17} />
-                    </button>
-                    <button className="icon-button" aria-label="Not helpful" aria-pressed={feedback === "no"} onClick={() => onFeedback("no")}>
-                        <Icon name="down" size={17} />
-                    </button>
-                    <button className="copy-button" onClick={copyAnswer}>
-                        Copy <Icon name="copy" size={18} />
-                    </button>
-                </footer>
-            )}
         </section>
+    );
+}
+
+function SearchResults({ result }: { result: SearchResponse }) {
+    if (!result.hits.length) return <p>No indexed knowledge matched this question.</p>;
+
+    return (
+        <>
+            {result.retrieval.degraded && <p className="query-warning">Some semantic retrieval signals were unavailable for this search.</p>}
+            <div className="query-results">
+                {result.hits.map((hit) => (
+                    <article className="query-hit" key={`${hit.externalId}-${hit.snippet}`}>
+                        <strong>{hit.title}</strong>
+                        <small>{hit.documentType}</small>
+                        <p>{hit.snippet}</p>
+                    </article>
+                ))}
+            </div>
+        </>
+    );
+}
+
+function SynthesisAnswer({ result }: { result: SynthesisResponse }) {
+    return (
+        <>
+            <p className="synthesis-answer">{result.answer}</p>
+            {result.gaps.length > 0 && <p className="query-warning">Knowledge gaps: {result.gaps.join(" ")}</p>}
+            {result.warnings.length > 0 && <p className="query-warning">Warnings: {result.warnings.join(" ")}</p>}
+            <h3 className="citation-heading">Citations ({result.citations.length})</h3>
+            {result.citations.length ? (
+                <ol className="query-citations">
+                    {result.citations.map((citation) => (
+                        <li key={citation.externalId}>
+                            <strong>{citation.title ?? citation.itemKey}</strong>
+                            {citation.documentType && <span>{citation.documentType}</span>}
+                        </li>
+                    ))}
+                </ol>
+            ) : (
+                <p>No source citations were returned for this answer.</p>
+            )}
+        </>
     );
 }
