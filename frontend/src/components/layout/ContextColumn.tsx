@@ -1,42 +1,29 @@
-import { documents, entities, uploadStatuses } from "../../data/demoData";
-import type { Detail } from "../../types/models";
-import { DocumentRow } from "../ui/DocumentRow";
+import { useEffect, useState } from "react";
+import { getKnowledgeItems, type KnowledgeItem } from "../../features/knowledge/knowledgeApi";
 import { Icon } from "../ui/Icon";
 
 interface ContextColumnProps {
-    saved: string[];
-    onOpenDetail: (detail: Detail) => void;
-    onToggleSaved: (title: string) => void;
     onNavigate: (path: string) => void;
 }
 
-export function ContextColumn({ saved, onOpenDetail, onToggleSaved, onNavigate }: ContextColumnProps) {
+export function ContextColumn({ onNavigate }: ContextColumnProps) {
+    const [recentItems, setRecentItems] = useState<KnowledgeItem[]>([]);
+    const [ingestionError, setIngestionError] = useState(false);
+
+    useEffect(() => {
+        getKnowledgeItems()
+            .then((items) => setRecentItems(items.sort((first, second) => Date.parse(second.createdAt) - Date.parse(first.createdAt)).slice(0, 3)))
+            .catch(() => setIngestionError(true));
+    }, []);
+
     return (
         <aside className="context-column" aria-label="Supporting knowledge">
             <section className="panel context-panel">
                 <h2>
                     <Icon name="users" size={18} /> Detected Entities
                 </h2>
-                {entities.map((entity, index) => (
-                    <button
-                        key={entity}
-                        className="entity-row"
-                        onClick={() =>
-                            onOpenDetail({
-                                title: entity,
-                                text: `${entity} is part of the sample purchasing workflow. ${index === 3 ? "This cost center tracks software spending." : "This department reviews requests within its area of responsibility."}`,
-                            })
-                        }
-                    >
-                        <span className={`entity-icon color-${index}`}>
-                            <Icon name={index === 3 ? "file" : "users"} size={19} />
-                        </span>
-                        <span>
-                            <strong>{entity}</strong>
-                            <small>{index === 3 ? "Cost Center" : "Department"}</small>
-                        </span>
-                    </button>
-                ))}
+                {/* TODO: Load detected entities for the current workspace from /api/entities. */}
+                <p className="context-empty">Entities will appear after entity extraction is connected.</p>
                 <button className="panel-link" onClick={() => onNavigate("/entities")}>
                     View all entities <Icon name="chevron" size={16} />
                 </button>
@@ -45,9 +32,8 @@ export function ContextColumn({ saved, onOpenDetail, onToggleSaved, onNavigate }
                 <h2>
                     <Icon name="file" size={18} /> Related Documents
                 </h2>
-                {documents.map((document) => (
-                    <DocumentRow key={document.title} document={document} saved={saved.includes(document.title)} onOpen={onOpenDetail} onToggleSaved={onToggleSaved} />
-                ))}
+                {/* TODO: Load related knowledge items for the active question from the live API. */}
+                <p className="context-empty">Related documents will appear with live retrieval.</p>
                 <button className="panel-link" onClick={() => onNavigate("/knowledge")}>
                     View all documents <Icon name="chevron" size={16} />
                 </button>
@@ -55,17 +41,25 @@ export function ContextColumn({ saved, onOpenDetail, onToggleSaved, onNavigate }
             <section className="panel context-panel upload-panel">
                 <h2>
                     <Icon name="upload" size={18} /> Upload / Ingestion Status{" "}
-                    <button className="text-button" onClick={() => onNavigate("/uploads")}>
+                    <button className="text-button" onClick={() => onNavigate("/knowledge")}>
                         View all
                     </button>
                 </h2>
-                {uploadStatuses.map(([file, state]) => (
-                    <div className="upload-row" key={file}>
-                        <Icon name="file" size={13} />
-                        <span>{file}</span>
-                        <strong className={state.toLowerCase()}>{state}</strong>
-                    </div>
-                ))}
+                {ingestionError ? (
+                    <p className="context-empty" role="alert">
+                        Upload status could not be loaded.
+                    </p>
+                ) : recentItems.length ? (
+                    recentItems.map((item) => (
+                        <div className="upload-row" key={item.id}>
+                            <Icon name="file" size={13} />
+                            <span>{item.title}</span>
+                            <strong className={`status-${item.status.toLowerCase()}`}>{item.status.toLowerCase()}</strong>
+                        </div>
+                    ))
+                ) : (
+                    <p className="context-empty">No documents have been uploaded yet.</p>
+                )}
             </section>
         </aside>
     );

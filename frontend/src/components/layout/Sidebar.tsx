@@ -1,17 +1,18 @@
 import { NavLink } from "react-router-dom";
 import wordmark from "../../assets/wordmark.png";
-import { navigation, summaryMetrics } from "../../data/demoData";
+import { navigation } from "../../data/navigation";
 import { Icon } from "../ui/Icon";
 
 interface SidebarProps {
     collapsed: boolean;
+    isAdmin: boolean;
     mobileOpen: boolean;
     service: string;
     onNavigate: () => void;
     onToggleCollapsed: () => void;
 }
 
-export function Sidebar({ collapsed, mobileOpen, service, onNavigate, onToggleCollapsed }: SidebarProps) {
+export function Sidebar({ collapsed, isAdmin, mobileOpen, service, onNavigate, onToggleCollapsed }: SidebarProps) {
     return (
         <aside className={`sidebar ${mobileOpen ? "mobile-open" : ""}`}>
             <NavLink className="brand" to="/ask-ai" aria-label="KnowledgeBridge home" onClick={onNavigate}>
@@ -19,27 +20,22 @@ export function Sidebar({ collapsed, mobileOpen, service, onNavigate, onToggleCo
                 <img className="compact-logo" src="/logo.png" alt="" />
             </NavLink>
             <nav aria-label="Main navigation">
-                {navigation.map((item) => (
-                    <NavLink key={item.path} className={({ isActive }) => `nav-item ${isActive ? "active" : ""}`} to={item.path} onClick={onNavigate} title={item.label}>
-                        <Icon name={item.icon} />
-                        <span>{item.label}</span>
-                        {item.label === "Admin" && <span className="nav-chevron">⌄</span>}
-                    </NavLink>
-                ))}
+                {navigation
+                    .filter((item) => !item.requiresAdmin || isAdmin)
+                    .map((item) => (
+                        <NavLink key={item.path} className={({ isActive }) => `nav-item ${isActive ? "active" : ""}`} to={item.path} onClick={onNavigate} title={item.label}>
+                            <Icon name={item.icon} />
+                            <span>{item.label}</span>
+                            {item.label === "Admin" && <span className="nav-chevron">⌄</span>}
+                        </NavLink>
+                    ))}
             </nav>
             <section className="summary panel">
                 <h2>
-                    <Icon name="chart" size={17} /> Today's Summary <span className="demo-label">Demo</span>
+                    <Icon name="chart" size={17} /> Workspace summary
                 </h2>
-                {summaryMetrics.map(([label, value, change]) => (
-                    <div className="metric" key={label}>
-                        <small>{label}</small>
-                        <div>
-                            <strong>{value}</strong>
-                            <span>{change}</span>
-                        </div>
-                    </div>
-                ))}
+                {/* TODO: Load workspace metrics from a live API endpoint. */}
+                <p className="summary-empty">Live workspace metrics will appear here when available.</p>
             </section>
             <div className="sidebar-connection" title={service}>
                 <span className={service === "API & database connected" ? "connected" : ""} />

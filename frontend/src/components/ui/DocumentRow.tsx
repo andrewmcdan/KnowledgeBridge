@@ -22,6 +22,7 @@ export function DocumentRow({ document, saved, onOpen, onToggleSaved }: Document
                     </small>
                 </span>
             </button>
+            {document.ingestionStatus && <span className={`document-status status-${document.ingestionStatus.toLowerCase()}`}>{document.ingestionStatus.toLowerCase()}</span>}
             <button className={`icon-button bookmark ${saved ? "saved" : ""}`} aria-label={`${saved ? "Unsave" : "Save"} ${document.title}`} aria-pressed={saved} onClick={() => onToggleSaved(document.title)}>
                 <Icon name="bookmark" size={17} />
             </button>

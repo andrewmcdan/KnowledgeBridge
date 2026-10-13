@@ -6,6 +6,7 @@ export interface DocumentItem {
     date: string;
     color: "blue" | "green" | "purple";
     text: string;
+    ingestionStatus?: "PENDING" | "PROCESSING" | "COMPLETED" | "FAILED";
 }
 
 export interface Detail {
@@ -17,4 +18,5 @@ export interface NavigationItem {
     label: string;
     path: string;
     icon: IconName;
+    requiresAdmin?: boolean;
 }
