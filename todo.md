@@ -1,3 +1,23 @@
+Week of October 13:
+Andrew - Video ingestion and processing
+Ethan - Frontend / video ingestion / Admin routing
+Dylan - Authentication / SDS
+Adrian - Entitiy extraction / Docx ingestion / Caching (naive exact-match cache by query string)
+Luis - SDS
+
+
+Notes:
+Multifile upload
+Drag and drop
+Filename / title optional (use filename)
+
+
+Turn Mr. Khandke's comments on the PR into issues and work on these
+
+
+
+
+Week of September 29:
 1. Member 1: integration and authentication Dylan
 Focus on clearing cross-team dependencies rather than implementing everyone else’s features.
 - Finalize request/response contracts for:
