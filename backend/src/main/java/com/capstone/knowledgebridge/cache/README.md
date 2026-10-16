@@ -1,12 +1,15 @@
 # cache
 
-Naive exact-match response cache for Synthesis mode, stored in PostgreSQL (`query_cache` table). Required by the brief to demonstrate bypassing redundant LLM calls, even though the hit rate for free-text questions is low.
+Naive exact-match response cache for Synthesis mode, stored in PostgreSQL (`query_cache` table, V7). Required by the brief to demonstrate bypassing redundant LLM calls, even though the hit rate for free-text questions is low.
 
-Expected contents:
+Implemented:
 
-- `QueryCache` entity/repository — `exact_query_text`, `query_mode`, `knowledge_revision`, `response_json`, `hit_count`, timestamps.
-- `QueryCacheService` — `lookup(queryText, mode, revision)` and `store(...)`; the cache key includes the current knowledge revision so answers built on stale content are never returned.
-- `SystemState` / knowledge-revision accessor (or leave that in `knowledge` and read it from here) — the revision increments on every knowledge-item write.
+- `QueryCacheService` — `lookup(queryText, mode, revision, responseType)` and `store(queryText, mode, revision, response)`. The key is the trimmed question text, the `QueryMode`, and the knowledge revision, so answers built on stale content are never returned. A hit increments `hit_count` and updates `last_accessed_at`.
+- Responses are serialized with the injected `JsonMapper`. The cache is best-effort: a failed or unreadable lookup is a miss, and a failed store is only logged.
+- Plain SQL through `JdbcTemplate` instead of a JPA entity: lookups must repeat the unique index's `md5(exact_query_text)` expression to use it (the hash keeps long questions under PostgreSQL's B-tree entry size limit), and inserts name the same expression in `ON CONFLICT`.
+- The revision comes from `KnowledgeRevisionService` in `knowledge`, which `IngestionService` bumps on every successful write.
+
+Not built yet:
+
+- Wiring into `QueryService.synthesize()` and a `cacheHit` flag on the response.
 - Admin listing/clearing behind `GET`/`DELETE /api/admin/cache`.
-
-Serialize `response_json` with the injected `ObjectMapper`, not a fresh one.
