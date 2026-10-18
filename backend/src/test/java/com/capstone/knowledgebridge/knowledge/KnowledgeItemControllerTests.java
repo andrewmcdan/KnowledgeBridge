@@ -1,14 +1,18 @@
 package com.capstone.knowledgebridge.knowledge;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Path;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
@@ -24,6 +28,8 @@ import org.springframework.web.multipart.MultipartFile;
 
 import com.capstone.knowledgebridge.gbrain.model.GbrainDocument;
 import com.capstone.knowledgebridge.ingestion.IngestionAttempt;
+import com.capstone.knowledgebridge.video.VideoStorageService;
+import com.capstone.knowledgebridge.video.StoredVideo;
 import com.capstone.knowledgebridge.knowledge.KnowledgeItemController.KnowledgeItemResponse;
 import com.capstone.knowledgebridge.knowledge.KnowledgeItemController.ManualKnowledgeItemRequest;
 
@@ -31,7 +37,10 @@ class KnowledgeItemControllerTests {
 
 	private final KnowledgeItemService knowledgeItemService = mock(KnowledgeItemService.class);
 
-	private final KnowledgeItemController controller = new KnowledgeItemController(knowledgeItemService);
+	private final VideoStorageService videoStorageService = mock(VideoStorageService.class);
+
+	private final KnowledgeItemController controller = new KnowledgeItemController(knowledgeItemService,
+			videoStorageService);
 
 	private static final String OVER_GBRAIN_LIMIT = "a".repeat(GbrainDocument.MAX_BODY_BYTES);
 
@@ -187,6 +196,20 @@ class KnowledgeItemControllerTests {
 	}
 
 	@Test
+	void uploadRejectsOversizedMarkdownBeforeReadingIt() throws IOException {
+		MultipartFile file = mock(MultipartFile.class);
+		when(file.isEmpty()).thenReturn(false);
+		when(file.getOriginalFilename()).thenReturn("doc.md");
+		when(file.getSize()).thenReturn((long) GbrainDocument.MAX_BODY_BYTES + 1);
+
+		ResponseEntity<KnowledgeItemResponse> response = controller.uploadDocument(file, "Title", "Policy",
+				jwtFor("7"));
+
+		assertThat(response.getStatusCode()).isEqualTo(HttpStatus.CONTENT_TOO_LARGE);
+		verify(file, never()).getBytes();
+	}
+
+	@Test
 	void uploadRejectsUnreadableFile() throws IOException {
 		MultipartFile file = mock(MultipartFile.class);
 		when(file.isEmpty()).thenReturn(false);
@@ -205,12 +228,78 @@ class KnowledgeItemControllerTests {
 				"# Hello".getBytes(StandardCharsets.UTF_8));
 		KnowledgeItem item = new KnowledgeItem("Title", "Policy", 7L, "# Hello");
 		ReflectionTestUtils.setField(item, "id", 1L);
-		when(knowledgeItemService.createAndIngest(eq("Title"), eq("Policy"), anyString(), eq(7L))).thenReturn(item);
+		when(knowledgeItemService.createMarkdownAndIngest(eq("Title"), eq("Policy"), anyString(), eq(7L)))
+				.thenReturn(item);
 
 		ResponseEntity<KnowledgeItemResponse> response = controller.uploadDocument(file, "Title", "Policy",
 				jwtFor("7"));
 
 		assertThat(response.getStatusCode()).isEqualTo(HttpStatus.CREATED);
+	}
+
+	@Test
+	void videoUploadRejectsEachInvalidRequestField() {
+		MultipartFile empty = new MockMultipartFile("file", "meeting.mp4", "video/mp4", new byte[0]);
+		assertThat(controller.uploadVideo(empty, "Title", "Meeting", jwtFor("7")).getStatusCode())
+				.isEqualTo(HttpStatus.BAD_REQUEST);
+
+		MultipartFile file = mock(MultipartFile.class);
+		when(file.isEmpty()).thenReturn(false);
+		when(file.getOriginalFilename()).thenReturn("meeting.mp4");
+		assertThat(controller.uploadVideo(file, " ", "Meeting", jwtFor("7")).getStatusCode())
+				.isEqualTo(HttpStatus.BAD_REQUEST);
+		assertThat(controller.uploadVideo(file, "Title", " ", jwtFor("7")).getStatusCode())
+				.isEqualTo(HttpStatus.BAD_REQUEST);
+		when(file.getOriginalFilename()).thenReturn(null);
+		assertThat(controller.uploadVideo(file, "Title", "Meeting", jwtFor("7")).getStatusCode())
+				.isEqualTo(HttpStatus.BAD_REQUEST);
+		when(file.getOriginalFilename()).thenReturn("x".repeat(256));
+		assertThat(controller.uploadVideo(file, "Title", "Meeting", jwtFor("7")).getStatusCode())
+				.isEqualTo(HttpStatus.BAD_REQUEST);
+	}
+
+	@Test
+	void videoUploadRejectsUnsupportedAndOversizedFiles() {
+		MultipartFile file = new MockMultipartFile("file", "meeting.mp4", "video/mp4", new byte[]{1});
+		when(videoStorageService.isSupportedFilename("meeting.mp4")).thenReturn(false).thenReturn(true);
+		when(videoStorageService.exceedsUploadLimit(1)).thenReturn(true);
+
+		assertThat(controller.uploadVideo(file, "Title", "Meeting", jwtFor("7")).getStatusCode())
+				.isEqualTo(HttpStatus.UNSUPPORTED_MEDIA_TYPE);
+		assertThat(controller.uploadVideo(file, "Title", "Meeting", jwtFor("7")).getStatusCode())
+				.isEqualTo(HttpStatus.CONTENT_TOO_LARGE);
+	}
+
+	@Test
+	void videoUploadStoresAndQueuesAcceptedItem() {
+		MultipartFile file = new MockMultipartFile("file", "meeting.mp4", "video/mp4", new byte[]{1});
+		StoredVideo stored = new StoredVideo("meeting.mp4", "video/mp4", "hash", Path.of("stored"));
+		KnowledgeItem item = KnowledgeItem.video("Title", "Meeting", 7L, "meeting.mp4", "video/mp4", "hash",
+				"stored");
+		ReflectionTestUtils.setField(item, "id", 2L);
+		when(videoStorageService.isSupportedFilename("meeting.mp4")).thenReturn(true);
+		when(videoStorageService.store(file)).thenReturn(stored);
+		when(knowledgeItemService.createVideoAndIngest("Title", "Meeting", 7L, stored)).thenReturn(item);
+
+		ResponseEntity<KnowledgeItemResponse> response = controller.uploadVideo(file, "Title", "Meeting", jwtFor("7"));
+
+		assertThat(response.getStatusCode()).isEqualTo(HttpStatus.ACCEPTED);
+		assertThat(response.getBody().sourceKind()).isEqualTo("VIDEO");
+		assertThat(response.getBody().originalFilename()).isEqualTo("meeting.mp4");
+	}
+
+	@Test
+	void videoUploadDeletesStoredFileWhenDatabaseCreationFails() {
+		MultipartFile file = new MockMultipartFile("file", "meeting.mp4", "video/mp4", new byte[]{1});
+		StoredVideo stored = new StoredVideo("meeting.mp4", "video/mp4", "hash", Path.of("stored"));
+		when(videoStorageService.isSupportedFilename("meeting.mp4")).thenReturn(true);
+		when(videoStorageService.store(file)).thenReturn(stored);
+		when(knowledgeItemService.createVideoAndIngest("Title", "Meeting", 7L, stored))
+				.thenThrow(new IllegalStateException("database down"));
+
+		assertThatThrownBy(() -> controller.uploadVideo(file, "Title", "Meeting", jwtFor("7")))
+				.isInstanceOf(IllegalStateException.class);
+		verify(videoStorageService).delete(Path.of("stored"));
 	}
 
 	@Test

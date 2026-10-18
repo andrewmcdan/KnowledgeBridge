@@ -36,6 +36,41 @@ public class KnowledgeItem {
 	@Column(name = "body_text", nullable = false)
 	private String bodyText;
 
+	@Enumerated(EnumType.STRING)
+	@Column(name = "source_kind", nullable = false)
+	private KnowledgeSourceKind sourceKind;
+
+	@Enumerated(EnumType.STRING)
+	@Column(name = "ingestion_stage", nullable = false)
+	private IngestionStage ingestionStage;
+
+	@Column(name = "original_filename")
+	private String originalFilename;
+
+	@Column(name = "source_content_type")
+	private String sourceContentType;
+
+	@Column(name = "source_sha256")
+	private String sourceSha256;
+
+	@Column(name = "source_path", length = 1024)
+	private String sourcePath;
+
+	@Column(name = "media_duration_ms")
+	private Long mediaDurationMs;
+
+	@Column(name = "transcription_model")
+	private String transcriptionModel;
+
+	@Column(name = "transcription_language")
+	private String transcriptionLanguage;
+
+	@Column(name = "transcription_segment_count")
+	private Integer transcriptionSegmentCount;
+
+	@Column(name = "transcribed_at")
+	private Instant transcribedAt;
+
 	// Per-item version gbrain needs on every write (GbrainDocument.revision). Not the global
 	// knowledge_revision in system_state - that one's a single counter for cache invalidation.
 	@Column(nullable = false)
@@ -56,11 +91,17 @@ public class KnowledgeItem {
 
 	/*--- Constructor ---*/
 	public KnowledgeItem(String title, String type, Long ownerId, String bodyText) {
+		this(title, type, ownerId, bodyText, KnowledgeSourceKind.MANUAL);
+	}
+
+	public KnowledgeItem(String title, String type, Long ownerId, String bodyText, KnowledgeSourceKind sourceKind) {
 		this.title = title;
 		this.type = type;
 		this.ownerId = ownerId;
 		this.bodyText = bodyText;
 		this.characterCount = bodyText.length();
+		this.sourceKind = sourceKind;
+		this.ingestionStage = IngestionStage.QUEUED;
 		this.status = KnowledgeItemStatus.PENDING;
 		this.revision = 1;
 		Instant now = Instant.now();
@@ -68,20 +109,60 @@ public class KnowledgeItem {
 		this.updatedAt = now;
 	}
 
+	public static KnowledgeItem video(String title, String type, Long ownerId, String originalFilename,
+			String sourceContentType, String sourceSha256, String sourcePath) {
+		KnowledgeItem item = new KnowledgeItem(title, type, ownerId, "", KnowledgeSourceKind.VIDEO);
+		item.originalFilename = originalFilename;
+		item.sourceContentType = sourceContentType;
+		item.sourceSha256 = sourceSha256;
+		item.sourcePath = sourcePath;
+		return item;
+	}
+
 	/*--- Transition Methods ---*/
 	public void markProcessing() {
+		markProcessing(IngestionStage.INDEXING);
+	}
+
+	public void markProcessing(IngestionStage stage) {
 		this.status = KnowledgeItemStatus.PROCESSING;
+		this.ingestionStage = stage;
+		this.updatedAt = Instant.now();
+	}
+
+	public void markQueued() {
+		this.status = KnowledgeItemStatus.PENDING;
+		this.ingestionStage = IngestionStage.QUEUED;
+		this.updatedAt = Instant.now();
+	}
+
+	public void storeTranscript(String transcript, long durationMs, String model, String language, int segmentCount) {
+		this.bodyText = transcript;
+		this.characterCount = transcript.length();
+		this.mediaDurationMs = durationMs;
+		this.transcriptionModel = model;
+		this.transcriptionLanguage = language;
+		this.transcriptionSegmentCount = segmentCount;
+		this.transcribedAt = Instant.now();
+		this.ingestionStage = IngestionStage.INDEXING;
+		this.updatedAt = Instant.now();
+	}
+
+	public void clearSourcePath() {
+		this.sourcePath = null;
 		this.updatedAt = Instant.now();
 	}
 
 	public void markCompleted(String externalEngineId) {
 		this.status = KnowledgeItemStatus.COMPLETED;
+		this.ingestionStage = IngestionStage.COMPLETE;
 		this.externalEngineId = externalEngineId;
 		this.updatedAt = Instant.now();
 	}
 
 	public void markFailed() {
 		this.status = KnowledgeItemStatus.FAILED;
+		this.ingestionStage = IngestionStage.FAILED;
 		this.updatedAt = Instant.now();
 	}
 
@@ -112,6 +193,50 @@ public class KnowledgeItem {
 
 	public String getBodyText() {
 		return bodyText;
+	}
+
+	public KnowledgeSourceKind getSourceKind() {
+		return sourceKind;
+	}
+
+	public IngestionStage getIngestionStage() {
+		return ingestionStage;
+	}
+
+	public String getOriginalFilename() {
+		return originalFilename;
+	}
+
+	public String getSourceContentType() {
+		return sourceContentType;
+	}
+
+	public String getSourceSha256() {
+		return sourceSha256;
+	}
+
+	public String getSourcePath() {
+		return sourcePath;
+	}
+
+	public Long getMediaDurationMs() {
+		return mediaDurationMs;
+	}
+
+	public String getTranscriptionModel() {
+		return transcriptionModel;
+	}
+
+	public String getTranscriptionLanguage() {
+		return transcriptionLanguage;
+	}
+
+	public Integer getTranscriptionSegmentCount() {
+		return transcriptionSegmentCount;
+	}
+
+	public Instant getTranscribedAt() {
+		return transcribedAt;
 	}
 
 	public long getRevision() {
