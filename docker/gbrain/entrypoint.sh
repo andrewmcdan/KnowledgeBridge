@@ -51,4 +51,8 @@ fi
 
 bun run src/cli.ts config set models.think "${GBRAIN_SYNTHESIS_MODEL}"
 
+# KnowledgeBridge's API-owned pages live in PostgreSQL, not a canonical Git checkout.
+# The pinned engine otherwise refuses writes to the existing unbound source path.
+bun run src/cli.ts config set persistence.unbound_write database_only
+
 exec bun run src/cli.ts serve --http --bind 0.0.0.0 --port 3131 --suppress-bootstrap-token

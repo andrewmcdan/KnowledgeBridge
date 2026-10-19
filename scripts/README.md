@@ -28,6 +28,14 @@ After PostgreSQL and gbrain have been initialized, provision the source-bound ba
 
 The script stores the generated client id and one-time secret in the ignored root `.env`. When rotating credentials, it registers and saves the replacement before revoking the previous client id.
 
+Native entity extraction uses a second credential:
+
+```powershell
+.\scripts\provision-gbrain.ps1 -Extraction
+```
+
+The Bash equivalent is `bash ./scripts/provision-gbrain.sh --extraction`. This credential keeps the `knowledgebridge` source restriction but omits the slug-prefix fence so gbrain can create `people/` and `companies/` stubs within that source. Its separate `GBRAIN_EXTRACTION_OAUTH_CLIENT_ID` and `GBRAIN_EXTRACTION_OAUTH_CLIENT_SECRET` are stored only in `.env`. The document credential keeps its existing prefix restriction. Recreate the backend after provisioning so Compose passes the new credential to the adapter. See `backend/src/main/java/com/capstone/knowledgebridge/entities/README.md` for behavior and extraction limits.
+
 On Linux or macOS, use the Bash equivalents (they need `curl` and `jq`). `test-gbrain-mcp.sh` reads `GBRAIN_OAUTH_*` and `GBRAIN_PORT` from the shell before `.env`, so it can target another instance. `provision-gbrain.sh` also creates the database-only `knowledgebridge` source if it does not exist yet:
 
 ```bash
