@@ -40,7 +40,7 @@ class QueryControllerTests {
 	@Test
 	void synthesizeDelegatesToTheService() {
 		SynthesisResponse expected = new SynthesisResponse("Answer", true, false, List.of(), List.of(), List.of(),
-				null);
+				null, false);
 		when(queryService.synthesize("What changed?")).thenReturn(expected);
 
 		SynthesisResponse response = controller.synthesize(new SynthesisRequest("What changed?"));
