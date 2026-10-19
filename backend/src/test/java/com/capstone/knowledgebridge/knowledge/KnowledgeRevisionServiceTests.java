@@ -10,6 +10,17 @@ import org.springframework.jdbc.core.JdbcTemplate;
 class KnowledgeRevisionServiceTests {
 
 	@Test
+	void currentReturnsTheStoredRevision() {
+		JdbcTemplate jdbcTemplate = mock(JdbcTemplate.class);
+		when(jdbcTemplate.queryForObject("SELECT knowledge_revision FROM system_state WHERE id = 1", Long.class))
+				.thenReturn(7L);
+
+		long revision = new KnowledgeRevisionService(jdbcTemplate).current();
+
+		assertThat(revision).isEqualTo(7L);
+	}
+
+	@Test
 	void bumpReturnsTheUpdatedRevision() {
 		JdbcTemplate jdbcTemplate = mock(JdbcTemplate.class);
 		when(jdbcTemplate.queryForObject(

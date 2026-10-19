@@ -3,7 +3,10 @@ package com.capstone.knowledgebridge;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doReturn;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.options;
@@ -12,8 +15,10 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
+import java.util.List;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -39,6 +44,7 @@ import org.testcontainers.utility.DockerImageName;
 import com.capstone.knowledgebridge.gbrain.GbrainClient;
 import com.capstone.knowledgebridge.gbrain.GbrainErrorCode;
 import com.capstone.knowledgebridge.gbrain.GbrainException;
+import com.capstone.knowledgebridge.gbrain.model.GbrainSynthesisResult;
 import com.capstone.knowledgebridge.gbrain.model.GbrainWriteResult;
 
 @Testcontainers
@@ -339,6 +345,95 @@ class KnowledgeBridgeApplicationTests {
 		mockMvc.perform(post("/api/knowledge-items/" + id + "/retry-ingestion")
 				.header("Authorization", "Bearer " + adminToken))
 				.andExpect(status().isConflict());
+	}
+
+	@Test
+	void repeatedSynthesisIsServedFromTheCacheUntilTheKnowledgeRevisionChanges() throws Exception {
+		String userToken = loginAndGetToken("user@acme.example", "user123", "USER");
+		String question = "{\"question\":\"How many PTO days do employees get?\"}";
+		when(gbrainClient.synthesize(any())).thenReturn(new GbrainSynthesisResult("Employees get 15 PTO days.",
+				GbrainSynthesisResult.Status.SYNTHESIZED, List.of(), List.of(),
+				new GbrainSynthesisResult.Usage("openrouter:model", 600L, 80L, new BigDecimal("0.0002")), List.of()));
+
+		// First ask: a miss, so gbrain answers and the answer is cached with its real cost.
+		mockMvc.perform(post("/api/query/synthesize")
+				.header("Authorization", "Bearer " + userToken)
+				.contentType("application/json")
+				.content(question))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.answer").value("Employees get 15 PTO days."))
+				.andExpect(jsonPath("$.cacheHit").value(false))
+				.andExpect(jsonPath("$.usage.inputTokens").value(600));
+
+		// Same question again: served from the cache, no second gbrain call, and no cost reported.
+		mockMvc.perform(post("/api/query/synthesize")
+				.header("Authorization", "Bearer " + userToken)
+				.contentType("application/json")
+				.content(question))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.answer").value("Employees get 15 PTO days."))
+				.andExpect(jsonPath("$.cacheHit").value(true))
+				.andExpect(jsonPath("$.usage.model").value("openrouter:model"))
+				.andExpect(jsonPath("$.usage.inputTokens").value(0))
+				.andExpect(jsonPath("$.usage.estimatedCostUsd").value(0));
+		verify(gbrainClient, times(1)).synthesize(any());
+		assertThat(jdbcTemplate.queryForObject(
+				"SELECT hit_count FROM query_cache WHERE exact_query_text = 'How many PTO days do employees get?'",
+				Integer.class)).isEqualTo(1);
+
+		// Ingesting a document bumps the knowledge revision, so the same question goes back to gbrain.
+		String adminToken = loginAndGetToken("admin@acme.example", "admin123", "ADMIN");
+		mockMvc.perform(post("/api/knowledge-items/manual")
+				.header("Authorization", "Bearer " + adminToken)
+				.contentType("application/json")
+				.content("{\"title\":\"PTO Policy\",\"type\":\"Policy\",\"text\":\"Employees get 20 PTO days.\"}"))
+				.andExpect(status().isCreated());
+		mockMvc.perform(post("/api/query/synthesize")
+				.header("Authorization", "Bearer " + userToken)
+				.contentType("application/json")
+				.content(question))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.cacheHit").value(false));
+		verify(gbrainClient, times(2)).synthesize(any());
+	}
+
+	@Test
+	void cacheAdminRoutesAreAdminOnly() throws Exception {
+		mockMvc.perform(get("/api/admin/cache")).andExpect(status().isUnauthorized());
+		mockMvc.perform(delete("/api/admin/cache")).andExpect(status().isUnauthorized());
+
+		String userToken = loginAndGetToken("user@acme.example", "user123", "USER");
+		mockMvc.perform(get("/api/admin/cache").header("Authorization", "Bearer " + userToken))
+				.andExpect(status().isForbidden());
+		mockMvc.perform(delete("/api/admin/cache").header("Authorization", "Bearer " + userToken))
+				.andExpect(status().isForbidden());
+	}
+
+	@Test
+	void adminCanListAndClearTheCache() throws Exception {
+		String userToken = loginAndGetToken("user@acme.example", "user123", "USER");
+		String adminToken = loginAndGetToken("admin@acme.example", "admin123", "ADMIN");
+		when(gbrainClient.synthesize(any())).thenReturn(new GbrainSynthesisResult("Answer.",
+				GbrainSynthesisResult.Status.SYNTHESIZED, List.of(), List.of(), null, List.of()));
+		mockMvc.perform(post("/api/query/synthesize")
+				.header("Authorization", "Bearer " + userToken)
+				.contentType("application/json")
+				.content("{\"question\":\"Who approves admin cache tests?\"}"))
+				.andExpect(status().isOk());
+
+		mockMvc.perform(get("/api/admin/cache").header("Authorization", "Bearer " + adminToken))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$[0].queryText").value("Who approves admin cache tests?"))
+				.andExpect(jsonPath("$[0].mode").value("SYNTHESIS"))
+				.andExpect(jsonPath("$[0].hitCount").value(0))
+				.andExpect(jsonPath("$[0].current").value(true));
+
+		mockMvc.perform(delete("/api/admin/cache").header("Authorization", "Bearer " + adminToken))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.deleted").isNumber());
+		mockMvc.perform(get("/api/admin/cache").header("Authorization", "Bearer " + adminToken))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$").isEmpty());
 	}
 
 	private String loginAndGetToken(String email, String password, String role) throws Exception {

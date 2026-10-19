@@ -1,24 +1,35 @@
 package com.capstone.knowledgebridge.query;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.math.BigDecimal;
 import java.util.List;
+import java.util.Optional;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.test.util.ReflectionTestUtils;
 
+import com.capstone.knowledgebridge.cache.QueryCacheService;
+import com.capstone.knowledgebridge.cache.QueryMode;
 import com.capstone.knowledgebridge.gbrain.GbrainClient;
+import com.capstone.knowledgebridge.gbrain.GbrainErrorCode;
+import com.capstone.knowledgebridge.gbrain.GbrainException;
 import com.capstone.knowledgebridge.gbrain.model.GbrainRetrieval;
 import com.capstone.knowledgebridge.gbrain.model.GbrainSearchHit;
 import com.capstone.knowledgebridge.gbrain.model.GbrainSearchResult;
 import com.capstone.knowledgebridge.gbrain.model.GbrainSynthesisResult;
 import com.capstone.knowledgebridge.knowledge.KnowledgeItem;
 import com.capstone.knowledgebridge.knowledge.KnowledgeItemRepository;
+import com.capstone.knowledgebridge.knowledge.KnowledgeRevisionService;
 
 class QueryServiceTests {
 
@@ -26,7 +37,13 @@ class QueryServiceTests {
 
 	private final KnowledgeItemRepository knowledgeItemRepository = mock(KnowledgeItemRepository.class);
 
-	private final QueryService queryService = new QueryService(gbrainClient, knowledgeItemRepository);
+	// Mockito's default lookup answer is Optional.empty(), so every test starts on a cache miss.
+	private final QueryCacheService queryCache = mock(QueryCacheService.class);
+
+	private final KnowledgeRevisionService knowledgeRevisionService = mock(KnowledgeRevisionService.class);
+
+	private final QueryService queryService = new QueryService(gbrainClient, knowledgeItemRepository, queryCache,
+			knowledgeRevisionService);
 
 	@Test
 	void searchUsesTheDefaultLimitAndReturnsRetrievalEvidence() {
@@ -95,6 +112,62 @@ class QueryServiceTests {
 		assertThat(response.usage()).isNull();
 		assertThat(response.gaps()).containsExactly("No policy date");
 		assertThat(response.warnings()).containsExactly("LLM_OUTPUT_TRUNCATED");
+		assertThat(response.cacheHit()).isFalse();
+		verify(queryCache, never()).store(anyString(), any(), anyLong(), any());
+	}
+
+	@Test
+	void synthesisCachesAnLlmAnswerUnderTheRevisionReadBeforeTheCall() {
+		when(knowledgeRevisionService.current()).thenReturn(7L);
+		when(gbrainClient.synthesize(any())).thenReturn(new GbrainSynthesisResult("Employees need approval.",
+				GbrainSynthesisResult.Status.SYNTHESIZED, List.of(), List.of(), null, List.of()));
+
+		QueryService.SynthesisResponse response = queryService.synthesize("What travel approval is needed?");
+
+		assertThat(response.cacheHit()).isFalse();
+		verify(queryCache).store("What travel approval is needed?", QueryMode.SYNTHESIS, 7L, response);
+	}
+
+	@Test
+	void synthesisReturnsACachedAnswerWithoutCallingGbrainAndReportsNoCost() {
+		when(knowledgeRevisionService.current()).thenReturn(7L);
+		QueryService.SynthesisResponse stored = new QueryService.SynthesisResponse("Employees need approval.", true,
+				false, List.of(), List.of(), List.of(),
+				new QueryService.UsageResponse("openrouter:model", 12L, 8L, new BigDecimal("0.001")), false);
+		when(queryCache.lookup("What travel approval is needed?", QueryMode.SYNTHESIS, 7L,
+				QueryService.SynthesisResponse.class)).thenReturn(Optional.of(stored));
+
+		QueryService.SynthesisResponse response = queryService.synthesize("What travel approval is needed?");
+
+		assertThat(response.cacheHit()).isTrue();
+		assertThat(response.answer()).isEqualTo("Employees need approval.");
+		assertThat(response.usage())
+				.isEqualTo(new QueryService.UsageResponse("openrouter:model", 0L, 0L, BigDecimal.ZERO));
+		verify(gbrainClient, never()).synthesize(any());
+		verify(queryCache, never()).store(anyString(), any(), anyLong(), any());
+	}
+
+	@Test
+	void cachedAnswerWithoutUsageStaysWithoutUsage() {
+		QueryService.SynthesisResponse stored = new QueryService.SynthesisResponse("Answer", true, false, List.of(),
+				List.of(), List.of(), null, false);
+		when(queryCache.lookup(anyString(), eq(QueryMode.SYNTHESIS), anyLong(),
+				eq(QueryService.SynthesisResponse.class))).thenReturn(Optional.of(stored));
+
+		QueryService.SynthesisResponse response = queryService.synthesize("Anything?");
+
+		assertThat(response.cacheHit()).isTrue();
+		assertThat(response.usage()).isNull();
+	}
+
+	@Test
+	void synthesisStoresNothingWhenGbrainFails() {
+		when(gbrainClient.synthesize(any()))
+				.thenThrow(new GbrainException(GbrainErrorCode.UNAVAILABLE, "gbrain is down"));
+
+		assertThatThrownBy(() -> queryService.synthesize("What travel approval is needed?"))
+				.isInstanceOf(GbrainException.class);
+		verify(queryCache, never()).store(anyString(), any(), anyLong(), any());
 	}
 
 }

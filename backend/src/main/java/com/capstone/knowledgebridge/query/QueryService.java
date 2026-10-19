@@ -3,11 +3,14 @@ package com.capstone.knowledgebridge.query;
 import java.math.BigDecimal;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
 import org.springframework.stereotype.Service;
 
+import com.capstone.knowledgebridge.cache.QueryCacheService;
+import com.capstone.knowledgebridge.cache.QueryMode;
 import com.capstone.knowledgebridge.gbrain.GbrainClient;
 import com.capstone.knowledgebridge.gbrain.model.GbrainSearchHit;
 import com.capstone.knowledgebridge.gbrain.model.GbrainSearchRequest;
@@ -16,6 +19,7 @@ import com.capstone.knowledgebridge.gbrain.model.GbrainSynthesisRequest;
 import com.capstone.knowledgebridge.gbrain.model.GbrainSynthesisResult;
 import com.capstone.knowledgebridge.knowledge.KnowledgeItem;
 import com.capstone.knowledgebridge.knowledge.KnowledgeItemRepository;
+import com.capstone.knowledgebridge.knowledge.KnowledgeRevisionService;
 
 @Service
 public class QueryService {
@@ -33,8 +37,20 @@ public class QueryService {
 	public record RetrievalResponse(boolean vectorEnabled, boolean projectionReady, boolean degraded) {
 	}
 
+	/** cacheHit is true when the answer came from the exact-match cache instead of a new LLM call. */
 	public record SynthesisResponse(String answer, boolean aiGenerated, boolean extractiveFallback,
-			List<CitationResponse> citations, List<String> gaps, List<String> warnings, UsageResponse usage) {
+			List<CitationResponse> citations, List<String> gaps, List<String> warnings, UsageResponse usage,
+			boolean cacheHit) {
+
+		/**
+		 * A cache hit made no LLM call, so it reports zero tokens and cost. The model name is kept because the frontend
+		 * requires it whenever usage is present.
+		 */
+		SynthesisResponse asCacheHit() {
+			UsageResponse noCost = usage == null ? null : new UsageResponse(usage.model(), 0L, 0L, BigDecimal.ZERO);
+			return new SynthesisResponse(answer, aiGenerated, extractiveFallback, citations, gaps, warnings, noCost,
+					true);
+		}
 	}
 
 	public record CitationResponse(String itemKey, String externalId, String title, String documentType) {
@@ -47,9 +63,16 @@ public class QueryService {
 
 	private final KnowledgeItemRepository knowledgeItemRepository;
 
-	public QueryService(GbrainClient gbrainClient, KnowledgeItemRepository knowledgeItemRepository) {
+	private final QueryCacheService queryCache;
+
+	private final KnowledgeRevisionService knowledgeRevisionService;
+
+	public QueryService(GbrainClient gbrainClient, KnowledgeItemRepository knowledgeItemRepository,
+			QueryCacheService queryCache, KnowledgeRevisionService knowledgeRevisionService) {
 		this.gbrainClient = gbrainClient;
 		this.knowledgeItemRepository = knowledgeItemRepository;
+		this.queryCache = queryCache;
+		this.knowledgeRevisionService = knowledgeRevisionService;
 	}
 
 	public SearchResponse search(String question, Integer limit) {
@@ -60,7 +83,27 @@ public class QueryService {
 				result.retrieval().projectionReady(), !result.retrieval().healthy()));
 	}
 
+	/**
+	 * Answers from the exact-match cache when this question was already answered at the current knowledge revision;
+	 * otherwise asks gbrain. Only LLM answers (aiGenerated) are stored: extractive fallbacks are retried next time, and
+	 * gbrain errors throw before anything is stored. The revision is read before the gbrain call, so an answer that
+	 * races a knowledge write is stored under the older revision and never served after it.
+	 */
 	public SynthesisResponse synthesize(String question) {
+		long revision = knowledgeRevisionService.current();
+		Optional<SynthesisResponse> cached = queryCache.lookup(question, QueryMode.SYNTHESIS, revision,
+				SynthesisResponse.class);
+		if (cached.isPresent()) {
+			return cached.get().asCacheHit();
+		}
+		SynthesisResponse response = askGbrain(question);
+		if (response.aiGenerated()) {
+			queryCache.store(question, QueryMode.SYNTHESIS, revision, response);
+		}
+		return response;
+	}
+
+	private SynthesisResponse askGbrain(String question) {
 		GbrainSynthesisResult result = gbrainClient.synthesize(new GbrainSynthesisRequest(question));
 		Map<String, KnowledgeItem> itemsById = knowledgeItemRepository.findAllById(itemIds(result.citations()))
 				.stream()
@@ -74,7 +117,7 @@ public class QueryService {
 				: new UsageResponse(usage.model(), usage.inputTokens(), usage.outputTokens(), usage.estimatedCostUsd());
 		return new SynthesisResponse(result.answer(), result.status() == GbrainSynthesisResult.Status.SYNTHESIZED,
 				result.status() == GbrainSynthesisResult.Status.EXTRACTIVE_FALLBACK, citations, result.gaps(),
-				result.warnings(), responseUsage);
+				result.warnings(), responseUsage, false);
 	}
 
 	private static List<Long> itemIds(List<GbrainSynthesisResult.GbrainCitation> citations) {
