@@ -84,6 +84,14 @@ public class IngestionService {
 		}
 	}
 
+	public void recordFailure(KnowledgeItem item, Instant startedAt, String errorCode, String errorMessage) {
+		item.markFailed();
+		int attemptNumber = (int) ingestionAttemptRepository.countByKnowledgeItemId(item.getId()) + 1;
+		ingestionAttemptRepository.save(
+				IngestionAttempt.failed(item.getId(), attemptNumber, startedAt, errorCode, truncate(errorMessage)));
+		log.warn("Ingestion preparation failed for knowledge item {} ({}): {}", item.getId(), errorCode, errorMessage);
+	}
+
 	private static String truncate(String message) {
 		if (message == null) {
 			return null;

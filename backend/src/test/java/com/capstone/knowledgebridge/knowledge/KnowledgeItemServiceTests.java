@@ -16,10 +16,13 @@ import java.util.Optional;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.springframework.data.domain.Sort;
+import org.springframework.test.util.ReflectionTestUtils;
 
 import com.capstone.knowledgebridge.ingestion.IngestionAttempt;
 import com.capstone.knowledgebridge.ingestion.IngestionAttemptRepository;
 import com.capstone.knowledgebridge.ingestion.IngestionService;
+import com.capstone.knowledgebridge.video.VideoIngestionDispatcher;
+import com.capstone.knowledgebridge.video.StoredVideo;
 
 class KnowledgeItemServiceTests {
 
@@ -29,8 +32,10 @@ class KnowledgeItemServiceTests {
 
 	private final IngestionService ingestionService = mock(IngestionService.class);
 
+	private final VideoIngestionDispatcher videoIngestionDispatcher = mock(VideoIngestionDispatcher.class);
+
 	private final KnowledgeItemService knowledgeItemService = new KnowledgeItemService(knowledgeItemRepository,
-			ingestionAttemptRepository, ingestionService);
+			ingestionAttemptRepository, ingestionService, videoIngestionDispatcher);
 
 	@Test
 	void createAndIngestTrimsFieldsSavesTwiceAndCallsIngestion() {
@@ -47,6 +52,35 @@ class KnowledgeItemServiceTests {
 		ArgumentCaptor<KnowledgeItem> captor = ArgumentCaptor.forClass(KnowledgeItem.class);
 		verify(ingestionService).ingest(captor.capture());
 		assertThat(captor.getValue().getTitle()).isEqualTo("Title");
+	}
+
+	@Test
+	void createMarkdownUsesMarkdownSourceKind() {
+		when(knowledgeItemRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+
+		KnowledgeItem result = knowledgeItemService.createMarkdownAndIngest("Title", "Policy", "body", 7L);
+
+		assertThat(result.getSourceKind()).isEqualTo(KnowledgeSourceKind.MARKDOWN);
+		verify(ingestionService).ingest(result);
+	}
+
+	@Test
+	void createVideoPersistsMetadataAndQueuesJob() {
+		when(knowledgeItemRepository.save(any())).thenAnswer(invocation -> {
+			KnowledgeItem item = invocation.getArgument(0);
+			ReflectionTestUtils.setField(item, "id", 8L);
+			return item;
+		});
+		StoredVideo video = new StoredVideo("meeting.mp4", "video/mp4", "abc", java.nio.file.Path.of("stored"));
+
+		KnowledgeItem result = knowledgeItemService.createVideoAndIngest(" Title ", " Meeting ", 7L, video);
+
+		assertThat(result.getSourceKind()).isEqualTo(KnowledgeSourceKind.VIDEO);
+		assertThat(result.getOriginalFilename()).isEqualTo("meeting.mp4");
+		assertThat(result.getSourceContentType()).isEqualTo("video/mp4");
+		assertThat(result.getSourceSha256()).isEqualTo("abc");
+		assertThat(result.getSourcePath()).isEqualTo("stored");
+		verify(videoIngestionDispatcher).enqueue(8L);
 	}
 
 	@Test
@@ -94,6 +128,20 @@ class KnowledgeItemServiceTests {
 		assertThat(result).isSameAs(item);
 		verify(ingestionService).ingest(item);
 		verify(knowledgeItemRepository).save(item);
+	}
+
+	@Test
+	void retryVideoQueuesBackgroundJob() {
+		KnowledgeItem item = KnowledgeItem.video("Title", "Meeting", 7L, "meeting.mp4", "video/mp4", "hash",
+				"stored");
+		ReflectionTestUtils.setField(item, "id", 9L);
+		item.markFailed();
+		when(knowledgeItemRepository.save(item)).thenReturn(item);
+
+		assertThat(knowledgeItemService.retry(item).getStatus()).isEqualTo(KnowledgeItemStatus.PENDING);
+
+		verify(videoIngestionDispatcher).enqueue(9L);
+		verify(ingestionService, never()).ingest(item);
 	}
 
 }

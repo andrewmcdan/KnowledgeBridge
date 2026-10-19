@@ -27,6 +27,7 @@ backend/.gradle/
 *.log
 *.log.gz
 backend/logs/
+backend/data/
 
 # JavaScript, React, and common frontend tooling
 frontend/node_modules/

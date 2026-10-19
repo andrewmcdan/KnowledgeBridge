@@ -8,7 +8,12 @@ RUN ./gradlew bootJar --no-daemon
 
 FROM eclipse-temurin:21-jre
 WORKDIR /app
-RUN useradd --system --uid 1001 spring
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends ffmpeg \
+    && rm -rf /var/lib/apt/lists/* \
+    && useradd --system --uid 1001 spring \
+    && mkdir -p /data/uploads \
+    && chown -R spring /data/uploads
 COPY --from=build /app/build/libs/*.jar app.jar
 USER spring
 EXPOSE 8080

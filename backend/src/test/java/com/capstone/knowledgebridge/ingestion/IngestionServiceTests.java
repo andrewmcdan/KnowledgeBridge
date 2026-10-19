@@ -8,6 +8,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.time.Duration;
+import java.time.Instant;
 
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
@@ -150,6 +151,21 @@ class IngestionServiceTests {
 		assertThat(IngestionService.exceedsBodyLimit(atLimit)).isFalse();
 		assertThat(IngestionService.exceedsBodyLimit(atLimit + "   \n\n")).isFalse();
 		assertThat(IngestionService.exceedsBodyLimit(atLimit + "a")).isTrue();
+	}
+
+	@Test
+	void recordsPreparationFailure() {
+		KnowledgeItem item = newItem();
+		when(ingestionAttemptRepository.countByKnowledgeItemId(42L)).thenReturn(2L);
+
+		ingestionService.recordFailure(item, Instant.EPOCH, "VIDEO", "bad video");
+
+		assertThat(item.getStatus()).isEqualTo(KnowledgeItemStatus.FAILED);
+		ArgumentCaptor<IngestionAttempt> captor = ArgumentCaptor.forClass(IngestionAttempt.class);
+		verify(ingestionAttemptRepository).save(captor.capture());
+		assertThat(captor.getValue().getAttemptNumber()).isEqualTo(3);
+		assertThat(captor.getValue().getErrorCode()).isEqualTo("VIDEO");
+		assertThat(captor.getValue().getErrorMessage()).isEqualTo("bad video");
 	}
 
 }

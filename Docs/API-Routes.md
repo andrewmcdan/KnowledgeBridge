@@ -37,6 +37,7 @@ Only `GET /api/health` exists today. Everything else is a proposal to be agreed 
 | GET | `/api/knowledge-items/{id}` | User | Returns one item's metadata and full text for the document detail view. |
 | POST | `/api/knowledge-items/manual` | Admin | Creates an item from manually entered title and text, then queues ingestion. |
 | POST | `/api/knowledge-items/upload` | Admin | Multipart upload of a single Markdown file; validates, stores, and queues ingestion. |
+| POST | `/api/knowledge-items/video` | Admin | Multipart MP4, MOV, or WebM upload; returns `202` and transcribes/indexes in the background. Size and duration limits are configurable. |
 | PUT | `/api/knowledge-items/{id}` | Admin | Updates title or content; re-ingests and bumps the knowledge revision to invalidate cache. |
 | DELETE | `/api/knowledge-items/{id}` | Admin | Soft-deletes the item so it is hidden from search but recoverable. |
 | POST | `/api/knowledge-items/{id}/restore` | Admin | Restores a soft-deleted item. |
