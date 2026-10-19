@@ -6,6 +6,7 @@ import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.options;
@@ -394,6 +395,45 @@ class KnowledgeBridgeApplicationTests {
 				.andExpect(status().isOk())
 				.andExpect(jsonPath("$.cacheHit").value(false));
 		verify(gbrainClient, times(2)).synthesize(any());
+	}
+
+	@Test
+	void cacheAdminRoutesAreAdminOnly() throws Exception {
+		mockMvc.perform(get("/api/admin/cache")).andExpect(status().isUnauthorized());
+		mockMvc.perform(delete("/api/admin/cache")).andExpect(status().isUnauthorized());
+
+		String userToken = loginAndGetToken("user@acme.example", "user123", "USER");
+		mockMvc.perform(get("/api/admin/cache").header("Authorization", "Bearer " + userToken))
+				.andExpect(status().isForbidden());
+		mockMvc.perform(delete("/api/admin/cache").header("Authorization", "Bearer " + userToken))
+				.andExpect(status().isForbidden());
+	}
+
+	@Test
+	void adminCanListAndClearTheCache() throws Exception {
+		String userToken = loginAndGetToken("user@acme.example", "user123", "USER");
+		String adminToken = loginAndGetToken("admin@acme.example", "admin123", "ADMIN");
+		when(gbrainClient.synthesize(any())).thenReturn(new GbrainSynthesisResult("Answer.",
+				GbrainSynthesisResult.Status.SYNTHESIZED, List.of(), List.of(), null, List.of()));
+		mockMvc.perform(post("/api/query/synthesize")
+				.header("Authorization", "Bearer " + userToken)
+				.contentType("application/json")
+				.content("{\"question\":\"Who approves admin cache tests?\"}"))
+				.andExpect(status().isOk());
+
+		mockMvc.perform(get("/api/admin/cache").header("Authorization", "Bearer " + adminToken))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$[0].queryText").value("Who approves admin cache tests?"))
+				.andExpect(jsonPath("$[0].mode").value("SYNTHESIS"))
+				.andExpect(jsonPath("$[0].hitCount").value(0))
+				.andExpect(jsonPath("$[0].current").value(true));
+
+		mockMvc.perform(delete("/api/admin/cache").header("Authorization", "Bearer " + adminToken))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.deleted").isNumber());
+		mockMvc.perform(get("/api/admin/cache").header("Authorization", "Bearer " + adminToken))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$").isEmpty());
 	}
 
 	private String loginAndGetToken(String email, String password, String role) throws Exception {

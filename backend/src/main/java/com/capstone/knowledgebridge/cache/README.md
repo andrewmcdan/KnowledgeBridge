@@ -18,7 +18,4 @@ What is never cached:
 Known limitation:
 
 - gbrain can report a normal answer (`synthesis_status: ok`) together with warnings that mean something went wrong along the way, such as `QUESTION_EMBED_FAILED` (keyword-only retrieval) or `SALVAGED_ANSWER_FROM_MALFORMED_JSON`. Those answers are `aiGenerated` and are cached, so a degraded answer can be served until the knowledge revision changes or an admin clears the cache. Filtering on `warnings` was left out on purpose while gbrain's warning codes are still changing; revisit it once they settle.
-
-Not built yet:
-
-- Admin listing/clearing behind `GET`/`DELETE /api/admin/cache`.
+- `list()` and `clear()` back the admin routes `GET`/`DELETE /api/admin/cache` in `admin`. Each listed entry reports `current`: false once a knowledge write has moved the revision past it, so no lookup can return it.

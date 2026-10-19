@@ -144,6 +144,37 @@ class QueryCacheServiceTests {
 	}
 
 	@Test
+	void listShowsEveryEntryMostRecentlyUsedFirstAndMarksWhichAreCurrent() {
+		jdbcTemplate.update("UPDATE system_state SET knowledge_revision = 8 WHERE id = 1");
+		cache.store("Old question", QueryMode.SYNTHESIS, 7, new CachedAnswer("old", List.of()));
+		cache.store("New question", QueryMode.SYNTHESIS, 8, new CachedAnswer("new", List.of()));
+		cache.lookup("Old question", QueryMode.SYNTHESIS, 7, CachedAnswer.class);
+
+		List<QueryCacheService.CacheEntry> entries = cache.list();
+
+		assertThat(entries).extracting(QueryCacheService.CacheEntry::queryText)
+				.containsExactly("Old question", "New question");
+		assertThat(entries.get(0)).satisfies(entry -> {
+			assertThat(entry.mode()).isEqualTo(QueryMode.SYNTHESIS);
+			assertThat(entry.knowledgeRevision()).isEqualTo(7);
+			assertThat(entry.hitCount()).isEqualTo(1);
+			assertThat(entry.lastAccessedAt()).isAfterOrEqualTo(entry.createdAt());
+			assertThat(entry.current()).isFalse();
+		});
+		assertThat(entries.get(1).current()).isTrue();
+	}
+
+	@Test
+	void clearDeletesEveryEntryAndReportsHowMany() {
+		cache.store("First", QueryMode.SYNTHESIS, 1, new CachedAnswer("1", List.of()));
+		cache.store("Second", QueryMode.SYNTHESIS, 2, new CachedAnswer("2", List.of()));
+
+		assertThat(cache.clear()).isEqualTo(2);
+		assertThat(cache.list()).isEmpty();
+		assertThat(cache.lookup("First", QueryMode.SYNTHESIS, 1, CachedAnswer.class)).isEmpty();
+	}
+
+	@Test
 	void lookupTreatsADatabaseFailureAsAMiss() {
 		JdbcTemplate failingJdbc = mock(JdbcTemplate.class);
 		when(failingJdbc.queryForList(anyString(), eq(String.class), any(Object[].class)))

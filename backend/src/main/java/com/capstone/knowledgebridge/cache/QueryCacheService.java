@@ -1,5 +1,6 @@
 package com.capstone.knowledgebridge.cache;
 
+import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 
@@ -44,6 +45,22 @@ public class QueryCacheService {
 			ON CONFLICT (query_mode, knowledge_revision, md5(exact_query_text)) DO NOTHING
 			""";
 
+	// current compares against system_state, so admins can see which entries a lookup could still return.
+	private static final String LIST_SQL = """
+			SELECT id, exact_query_text, query_mode, knowledge_revision, hit_count, created_at, last_accessed_at,
+				knowledge_revision = (SELECT knowledge_revision FROM system_state WHERE id = 1) AS current
+			FROM query_cache
+			ORDER BY last_accessed_at DESC, id DESC
+			""";
+
+	/**
+	 * One cache row for the admin view, without the stored response body. current is false once a knowledge write has
+	 * moved the revision past this entry, meaning no lookup can return it any more.
+	 */
+	public record CacheEntry(long id, String queryText, QueryMode mode, long knowledgeRevision, int hitCount,
+			Instant createdAt, Instant lastAccessedAt, boolean current) {
+	}
+
 	private final JdbcTemplate jdbcTemplate;
 
 	private final JsonMapper jsonMapper;
@@ -82,6 +99,20 @@ public class QueryCacheService {
 		} catch (DataAccessException | JacksonException ex) {
 			log.warn("Query cache store failed for {} at revision {}", mode, knowledgeRevision, ex);
 		}
+	}
+
+	/** Every cache entry, most recently used first. */
+	public List<CacheEntry> list() {
+		return jdbcTemplate.query(LIST_SQL,
+				(rs, rowNum) -> new CacheEntry(rs.getLong("id"), rs.getString("exact_query_text"),
+						QueryMode.valueOf(rs.getString("query_mode")), rs.getLong("knowledge_revision"),
+						rs.getInt("hit_count"), rs.getTimestamp("created_at").toInstant(),
+						rs.getTimestamp("last_accessed_at").toInstant(), rs.getBoolean("current")));
+	}
+
+	/** Deletes every cache entry and returns how many were removed. */
+	public int clear() {
+		return jdbcTemplate.update("DELETE FROM query_cache");
 	}
 
 	// Trimming is the only normalization: "naive exact match" per the brief, minus stray surrounding whitespace.
