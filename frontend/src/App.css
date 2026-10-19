@@ -1206,11 +1206,14 @@ small {
 .login-brand {
     display: inline-flex;
     width: min(220px, 100%);
+    padding: 12px 16px;
+    border-radius: 8px;
+    background: #fff;
 }
 .login-brand img {
+    display: block;
     width: 100%;
     height: auto;
-    filter: brightness(0) invert(1);
 }
 .login-introduction-content {
     width: min(485px, 100%);
