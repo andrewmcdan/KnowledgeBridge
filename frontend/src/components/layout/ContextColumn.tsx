@@ -1,6 +1,8 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { getKnowledgeItems, type KnowledgeItem } from "../../features/knowledge/knowledgeApi";
 import { Icon } from "../ui/Icon";
+import { getEntities, type DetectedEntity } from "../../features/entities/entitiesApi";
+import { useEntityRefresh } from "../../features/entities/useEntityRefresh";
 
 interface ContextColumnProps {
     onNavigate: (path: string) => void;
@@ -9,6 +11,21 @@ interface ContextColumnProps {
 export function ContextColumn({ onNavigate }: ContextColumnProps) {
     const [recentItems, setRecentItems] = useState<KnowledgeItem[]>([]);
     const [ingestionError, setIngestionError] = useState(false);
+    const [entities, setEntities] = useState<DetectedEntity[]>([]);
+    const [entityError, setEntityError] = useState(false);
+
+    const loadEntities = useCallback(async (signal: AbortSignal) => {
+        try {
+            const result = await getEntities("", "", 5, signal);
+            if (!signal.aborted) {
+                setEntities(result);
+                setEntityError(false);
+            }
+        } catch {
+            if (!signal.aborted) setEntityError(true);
+        }
+    }, []);
+    useEntityRefresh(loadEntities);
 
     useEffect(() => {
         getKnowledgeItems()
@@ -22,8 +39,20 @@ export function ContextColumn({ onNavigate }: ContextColumnProps) {
                 <h2>
                     <Icon name="users" size={18} /> Detected Entities
                 </h2>
-                {/* TODO: Load detected entities for the current workspace from /api/entities. */}
-                <p className="context-empty">Entities will appear after entity extraction is connected.</p>
+                <p className="context-empty">Automatically detected · Unverified</p>
+                {entityError ? (
+                    <p className="context-empty" role="alert">
+                        Entities could not be loaded.
+                    </p>
+                ) : entities.length ? (
+                    entities.map((entity) => (
+                        <button className="panel-link" key={entity.id} onClick={() => onNavigate(`/entities?entity=${entity.id}`)}>
+                            {entity.name}
+                        </button>
+                    ))
+                ) : (
+                    <p className="context-empty">No extracted entities yet.</p>
+                )}
                 <button className="panel-link" onClick={() => onNavigate("/entities")}>
                     View all entities <Icon name="chevron" size={16} />
                 </button>

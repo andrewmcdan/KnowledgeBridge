@@ -11,7 +11,7 @@ interface DocumentRowProps {
 export function DocumentRow({ document, saved, onOpen, onToggleSaved }: DocumentRowProps) {
     return (
         <div className="document-row">
-            <button className="document-open" onClick={() => onOpen({ title: document.title, text: document.text })}>
+            <button className="document-open" onClick={() => onOpen({ id: document.ingestionStatus === "COMPLETED" ? document.id : undefined, title: document.title, text: document.text })}>
                 <span className={`file-icon ${document.color}`}>
                     <Icon name="file" size={18} />
                 </span>

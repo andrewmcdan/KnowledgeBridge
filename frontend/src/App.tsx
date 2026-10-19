@@ -67,7 +67,7 @@ function Workspace() {
                         <Routes>
                             <Route path="/ask-ai" element={<AskAiPage />} />
                             <Route path="/knowledge" element={<KnowledgeBasePage search={search} saved={saved} onOpenDetail={setDetail} onToggleSaved={toggleSaved} />} />
-                            <Route path="/entities" element={<EntitiesPage />} />
+                            <Route path="/entities" element={<EntitiesPage onOpenDetail={setDetail} />} />
                             <Route path="/dashboard" element={<PlaceholderPage page="Dashboard" service={service} onAskAi={() => go("/ask-ai")} />} />
                             <Route path="/uploads" element={user?.role === "ADMIN" ? <UploadsPage /> : <Navigate to="/ask-ai" replace />} />
                             <Route path="/usage" element={<PlaceholderPage page="Usage" service={service} onAskAi={() => go("/ask-ai")} />} />
@@ -78,7 +78,7 @@ function Workspace() {
                     <ContextColumn onNavigate={go} />
                 </div>
             </div>
-            {detail && <DetailDialog detail={detail} onClose={() => setDetail(null)} />}
+            {detail && <DetailDialog key={detail.id ?? detail.title} detail={detail} onClose={() => setDetail(null)} />}
         </div>
     );
 }
