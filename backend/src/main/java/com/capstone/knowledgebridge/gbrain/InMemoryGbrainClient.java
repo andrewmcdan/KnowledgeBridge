@@ -7,6 +7,8 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 
+import com.capstone.knowledgebridge.gbrain.model.GbrainEntityExtraction;
+
 import com.capstone.knowledgebridge.gbrain.model.GbrainDeleteResult;
 import com.capstone.knowledgebridge.gbrain.model.GbrainDocument;
 import com.capstone.knowledgebridge.gbrain.model.GbrainRestoreResult;
@@ -26,6 +28,11 @@ import com.capstone.knowledgebridge.gbrain.model.GbrainWriteResult;
  * than inventing an answer.
  */
 class InMemoryGbrainClient implements GbrainClient {
+
+	@Override
+	public GbrainEntityExtraction extractEntities(GbrainDocument document) {
+		throw new GbrainException(GbrainErrorCode.UNAVAILABLE, "Entity extraction requires gbrain MCP mode");
+	}
 
 	private final Map<String, GbrainStoredDocument> pages = new ConcurrentHashMap<>();
 

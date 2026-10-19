@@ -45,6 +45,18 @@ public class KnowledgeItemController {
 	// knowledge_item.title and .type are VARCHAR(255); longer values would fail the insert with a 500.
 	private static final int MAX_FIELD_LENGTH = 255;
 
+	public record DocumentContentResponse(long id, String title, String type, String text) {
+	}
+
+	/** Completed knowledge is readable by signed-in users without exposing management or upload metadata. */
+	@GetMapping("/{id}/content")
+	public ResponseEntity<DocumentContentResponse> content(@PathVariable Long id) {
+		return ResponseEntity.of(knowledgeItemService.findById(id)
+				.filter(item -> item.getStatus() == KnowledgeItemStatus.COMPLETED)
+				.map(item -> new DocumentContentResponse(item.getId(), item.getTitle(), item.getType(),
+						item.getBodyText())));
+	}
+
 	public record ManualKnowledgeItemRequest(@NotBlank @Size(max = MAX_FIELD_LENGTH) String title,
 			@NotBlank @Size(max = MAX_FIELD_LENGTH) String type, @NotBlank String text) {
 	}

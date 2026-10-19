@@ -45,6 +45,8 @@ Only `GET /api/health` exists today. Everything else is a proposal to be agreed 
 | POST | `/api/knowledge-items/{id}/retry-ingestion` | Admin | Re-queues ingestion for an item in `FAILED` status. |
 | GET | `/api/knowledge-items/{id}/ingestion-attempts` | Admin | Lists ingestion attempts with status, timestamps, and safe error messages for the Uploads queue. |
 | GET | `/api/knowledge-items/{id}/entities` | User | Returns the top entities detected in this document (entity–document linking). |
+| GET | `/api/knowledge-items/{id}/content` | User | Reads completed document content without exposing admin or upload metadata. |
+| POST | `/api/knowledge-items/{id}/extract-entities` | Admin | Extracts or retries entities for an indexed document; reports extraction failures separately from ingestion. |
 
 ## Entities
 

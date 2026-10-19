@@ -27,6 +27,8 @@ import com.capstone.knowledgebridge.gbrain.model.GbrainSynthesisResult.GbrainCit
 import com.capstone.knowledgebridge.gbrain.model.GbrainWriteResult;
 
 import tools.jackson.databind.JsonNode;
+import com.capstone.knowledgebridge.gbrain.model.GbrainEntity;
+import com.capstone.knowledgebridge.gbrain.model.GbrainEntityExtraction;
 
 /**
  * {@link GbrainClient} backed by the MCP transport. Response shapes follow the pinned revision's {@code put_page},
@@ -45,8 +47,58 @@ class McpGbrainClient implements GbrainClient {
 
 	private final GbrainMcpClient transport;
 
+	private final GbrainMcpClient extractionTransport;
+
 	McpGbrainClient(GbrainMcpClient transport) {
+		this(transport, transport);
+	}
+
+	McpGbrainClient(GbrainMcpClient transport, GbrainMcpClient extractionTransport) {
 		this.transport = transport;
+		this.extractionTransport = extractionTransport;
+	}
+
+	@Override
+	public GbrainEntityExtraction extractEntities(GbrainDocument document) {
+		if (document.body().length() > 200_000) {
+			throw new GbrainException(GbrainErrorCode.VALIDATION,
+					"Entity extraction supports up to 200000 characters per document");
+		}
+		JsonNode result = extractionTransport.callTool(GbrainTool.EXTRACT_ENTITIES,
+				Map.of("text", document.body(), "source_slug", GbrainPages.slugFor(document.itemKey()))).payload();
+		if (!"ok".equals(result.path("status").asString()) || !result.path("entities").isArray()) {
+			throw unexpected("extract_entities");
+		}
+		Map<String, GbrainEntity> entities = new LinkedHashMap<>();
+		for (JsonNode entity : result.path("entities")) {
+			String slug = entity.path("slug").asString("");
+			if (!slug.matches("(?:people|companies)/[a-z0-9][a-z0-9-]{0,254}")
+					|| "skipped".equals(entity.path("action").asString())) {
+				continue;
+			}
+			JsonNode page;
+			try {
+				page = extractionTransport.callTool(GbrainTool.GET_PAGE,
+						Map.of("slug", slug, "source_id", GbrainPages.SOURCE_ID)).payload();
+			} catch (GbrainException exception) {
+				if (exception.code() == GbrainErrorCode.NOT_FOUND) {
+					continue;
+				}
+				throw exception;
+			}
+			String name = page.path("title").asString("").strip();
+			if (!slug.equals(page.path("slug").asString()) || name.isEmpty() || name.length() > 255) {
+				continue;
+			}
+			String summary = page.path("compiled_truth").asString("");
+			String type = EntityHints.type(name, slug);
+			String id = Set.of("PROJECT", "TEAM").contains(type) ? EntityHints.id(type, name) : slug;
+			entities.put(id, new GbrainEntity(id, name, type,
+					summary.substring(0, Math.min(summary.length(), 1000))));
+		}
+		EntityHints.supplement(document.body(), entities);
+		return new GbrainEntityExtraction(entities.values().stream().limit(200).toList(),
+				result.path("truncated").asBoolean(false) || entities.size() > 200);
 	}
 
 	@Override

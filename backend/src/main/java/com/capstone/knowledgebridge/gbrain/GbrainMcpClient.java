@@ -141,6 +141,7 @@ public class GbrainMcpClient {
 			cursor = result.nextCursor();
 			if (cursor == null) {
 				Set<String> missing = Arrays.stream(GbrainTool.values())
+						.filter(tool -> tool != GbrainTool.EXTRACT_ENTITIES)
 						.map(GbrainTool::toolName)
 						.filter(name -> !tools.contains(name))
 						.collect(Collectors.toCollection(LinkedHashSet::new));

@@ -10,7 +10,7 @@ enum GbrainTool {
 			false), SEARCH("search", true, false),
 	// Side-effect free, but an expensive LLM call: never repeat it automatically.
 	SYNTHESIZE("synthesize", false, true), DELETE_PAGE("delete_page", false, false), RESTORE_PAGE("restore_page", false,
-			false);
+			false), EXTRACT_ENTITIES("extract_entities", false, true);
 
 	private final String toolName;
 

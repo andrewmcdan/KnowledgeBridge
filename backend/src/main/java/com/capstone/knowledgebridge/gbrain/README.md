@@ -152,7 +152,7 @@ The first implementation should map only the tools needed for the MVP:
 
 Do not use `log_ingest` as the ingestion operation; it records an ingestion event but does not index the document.
 
-Entity support needs a separate spike. The pinned tool catalog provides extraction and entity-related operations, but it does not directly match the proposed KnowledgeBridge entity-list/detail API. The spike must determine whether entity pages, `extract_entities`, search filters, or graph operations provide a stable mapping before entity endpoints are promised.
+Entity support uses native `extract_entities` and source-scoped `get_page` through a dedicated extraction credential on this adapter. A local revision-aware projection supplies filtered entity lists, details, and links to knowledge items. The document credential retains its slug fence. See [entity extraction](../entities/README.md) for the supported types, provisioning, and limitations.
 
 ## Document identity and content mapping
 
@@ -280,7 +280,7 @@ Phase 1 findings:
 - `search` returned retrieval metadata with `vector_enabled: true`, `expansion_applied: false`, and no degraded reasons.
 - `synthesize` requires an explicit `models.think` route. OpenRouter embeddings alone do not override its Anthropic-direct fallback; the deployment pins `openrouter:anthropic/claude-haiku-4.5`.
 - `delete_page` is recoverable soft deletion and `restore_page` reverses it. The scoped runtime surface has no safe per-page physical purge; gbrain's autopilot purges all soft-deleted pages after 72 hours, which is not per-item and has not been verified live (Phase 3 source review). Therefore the proposed permanent-delete API is excluded from the MVP unless an operator-reviewed retention/purge design is added.
-- The slug-bound client cannot call `extract_entities`, and the published read tools do not provide the proposed general entity list/detail contract. Entity endpoints are excluded from the first adapter increment; a later design may use application-owned entities or a separately scoped extraction workflow.
+- The slug-bound document client cannot call `extract_entities`. Entity support now uses a separately provisioned source-bound extraction credential through the same adapter and a revision-aware PostgreSQL projection for entity listing and document links. The document client retains its slug fence. See [entity extraction](../entities/README.md) for provisioning, unverified-data handling, metadata hints, and limits.
 
 ### Phase 2: transport foundation
 
