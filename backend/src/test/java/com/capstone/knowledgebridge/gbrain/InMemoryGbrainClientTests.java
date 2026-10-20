@@ -22,6 +22,13 @@ import com.capstone.knowledgebridge.gbrain.model.GbrainWriteResult;
 
 class InMemoryGbrainClientTests {
 
+	@org.junit.jupiter.api.Test
+	void entityExtractionRequiresTheRealEngine() {
+		org.assertj.core.api.Assertions
+				.assertThatThrownBy(() -> new InMemoryGbrainClient(java.time.Clock.systemUTC()).extractEntities(null))
+				.isInstanceOf(GbrainException.class);
+	}
+
 	private static final Instant NOW = Instant.parse("2026-10-01T09:00:00Z");
 
 	private final GbrainClient client = new InMemoryGbrainClient(Clock.fixed(NOW, ZoneOffset.UTC));

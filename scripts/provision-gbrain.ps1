@@ -1,5 +1,5 @@
 [CmdletBinding()]
-param()
+param([switch]$Extraction)
 
 $ErrorActionPreference = 'Stop'
 $repositoryRoot = Split-Path -Parent $PSScriptRoot
@@ -39,22 +39,41 @@ function Set-DotEnvValue {
 
 Push-Location $repositoryRoot
 try {
+    # Registration bypasses the gbrain entrypoint and --no-deps never starts PostgreSQL.
+    # Fail before attempting a credential mutation when the supporting database is stopped.
+    $databaseState = & docker compose ps --format json postgres
+    if ($LASTEXITCODE -ne 0) { throw 'Could not inspect PostgreSQL. Check Docker Desktop.' }
+    $database = if ($databaseState) { ($databaseState -join "`n") | ConvertFrom-Json } else { $null }
+    if ($null -eq $database -or $database.Health -ne 'healthy') {
+        throw 'PostgreSQL must be running and healthy before provisioning. Run: docker compose up -d --wait postgres gbrain. Existing credentials in .env have not been changed.'
+    }
+    $credentialPrefix = if ($Extraction) { 'GBRAIN_EXTRACTION_OAUTH' } else { 'GBRAIN_OAUTH' }
+    $clientName = if ($Extraction) { 'knowledgebridge-extraction' } else { 'knowledgebridge-backend' }
     $existingClientId = $null
     foreach ($line in [IO.File]::ReadAllLines($environmentPath)) {
-        if ($line -match '^GBRAIN_OAUTH_CLIENT_ID=(.+)$') {
+        if ($line -match "^${credentialPrefix}_CLIENT_ID=(.+)$") {
             $existingClientId = $matches[1].Trim()
         }
     }
 
-    $output = & docker compose run --rm --no-deps --entrypoint bun gbrain run src/cli.ts auth register-client knowledgebridge-backend `
-        --grant-types client_credentials `
-        --scopes 'read write' `
-        --source knowledgebridge `
-        --federated-read knowledgebridge `
-        --bound-slug-prefixes 'knowledgebridge/' 2>&1 | Out-String
+    # Extraction creates people/ and companies/ pages in this source. The document
+    # credential retains its slug fence; only the extraction credential omits it.
+    $registrationArguments = @('run', 'src/cli.ts', 'auth', 'register-client', $clientName,
+        '--grant-types', 'client_credentials', '--scopes', 'read write',
+        '--source', 'knowledgebridge', '--federated-read', 'knowledgebridge')
+    if (-not $Extraction) { $registrationArguments += @('--bound-slug-prefixes', 'knowledgebridge/') }
+    # Windows PowerShell treats Docker's progress on stderr as NativeCommandError.
+    # Capture it without aborting before the command's actual exit code is available.
+    $ErrorActionPreference = 'Continue'
+    try {
+        $output = & docker compose run --rm --no-deps --entrypoint bun gbrain @registrationArguments 2>&1 | Out-String
+        $registrationExitCode = $LASTEXITCODE
+    } finally {
+        $ErrorActionPreference = 'Stop'
+    }
 
-    if ($LASTEXITCODE -ne 0) {
-        throw "gbrain client registration failed: $($output.Trim())"
+    if ($registrationExitCode -ne 0) {
+        throw 'gbrain client registration failed. Output withheld because it can contain credentials.'
     }
 
     $clientIdMatch = [regex]::Match($output, '(?im)^\s*Client ID:\s*(\S+)\s*$')
@@ -63,13 +82,19 @@ try {
         throw 'gbrain registered a client, but its credential output could not be parsed.'
     }
 
-    Set-DotEnvValue -Name 'GBRAIN_OAUTH_CLIENT_ID' -Value $clientIdMatch.Groups[1].Value
-    Set-DotEnvValue -Name 'GBRAIN_OAUTH_CLIENT_SECRET' -Value $clientSecretMatch.Groups[1].Value
+    Set-DotEnvValue -Name "${credentialPrefix}_CLIENT_ID" -Value $clientIdMatch.Groups[1].Value
+    Set-DotEnvValue -Name "${credentialPrefix}_CLIENT_SECRET" -Value $clientSecretMatch.Groups[1].Value
     Set-DotEnvValue -Name 'GBRAIN_OAUTH_TOKEN_URL' -Value 'http://localhost:3131/token'
 
     if ($existingClientId -and $existingClientId -ne $clientIdMatch.Groups[1].Value) {
-        $null = & docker compose run --rm --no-deps --entrypoint bun gbrain run src/cli.ts auth revoke-client $existingClientId 2>&1
-        if ($LASTEXITCODE -ne 0) {
+        $ErrorActionPreference = 'Continue'
+        try {
+            $null = & docker compose run --rm --no-deps --entrypoint bun gbrain run src/cli.ts auth revoke-client $existingClientId 2>&1
+            $revocationExitCode = $LASTEXITCODE
+        } finally {
+            $ErrorActionPreference = 'Stop'
+        }
+        if ($revocationExitCode -ne 0) {
             Write-Warning "The new client works, but the previous client '$existingClientId' could not be revoked. Revoke it manually."
         }
     }

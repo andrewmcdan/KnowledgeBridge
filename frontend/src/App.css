@@ -1,3 +1,61 @@
+.entity-filters {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 16px;
+    margin: 20px 0;
+}
+.collection.entity-browser > h2 {
+    margin-bottom: 16px;
+}
+.collection.entity-browser > .knowledge-list-description {
+    margin-top: 0;
+}
+.entity-filters label {
+    display: grid;
+    gap: 6px;
+    font-size: 13px;
+}
+.entity-filters input,
+.entity-filters select {
+    padding: 10px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: white;
+    color: inherit;
+    max-width: 100%;
+}
+.entity-card {
+    display: grid;
+    gap: 7px;
+    width: 100%;
+    padding: 16px 0;
+    text-align: left;
+    border: 0;
+    border-bottom: 1px solid var(--border);
+    background: transparent;
+    color: inherit;
+}
+.entity-card:hover {
+    color: var(--blue);
+}
+.entity-card span {
+    font-size: 13px;
+}
+.entity-summary,
+.document-content {
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+}
+.document-entities {
+    border-top: 1px solid var(--border);
+    margin: 20px 0;
+    padding-top: 12px;
+}
+.entity-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+}
 .workspace {
     --sidebar-width: 244px;
     min-height: 100vh;
@@ -1148,11 +1206,14 @@ small {
 .login-brand {
     display: inline-flex;
     width: min(220px, 100%);
+    padding: 12px 16px;
+    border-radius: 8px;
+    background: #fff;
 }
 .login-brand img {
+    display: block;
     width: 100%;
     height: auto;
-    filter: brightness(0) invert(1);
 }
 .login-introduction-content {
     width: min(485px, 100%);

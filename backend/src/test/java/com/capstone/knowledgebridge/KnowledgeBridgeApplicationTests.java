@@ -81,6 +81,8 @@ class KnowledgeBridgeApplicationTests {
 
 	@BeforeEach
 	void stubGbrainSuccessByDefault() {
+		when(gbrainClient.extractEntities(any()))
+				.thenReturn(new com.capstone.knowledgebridge.gbrain.model.GbrainEntityExtraction(List.of(), false));
 		when(gbrainClient.upsertDocument(any()))
 				.thenReturn(new GbrainWriteResult("stub-id", GbrainWriteResult.Status.WRITTEN, 1));
 	}
@@ -467,6 +469,108 @@ class KnowledgeBridgeApplicationTests {
 		mockMvc.perform(get("/api/admin/cache").header("Authorization", "Bearer " + adminToken))
 				.andExpect(status().isOk())
 				.andExpect(jsonPath("$").isEmpty());
+	}
+
+	@Test
+	void entitiesLinkIndexedDocumentsDeduplicateFilterAndReplaceOnRetry() throws Exception {
+		String admin = "Bearer " + loginAndGetToken("admin@acme.example", "admin123", "ADMIN");
+		String user = "Bearer " + loginAndGetToken("user@acme.example", "user123", "USER");
+		var entity = new com.capstone.knowledgebridge.gbrain.model.GbrainEntity("people/entity-test-alice",
+				"Alice Entitytest", "PERSON", "A noisy detection.");
+		when(gbrainClient.extractEntities(any())).thenReturn(
+				new com.capstone.knowledgebridge.gbrain.model.GbrainEntityExtraction(List.of(entity, entity), true));
+		long first = createEntityTestDocument(admin, "Entity first");
+		long second = createEntityTestDocument(admin, "Entity second");
+		MvcResult list = mockMvc
+				.perform(get("/api/entities").header("Authorization", user).param("name", "alice entitytest")
+						.param("type", "person").param("limit", "1"))
+				.andExpect(status().isOk()).andExpect(jsonPath("$[0].documentCount").value(2))
+				.andExpect(jsonPath("$[0].verified").value(false)).andReturn();
+		long id = ((Number) com.jayway.jsonpath.JsonPath.read(list.getResponse().getContentAsString(), "$[0].id"))
+				.longValue();
+		mockMvc.perform(get("/api/entities/{id}", id).header("Authorization", user)).andExpect(status().isOk())
+				.andExpect(jsonPath("$.name").value("Alice Entitytest"));
+		mockMvc.perform(get("/api/entities/{id}/documents", id).header("Authorization", user))
+				.andExpect(status().isOk()).andExpect(jsonPath("$.length()").value(2));
+		mockMvc.perform(get("/api/knowledge-items/{id}/content", first).header("Authorization", user))
+				.andExpect(status().isOk()).andExpect(jsonPath("$.text").value("Alice Entitytest owns Project Cedar."));
+		mockMvc.perform(get("/api/knowledge-items/{id}/entities", first).header("Authorization", user))
+				.andExpect(status().isOk()).andExpect(jsonPath("$.status").value("COMPLETED"))
+				.andExpect(jsonPath("$.truncated").value(true));
+		when(gbrainClient.extractEntities(any()))
+				.thenReturn(new com.capstone.knowledgebridge.gbrain.model.GbrainEntityExtraction(List.of(), false));
+		mockMvc.perform(post("/api/knowledge-items/{id}/extract-entities", first).header("Authorization", admin))
+				.andExpect(status().isOk()).andExpect(jsonPath("$.entities").isEmpty());
+		mockMvc.perform(get("/api/entities/{id}", id).header("Authorization", user))
+				.andExpect(jsonPath("$.documentCount").value(1));
+		jdbcTemplate.update("UPDATE knowledge_item SET revision = revision + 1 WHERE id = ?", second);
+		mockMvc.perform(get("/api/entities/{id}", id).header("Authorization", user)).andExpect(status().isNotFound());
+		mockMvc.perform(get("/api/knowledge-items/{id}/entities", second).header("Authorization", user))
+				.andExpect(jsonPath("$.status").value("NOT_EXTRACTED"));
+	}
+
+	@Test
+	void entityFailuresRemainSeparateFromIndexedContentAndCanBeRetried() throws Exception {
+		String admin = "Bearer " + loginAndGetToken("admin@acme.example", "admin123", "ADMIN");
+		when(gbrainClient.extractEntities(any())).thenThrow(new GbrainException(GbrainErrorCode.TIMEOUT, "Timed out"));
+		long id = createEntityTestDocument(admin, "Entity failure");
+		mockMvc.perform(get("/api/knowledge-items/{id}", id).header("Authorization", admin))
+				.andExpect(jsonPath("$.status").value("COMPLETED"));
+		mockMvc.perform(get("/api/knowledge-items/{id}/entities", id).header("Authorization", admin))
+				.andExpect(jsonPath("$.status").value("FAILED")).andExpect(jsonPath("$.errorCode").value("TIMEOUT"));
+		mockMvc.perform(post("/api/knowledge-items/{id}/extract-entities", id).header("Authorization", admin))
+				.andExpect(jsonPath("$.status").value("FAILED"));
+		doReturn(new com.capstone.knowledgebridge.gbrain.model.GbrainEntityExtraction(List.of(), false))
+				.when(gbrainClient).extractEntities(any());
+		mockMvc.perform(post("/api/knowledge-items/{id}/extract-entities", id).header("Authorization", admin))
+				.andExpect(jsonPath("$.status").value("COMPLETED")).andExpect(jsonPath("$.errorCode").doesNotExist());
+	}
+
+	@Test
+	void entityRoutesValidateFiltersRequireAuthenticationAndRestrictExtractionToAdmins() throws Exception {
+		String user = "Bearer " + loginAndGetToken("user@acme.example", "user123", "USER");
+		String admin = "Bearer " + loginAndGetToken("admin@acme.example", "admin123", "ADMIN");
+		mockMvc.perform(get("/api/entities")).andExpect(status().isUnauthorized());
+		mockMvc.perform(get("/api/entities").header("Authorization", user)).andExpect(status().isOk());
+		mockMvc.perform(get("/api/entities").header("Authorization", user).param("name", "x".repeat(256)))
+				.andExpect(status().isBadRequest());
+		mockMvc.perform(get("/api/entities").header("Authorization", user).param("type", "bad"))
+				.andExpect(status().isBadRequest());
+		for (String limit : List.of("0", "101", "oops")) {
+			mockMvc.perform(get("/api/entities").header("Authorization", user).param("limit", limit))
+					.andExpect(status().isBadRequest());
+		}
+		mockMvc.perform(get("/api/entities/999999999/documents").header("Authorization", user))
+				.andExpect(status().isNotFound());
+		mockMvc.perform(get("/api/knowledge-items/999999999/entities").header("Authorization", user))
+				.andExpect(status().isNotFound());
+		mockMvc.perform(get("/api/knowledge-items/999999999/content").header("Authorization", user))
+				.andExpect(status().isNotFound());
+		mockMvc.perform(post("/api/knowledge-items/999999999/extract-entities").header("Authorization", user))
+				.andExpect(status().isForbidden());
+		when(gbrainClient.upsertDocument(any())).thenThrow(new GbrainException(GbrainErrorCode.UNAVAILABLE, "Offline"));
+		MvcResult result = mockMvc
+				.perform(post("/api/knowledge-items/manual").header("Authorization", admin)
+						.contentType("application/json")
+						.content("{\"title\":\"Unindexed entity test\",\"type\":\"note\",\"text\":\"body\"}"))
+				.andExpect(status().isCreated()).andReturn();
+		long id = ((Number) com.jayway.jsonpath.JsonPath.read(result.getResponse().getContentAsString(), "$.id"))
+				.longValue();
+		mockMvc.perform(post("/api/knowledge-items/{id}/extract-entities", id).header("Authorization", admin))
+				.andExpect(status().isConflict());
+		mockMvc.perform(get("/api/knowledge-items/{id}/content", id).header("Authorization", user))
+				.andExpect(status().isNotFound());
+	}
+
+	private long createEntityTestDocument(String authorization, String title) throws Exception {
+		MvcResult result = mockMvc
+				.perform(post("/api/knowledge-items/manual").header("Authorization", authorization)
+						.contentType("application/json")
+						.content("{\"title\":\"" + title
+								+ "\",\"type\":\"note\",\"text\":\"Alice Entitytest owns Project Cedar.\"}"))
+				.andExpect(status().isCreated()).andReturn();
+		return ((Number) com.jayway.jsonpath.JsonPath.read(result.getResponse().getContentAsString(), "$.id"))
+				.longValue();
 	}
 
 	private String loginAndGetToken(String email, String password, String role) throws Exception {

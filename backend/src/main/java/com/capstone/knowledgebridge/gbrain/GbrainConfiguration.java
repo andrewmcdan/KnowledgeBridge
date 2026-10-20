@@ -4,6 +4,7 @@ import java.time.Clock;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -33,12 +34,21 @@ public class GbrainConfiguration {
 
 	/** The single application-facing client; services depend on this interface, never on the transport. */
 	@Bean
-	GbrainClient gbrainClient(GbrainProperties properties, GbrainMcpClient transport) {
+	GbrainClient gbrainClient(GbrainProperties properties, GbrainMcpClient transport, JsonMapper jsonMapper,
+			@Value("${GBRAIN_EXTRACTION_OAUTH_CLIENT_ID:}") String extractionClientId,
+			@Value("${GBRAIN_EXTRACTION_OAUTH_CLIENT_SECRET:}") String extractionClientSecret) {
 		if (properties.mode() == GbrainProperties.Mode.IN_MEMORY) {
 			log.warn("gbrain mode is IN_MEMORY: knowledge items are not indexed and are lost on restart");
 			return new InMemoryGbrainClient(Clock.systemUTC());
 		}
-		return new McpGbrainClient(transport);
+		GbrainProperties extractionProperties = new GbrainProperties(properties.enabled(), properties.baseUrl(),
+				extractionClientId, extractionClientSecret, properties.oauthTokenUrl(), properties.connectTimeout(),
+				properties.readTimeout(), properties.synthesisTimeout(), properties.maxResponseSize(),
+				properties.retryMaxAttempts(), properties.retryMaxBackoff(), properties.mode());
+		GbrainMcpClient extractionTransport = new GbrainMcpClient(extractionProperties,
+				new GbrainTokenProvider(extractionProperties, jsonMapper, Clock.systemUTC()), jsonMapper,
+				Thread::sleep);
+		return new McpGbrainClient(transport, extractionTransport);
 	}
 
 	@Bean

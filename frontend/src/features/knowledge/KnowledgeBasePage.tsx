@@ -21,6 +21,7 @@ export function KnowledgeBasePage({ search, saved, onOpenDetail, onToggleSaved }
     const filtered = items
         .filter((item) => `${item.title} ${item.type}`.toLowerCase().includes(search.toLowerCase()))
         .map((item) => ({
+            id: item.id,
             title: item.title,
             type: item.type,
             date: new Date(item.createdAt).toLocaleDateString(),

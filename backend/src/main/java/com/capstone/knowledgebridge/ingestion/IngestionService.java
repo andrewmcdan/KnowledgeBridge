@@ -13,6 +13,7 @@ import com.capstone.knowledgebridge.gbrain.model.GbrainDocument;
 import com.capstone.knowledgebridge.gbrain.model.GbrainWriteResult;
 import com.capstone.knowledgebridge.knowledge.KnowledgeItem;
 import com.capstone.knowledgebridge.knowledge.KnowledgeRevisionService;
+import com.capstone.knowledgebridge.entities.EntityService;
 
 /**
  * Pushes a knowledge item's content to gbrain and records what happened. Synchronous for MVP - this method is
@@ -34,11 +35,14 @@ public class IngestionService {
 
 	private final KnowledgeRevisionService knowledgeRevisionService;
 
+	private final EntityService entityService;
+
 	public IngestionService(GbrainClient gbrainClient, IngestionAttemptRepository ingestionAttemptRepository,
-			KnowledgeRevisionService knowledgeRevisionService) {
+			KnowledgeRevisionService knowledgeRevisionService, EntityService entityService) {
 		this.gbrainClient = gbrainClient;
 		this.ingestionAttemptRepository = ingestionAttemptRepository;
 		this.knowledgeRevisionService = knowledgeRevisionService;
+		this.entityService = entityService;
 	}
 
 	/**
@@ -68,6 +72,7 @@ public class IngestionService {
 			GbrainDocument document = GbrainDocumentMapper.toDocument(item);
 			GbrainWriteResult result = gbrainClient.upsertDocument(document);
 			item.markCompleted(result.externalId());
+			entityService.extract(item);
 			ingestionAttemptRepository.save(IngestionAttempt.succeeded(item.getId(), attemptNumber, startedAt));
 			long revision = knowledgeRevisionService.bump();
 			log.info("Ingested knowledge item {} into gbrain as '{}' ({}, {} chunks, knowledge_revision={})",

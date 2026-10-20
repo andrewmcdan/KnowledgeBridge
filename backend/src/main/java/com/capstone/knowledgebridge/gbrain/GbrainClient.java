@@ -5,6 +5,7 @@ import java.util.Optional;
 import com.capstone.knowledgebridge.gbrain.model.GbrainDeleteResult;
 import com.capstone.knowledgebridge.gbrain.model.GbrainDocument;
 import com.capstone.knowledgebridge.gbrain.model.GbrainDocumentState;
+import com.capstone.knowledgebridge.gbrain.model.GbrainEntityExtraction;
 import com.capstone.knowledgebridge.gbrain.model.GbrainRestoreResult;
 import com.capstone.knowledgebridge.gbrain.model.GbrainSearchRequest;
 import com.capstone.knowledgebridge.gbrain.model.GbrainSearchResult;
@@ -22,6 +23,9 @@ import com.capstone.knowledgebridge.gbrain.model.GbrainWriteResult;
  * deciding whether to retry.
  */
 public interface GbrainClient {
+
+	/** Native extraction uses a separately provisioned source-bound credential; never automatically retried. */
+	GbrainEntityExtraction extractEntities(GbrainDocument document);
 
 	/** Creates or completely replaces the page for {@code document.itemKey()}. */
 	GbrainWriteResult upsertDocument(GbrainDocument document);

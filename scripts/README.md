@@ -6,17 +6,29 @@ Scripts should be non-interactive where practical, document prerequisites and pa
 
 ## Local development launcher
 
-The launchers start PostgreSQL/pgvector through Docker Compose while running Spring Boot and Vite directly on the host for fast reloads:
+The PowerShell launcher starts PostgreSQL/pgvector and gbrain through Docker Compose while running Spring Boot and Vite directly on the host for fast frontend reloads. It reuses already-running infrastructure without recreating it.
 
 ```powershell
 .\scripts\start-dev.ps1
 ```
 
+If the full Docker application is running, switch modes with `docker compose stop backend frontend` first (not `docker compose down`). The frontend moves from port 3000 to <http://localhost:5173>; the backend stays on port 8080. Existing database and gbrain volumes are reused. In-flight video files in Docker's backend upload volume are not shared with the host; finish pending video ingestion before switching modes.
+
+The root `.env` must contain both provisioned gbrain credentials. The launcher uses Compose's configuration parser (never executes `.env` as code), passes backend settings including OAuth, JWT, transcription, and video overrides to the host processes, and translates PostgreSQL/gbrain URLs to their published localhost ports. Video storage uses the root `.env` path relative to `backend`, or `backend/data/uploads` by default. Java 21, Docker Desktop, npm, and provisioned gbrain are required; host video ingestion also needs FFmpeg and ffprobe on PATH (or configured executable paths).
+
+Empty or whitespace-only shell overrides for the four gbrain credential variables are temporarily ignored so populated root `.env` credentials can be used (PowerShell 7 can export empty strings). Nonempty shell overrides still take precedence. The original shell values are restored on exit, including with `-CheckOnly`; existing credentials do not need re-provisioning for this case.
+
+Use `./scripts/start-dev.ps1 -CheckOnly` to validate configuration without starting or stopping services. The launcher waits for infrastructure health and application HTTP readiness, reports port conflicts, and writes process logs to a unique `knowledgebridge-dev-*` directory under the system temporary directory. It restores the caller's environment and stops local process trees on exit. It stops only infrastructure services it started, leaving pre-existing services running. Use `-KeepDatabase` (alias `-KeepServices`) to retain both launcher-started PostgreSQL and gbrain. No volumes are deleted.
+
+Run `./scripts/test-start-dev.ps1` for dependency-free regression checks of the launcher's configuration mapping and service ownership rules. These checks do not launch applications or mutate Docker services.
+
+The older Bash launcher starts PostgreSQL and host processes only; it does not yet provide the PowerShell launcher's gbrain/environment/lifecycle behavior:
+
 ```bash
 bash ./scripts/start-dev.sh
 ```
 
-Press `Ctrl+C` to stop the application processes and database container. Use `-KeepDatabase` in PowerShell or `--keep-database` in Bash to leave PostgreSQL running. Local data remains in the named Docker volume either way.
+For Bash, `--keep-database` leaves PostgreSQL running. Do not use that launcher as a substitute for the updated PowerShell workflow without configuring gbrain and the host backend environment separately.
 
 ## gbrain provisioning and smoke test
 
@@ -27,6 +39,14 @@ After PostgreSQL and gbrain have been initialized, provision the source-bound ba
 ```
 
 The script stores the generated client id and one-time secret in the ignored root `.env`. When rotating credentials, it registers and saves the replacement before revoking the previous client id.
+
+Native entity extraction uses a second credential:
+
+```powershell
+.\scripts\provision-gbrain.ps1 -Extraction
+```
+
+The Bash equivalent is `bash ./scripts/provision-gbrain.sh --extraction`. This credential keeps the `knowledgebridge` source restriction but omits the slug-prefix fence so gbrain can create `people/` and `companies/` stubs within that source. Its separate `GBRAIN_EXTRACTION_OAUTH_CLIENT_ID` and `GBRAIN_EXTRACTION_OAUTH_CLIENT_SECRET` are stored only in `.env`. The document credential keeps its existing prefix restriction. Recreate the backend after provisioning so Compose passes the new credential to the adapter. See `backend/src/main/java/com/capstone/knowledgebridge/entities/README.md` for behavior and extraction limits.
 
 On Linux or macOS, use the Bash equivalents (they need `curl` and `jq`). `test-gbrain-mcp.sh` reads `GBRAIN_OAUTH_*` and `GBRAIN_PORT` from the shell before `.env`, so it can target another instance. `provision-gbrain.sh` also creates the database-only `knowledgebridge` source if it does not exist yet:
 

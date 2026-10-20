@@ -14,7 +14,7 @@ export interface KnowledgeItem {
     updatedAt: string;
 }
 
-function getAuthorizationHeader(): Record<string, string> {
+export function getAuthorizationHeader(): Record<string, string> {
     const token = sessionStorage.getItem("knowledgebridge.auth.token") ?? localStorage.getItem("knowledgebridge.auth.token");
     if (!token) throw new Error("Your sign-in session is no longer valid.");
     return { Authorization: `Bearer ${token}` };
@@ -42,7 +42,7 @@ function isKnowledgeItem(value: unknown): value is KnowledgeItem {
     );
 }
 
-async function readError(response: Response, fallback: string): Promise<Error> {
+export async function readError(response: Response, fallback: string): Promise<Error> {
     if (response.status === 401) return new Error("Your sign-in session is no longer valid.");
     if (response.status === 403) return new Error("You do not have permission to manage knowledge items.");
     if (response.status === 404) return new Error("This knowledge item no longer exists.");

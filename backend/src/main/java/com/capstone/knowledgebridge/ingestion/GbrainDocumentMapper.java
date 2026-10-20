@@ -12,12 +12,12 @@ import com.capstone.knowledgebridge.knowledge.KnowledgeItem;
  * lower-case letters/digits/underscore/hyphen for documentType, but our "type" field is free text (e.g. "Finance
  * Policy"), and GbrainDocument only lower-cases for us, it doesn't strip spaces.
  */
-final class GbrainDocumentMapper {
+public final class GbrainDocumentMapper {
 
 	private GbrainDocumentMapper() {
 	}
 
-	static GbrainDocument toDocument(KnowledgeItem item) {
+	public static GbrainDocument toDocument(KnowledgeItem item) {
 		// Long.toString throws on a null id instead of silently producing the string "null" the way
 		// String.valueOf would - item must already be saved (have a real id) before this is called.
 		//

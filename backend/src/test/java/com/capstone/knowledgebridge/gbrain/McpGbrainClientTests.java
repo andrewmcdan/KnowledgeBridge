@@ -441,6 +441,90 @@ class McpGbrainClientTests {
 		assertThat(server.toolCalls()).hasSize(2);
 	}
 
+	@Test
+	void extractionUsesTheSeparateTransportAndReadsSourceScopedEntityPages() {
+		try (MockGbrainServer extractionServer = new MockGbrainServer()) {
+			var extractionProperties = extractionServer.properties();
+			var extractionTransport = new GbrainMcpClient(extractionProperties,
+					new GbrainTokenProvider(extractionProperties, JSON, Clock.systemUTC()), JSON, duration -> {
+					});
+			GbrainClient separate = new McpGbrainClient(new GbrainMcpClient(properties,
+					new GbrainTokenProvider(properties, JSON, Clock.systemUTC()), JSON, duration -> {
+					}), extractionTransport);
+			extractionServer.onMcp("tools/call:extract_entities", request -> Response.sse(toolResult(request.rpcId(),
+					"{\"status\":\"ok\",\"truncated\":true,\"entities\":[{\"slug\":\"people/alice-example\",\"action\":\"created\"}]}",
+					false)));
+			extractionServer.onMcp("tools/call:get_page", request -> Response.sse(toolResult(request.rpcId(),
+					"{\"slug\":\"people/alice-example\",\"title\":\"Alice Example\",\"compiled_truth\":\"Unverified person.\"}",
+					false)));
+			var result = separate.extractEntities(document);
+			assertThat(result.truncated()).isTrue();
+			assertThat(result.entities().getFirst().name()).isEqualTo("Alice Example");
+			assertThat(result.entities().getFirst().type()).isEqualTo("PERSON");
+			assertThat(server.toolCalls()).isEmpty();
+			assertThat(extractionServer.toolCalls().get(1).json().path("params").path("arguments").path("source_id")
+					.asString()).isEqualTo("knowledgebridge");
+		}
+	}
+
+	@Test
+	void extractionOmitsMalformedAndSkippedDetectionsWithoutInventingEntities() {
+		respond("extract_entities",
+				"{\"status\":\"ok\",\"entities\":[{}, {\"slug\":\"people/skip\",\"action\":\"skipped\"}, {\"slug\":\"people/test\"}]}");
+		respond("get_page", "{\"slug\":\"foreign/page\",\"title\":\"Other\"}");
+		assertThat(client.extractEntities(document).entities()).isEmpty();
+		respond("get_page", "{\"slug\":\"people/test\",\"title\":\"\"}");
+		assertThat(client.extractEntities(document).entities()).isEmpty();
+		respond("get_page", "{\"slug\":\"people/test\",\"title\":\"" + "a".repeat(256) + "\"}");
+		assertThat(client.extractEntities(document).entities()).isEmpty();
+		respond("get_page", "{\"slug\":\"people/test\",\"title\":\"Test Person\"}");
+		assertThat(client.extractEntities(document).entities()).hasSize(1);
+		respond("get_page", "{\"slug\":\"people/test\",\"title\":\"Project Cedar\"}");
+		assertThat(client.extractEntities(document).entities().getFirst().type()).isEqualTo("PROJECT");
+		respond("get_page", "{\"slug\":\"people/test\",\"title\":\"Atlas Team\"}");
+		assertThat(client.extractEntities(document).entities().getFirst().type()).isEqualTo("TEAM");
+	}
+
+	@ParameterizedTest
+	@org.junit.jupiter.params.provider.ValueSource(strings = {"{}", "{\"status\":\"ok\"}",
+			"{\"status\":\"error\",\"entities\":[]}"})
+	void extractionRejectsMalformedResults(String result) {
+		respond("extract_entities", result);
+		assertCode(() -> client.extractEntities(document), GbrainErrorCode.PROTOCOL);
+	}
+
+	@Test
+	void extractionIsNotRetriedAndOversizedTextFailsBeforeSending() {
+		respondError("extract_entities", "unavailable");
+		assertCode(() -> client.extractEntities(document), GbrainErrorCode.UNAVAILABLE);
+		assertThat(server.toolCalls()).hasSize(1);
+		var large = new GbrainDocument("large", "Title", "note", "1", 0, Instant.now(), Instant.now(),
+				"a".repeat(200001));
+		assertCode(() -> client.extractEntities(large), GbrainErrorCode.VALIDATION);
+		assertThat(server.toolCalls()).hasSize(1);
+	}
+
+	@Test
+	void extractionCapsDocumentDeclaredHintsAndReportsTruncation() {
+		respond("extract_entities", "{\"status\":\"ok\",\"entities\":[]}");
+		StringBuilder body = new StringBuilder();
+		for (int index = 0; index < 201; index++) {
+			body.append("team: Team ").append(index).append('\n');
+		}
+		var many = new GbrainDocument("many", "Title", "note", "1", 0, Instant.now(), Instant.now(), body.toString());
+		assertThat(client.extractEntities(many).entities()).hasSize(200);
+		assertThat(client.extractEntities(many).truncated()).isTrue();
+	}
+
+	@Test
+	void extractionSkipsDisappearedPagesButReportsEngineOutages() {
+		respond("extract_entities", "{\"status\":\"ok\",\"entities\":[{\"slug\":\"people/alice-example\"}]}");
+		respondError("get_page", "page_not_found");
+		assertThat(client.extractEntities(document).entities()).isEmpty();
+		respondError("get_page", "config_error");
+		assertCode(() -> client.extractEntities(document), GbrainErrorCode.CONFIGURATION);
+	}
+
 	private void respond(String tool, String payload) {
 		server.onMcp("tools/call:" + tool, request -> Response.sse(toolResult(request.rpcId(), payload, false)));
 	}

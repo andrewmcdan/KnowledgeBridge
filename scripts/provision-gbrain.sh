@@ -6,6 +6,17 @@ set -Eeuo pipefail
 PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 ENV_FILE="$PROJECT_ROOT/.env"
 SOURCE_ID="knowledgebridge"
+credential_prefix="GBRAIN_OAUTH"
+client_name="knowledgebridge-backend"
+binding_args=(--bound-slug-prefixes "$SOURCE_ID/")
+if [[ "${1:-}" == "--extraction" ]]; then
+  credential_prefix="GBRAIN_EXTRACTION_OAUTH"
+  client_name="knowledgebridge-extraction"
+  binding_args=()
+elif [[ $# -gt 0 ]]; then
+  echo "Usage: provision-gbrain.sh [--extraction]" >&2
+  exit 1
+fi
 
 if [[ ! -f "$ENV_FILE" ]]; then
   echo "Root .env file is required. Copy .env.example first and set OPENROUTER_API_KEY or OPENAI_API_KEY." >&2
@@ -37,19 +48,19 @@ set_env_value() {
   mv "$temporary" "$ENV_FILE"
 }
 
-existing_client_id="$(sed -n 's/^GBRAIN_OAUTH_CLIENT_ID=//p' "$ENV_FILE" | tail -n 1 | tr -d '[:space:]')"
+existing_client_id="$(sed -n "s/^${credential_prefix}_CLIENT_ID=//p" "$ENV_FILE" | tail -n 1 | tr -d '[:space:]')"
 
 if ! gbrain_cli sources list 2>/dev/null | grep -qw "$SOURCE_ID"; then
   echo "Creating gbrain source '$SOURCE_ID'..."
   gbrain_cli sources add "$SOURCE_ID" --name KnowledgeBridge --no-federated >/dev/null
 fi
 
-if ! output="$(gbrain_cli auth register-client knowledgebridge-backend \
+if ! output="$(gbrain_cli auth register-client "$client_name" \
   --grant-types client_credentials \
   --scopes 'read write' \
   --source "$SOURCE_ID" \
   --federated-read "$SOURCE_ID" \
-  --bound-slug-prefixes "$SOURCE_ID/" 2>&1)"; then
+  "${binding_args[@]}" 2>&1)"; then
   # The registration output can contain the one-time secret, so print only the failure lines.
   echo "gbrain client registration failed:" >&2
   grep -iv 'secret' <<<"$output" >&2 || true
@@ -63,8 +74,8 @@ if [[ -z "$client_id" || -z "$client_secret" ]]; then
   exit 1
 fi
 
-set_env_value GBRAIN_OAUTH_CLIENT_ID "$client_id"
-set_env_value GBRAIN_OAUTH_CLIENT_SECRET "$client_secret"
+set_env_value "${credential_prefix}_CLIENT_ID" "$client_id"
+set_env_value "${credential_prefix}_CLIENT_SECRET" "$client_secret"
 set_env_value GBRAIN_OAUTH_TOKEN_URL "http://localhost:${GBRAIN_PORT:-3131}/token"
 
 if [[ -n "$existing_client_id" && "$existing_client_id" != "$client_id" ]]; then
