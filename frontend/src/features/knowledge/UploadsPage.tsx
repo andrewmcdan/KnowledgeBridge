@@ -3,6 +3,8 @@ import { Icon } from "../../components/ui/Icon";
 import { createManualKnowledgeItem, getKnowledgeItems, retryKnowledgeItem, uploadMarkdown, type KnowledgeItem } from "./knowledgeApi";
 
 const MAX_CONTENT_BYTES = 1024 * 1024;
+// A .docx is a zip that often holds images; the backend still limits its converted text to 1 MiB.
+const MAX_DOCX_BYTES = 10 * 1024 * 1024;
 const POLLING_INTERVAL_MS = 10_000;
 
 function contentSize(value: string): number {
@@ -83,25 +85,26 @@ export function UploadsPage() {
     const selectFile = (selectedFile: File | null) => {
         setFile(selectedFile);
         if (!selectedFile || uploadTitle.trim()) return;
-        setUploadTitle(selectedFile.name.replace(/\.md$/i, ""));
+        setUploadTitle(selectedFile.name.replace(/\.(md|docx)$/i, ""));
     };
 
     const submitFile = async (event: FormEvent<HTMLFormElement>) => {
         event.preventDefault();
         if (!file) {
-            setError("Choose a Markdown (.md) file to upload.");
+            setError("Choose a Markdown (.md) or Word (.docx) file to upload.");
             return;
         }
-        if (!file.name.toLowerCase().endsWith(".md")) {
-            setError("Only Markdown (.md) files can be uploaded.");
+        const isDocx = file.name.toLowerCase().endsWith(".docx");
+        if (!isDocx && !file.name.toLowerCase().endsWith(".md")) {
+            setError("Only Markdown (.md) and Word (.docx) files can be uploaded.");
             return;
         }
         if (file.size === 0) {
-            setError("Choose a Markdown file with content.");
+            setError("Choose a file with content.");
             return;
         }
-        if (file.size > MAX_CONTENT_BYTES) {
-            setError("Content must not exceed 1 MiB.");
+        if (file.size > (isDocx ? MAX_DOCX_BYTES : MAX_CONTENT_BYTES)) {
+            setError(isDocx ? "Word files must not exceed 10 MiB." : "Content must not exceed 1 MiB.");
             return;
         }
         const validationError = validateTextFields(uploadTitle, uploadType, "file");
@@ -119,7 +122,7 @@ export function UploadsPage() {
             setUploadTitle("");
             if (fileInput.current) fileInput.current.value = "";
         } catch (reason: unknown) {
-            setError(reason instanceof Error ? reason.message : "We could not upload the Markdown file.");
+            setError(reason instanceof Error ? reason.message : "We could not upload the file.");
         } finally {
             setSubmitting(false);
         }
@@ -163,7 +166,7 @@ export function UploadsPage() {
 
     return (
         <section className="uploads-page">
-            <p className="uploads-intro">Add Markdown documents or notes for everyone in the workspace. Ingestion status refreshes automatically while work is in progress.</p>
+            <p className="uploads-intro">Add Markdown or Word documents or notes for everyone in the workspace. Ingestion status refreshes automatically while work is in progress.</p>
             <section className="panel upload-pane" aria-label="Add knowledge">
                 <div className="upload-tabs" role="tablist" aria-label="Upload type">
                     <button
@@ -175,7 +178,7 @@ export function UploadsPage() {
                         className={uploadMode === "markdown" ? "active" : ""}
                         onClick={() => setUploadMode("markdown")}
                     >
-                        <Icon name="upload" size={16} /> Markdown file
+                        <Icon name="upload" size={16} /> Upload file
                     </button>
                     <button id="manual-note-tab" type="button" role="tab" aria-selected={uploadMode === "note"} aria-controls="manual-note-panel" className={uploadMode === "note" ? "active" : ""} onClick={() => setUploadMode("note")}>
                         <Icon name="file" size={16} /> Manual note
@@ -183,20 +186,20 @@ export function UploadsPage() {
                 </div>
                 {uploadMode === "markdown" ? (
                     <form id="markdown-upload-panel" className="upload-form" role="tabpanel" aria-labelledby="markdown-upload-tab" onSubmit={submitFile}>
-                        <h2>Upload Markdown</h2>
+                        <h2>Upload a document</h2>
                         <p>
-                            Upload one UTF-8 <code>.md</code> file, up to 1 MiB.
+                            Upload one UTF-8 <code>.md</code> file (up to 1 MiB) or one <code>.docx</code> file (up to 10 MiB).
                         </p>
                         <label htmlFor="upload-title">Title</label>
                         <input id="upload-title" value={uploadTitle} maxLength={255} required onChange={(event) => setUploadTitle(event.target.value)} />
                         <label htmlFor="upload-type">Document type</label>
                         <input id="upload-type" value={uploadType} maxLength={255} required onChange={(event) => setUploadType(event.target.value)} />
                         <label className="file-picker">
-                            <span>{file?.name ?? "Choose a Markdown file"}</span>
-                            <input ref={fileInput} type="file" accept=".md,text/markdown" onChange={(event) => selectFile(event.target.files?.[0] ?? null)} />
+                            <span>{file?.name ?? "Choose a Markdown or Word file"}</span>
+                            <input ref={fileInput} type="file" accept=".md,text/markdown,.docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document" onChange={(event) => selectFile(event.target.files?.[0] ?? null)} />
                         </label>
                         <button className="primary-button" type="submit" disabled={submitting}>
-                            {submitting ? "Adding…" : "Add Markdown"}
+                            {submitting ? "Adding…" : "Add document"}
                         </button>
                     </form>
                 ) : (
