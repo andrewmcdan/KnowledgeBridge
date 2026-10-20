@@ -1,8 +1,12 @@
 package com.capstone.knowledgebridge.knowledge;
 
+import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.time.Instant;
+import java.util.HexFormat;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -26,6 +30,8 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 
+import com.capstone.knowledgebridge.extraction.DocxMarkdownConverter;
+import com.capstone.knowledgebridge.extraction.ExtractionException;
 import com.capstone.knowledgebridge.ingestion.IngestionAttempt;
 import com.capstone.knowledgebridge.ingestion.IngestionService;
 import com.capstone.knowledgebridge.gbrain.model.GbrainDocument;
@@ -44,6 +50,10 @@ public class KnowledgeItemController {
 
 	// knowledge_item.title and .type are VARCHAR(255); longer values would fail the insert with a 500.
 	private static final int MAX_FIELD_LENGTH = 255;
+
+	// A .docx is a zip that often holds images, so its raw size says little about its text. This only stops oversized
+	// uploads early; the converted Markdown still has to fit gbrain's MAX_BODY_BYTES.
+	static final long MAX_DOCX_BYTES = 10L * 1024 * 1024;
 
 	public record ManualKnowledgeItemRequest(@NotBlank @Size(max = MAX_FIELD_LENGTH) String title,
 			@NotBlank @Size(max = MAX_FIELD_LENGTH) String type, @NotBlank String text) {
@@ -64,9 +74,13 @@ public class KnowledgeItemController {
 
 	private final VideoStorageService videoStorageService;
 
-	public KnowledgeItemController(KnowledgeItemService knowledgeItemService, VideoStorageService videoStorageService) {
+	private final DocxMarkdownConverter docxMarkdownConverter;
+
+	public KnowledgeItemController(KnowledgeItemService knowledgeItemService, VideoStorageService videoStorageService,
+			DocxMarkdownConverter docxMarkdownConverter) {
 		this.knowledgeItemService = knowledgeItemService;
 		this.videoStorageService = videoStorageService;
+		this.docxMarkdownConverter = docxMarkdownConverter;
 	}
 
 	@GetMapping
@@ -103,23 +117,44 @@ public class KnowledgeItemController {
 		if (file.isEmpty() || !isValidField(title) || !isValidField(type)) {
 			return ResponseEntity.badRequest().build();
 		}
-		if (!hasMarkdownExtension(file.getOriginalFilename())) {
+		String filename = file.getOriginalFilename();
+		boolean docx = hasExtension(filename, ".docx");
+		if (!docx && !hasExtension(filename, ".md")) {
 			return ResponseEntity.status(HttpStatus.UNSUPPORTED_MEDIA_TYPE).build();
 		}
-		if (file.getSize() > GbrainDocument.MAX_BODY_BYTES) {
+		// A .docx keeps its filename in knowledge_item.original_filename, VARCHAR(255).
+		if (docx && filename.length() > MAX_FIELD_LENGTH) {
+			return ResponseEntity.badRequest().build();
+		}
+		if (file.getSize() > (docx ? MAX_DOCX_BYTES : GbrainDocument.MAX_BODY_BYTES)) {
 			return ResponseEntity.status(HttpStatus.CONTENT_TOO_LARGE).build();
 		}
 
-		String text = decode(file);
+		byte[] content = read(file);
+		String text;
+		if (docx) {
+			try {
+				text = docxMarkdownConverter.convert(new ByteArrayInputStream(content));
+			} catch (ExtractionException ex) {
+				log.info("Rejected unreadable .docx upload: {}", ex.getCause().toString());
+				return ResponseEntity.badRequest().build();
+			}
+		} else {
+			text = new String(content, StandardCharsets.UTF_8);
+		}
 		if (text.isBlank()) {
 			return ResponseEntity.badRequest().build();
 		}
+		// The gbrain body limit applies to the converted Markdown, whatever the upload's raw size was.
 		if (IngestionService.exceedsBodyLimit(text)) {
 			return ResponseEntity.status(HttpStatus.CONTENT_TOO_LARGE).build();
 		}
 
-		KnowledgeItem item = knowledgeItemService.createMarkdownAndIngest(title, type, text,
-				Long.parseLong(jwt.getSubject()));
+		long ownerId = Long.parseLong(jwt.getSubject());
+		KnowledgeItem item = docx
+				? knowledgeItemService.createDocxAndIngest(title, type, text, ownerId, filename,
+						file.getContentType(), hexDigest("SHA-256", content))
+				: knowledgeItemService.createMarkdownAndIngest(title, type, text, ownerId);
 		return ResponseEntity.status(HttpStatus.CREATED).body(toResponse(item));
 	}
 
@@ -173,17 +208,26 @@ public class KnowledgeItemController {
 		return StringUtils.hasText(value) && value.length() <= MAX_FIELD_LENGTH;
 	}
 
-	// MVP only supports Markdown uploads per the ingestion README - just .md for now.
-	private static boolean hasMarkdownExtension(String filename) {
-		return filename != null && filename.toLowerCase(Locale.ROOT).endsWith(".md");
+	// Uploads accept Markdown and .docx; .docx is converted to Markdown by the extraction package.
+	private static boolean hasExtension(String filename, String extension) {
+		return filename != null && filename.toLowerCase(Locale.ROOT).endsWith(extension);
 	}
 
-	private static String decode(MultipartFile file) {
+	// An unreadable upload becomes empty content, which is rejected as blank (.md) or unreadable (.docx).
+	private static byte[] read(MultipartFile file) {
 		try {
-			return new String(file.getBytes(), StandardCharsets.UTF_8);
+			return file.getBytes();
 		} catch (IOException ex) {
 			log.warn("Could not read uploaded file content: {}", ex.getMessage());
-			return "";
+			return new byte[0];
+		}
+	}
+
+	static String hexDigest(String algorithm, byte[] content) {
+		try {
+			return HexFormat.of().formatHex(MessageDigest.getInstance(algorithm).digest(content));
+		} catch (NoSuchAlgorithmException ex) {
+			throw new IllegalStateException(algorithm + " is not available", ex);
 		}
 	}
 

@@ -6,7 +6,7 @@ The KnowledgeBridge React and TypeScript application is built with Vite. It call
 
 The workspace provides collapsible navigation, global search, Search/Synthesis modes, entity and related-document panels, and ingestion status. It adapts to a drawer navigation and stacked panels on phones.
 
-The Uploads page is live for signed-in users: it accepts one UTF-8 Markdown file (up to 5 MiB) or a manual note and loads the persisted knowledge list. Search filters the currently loaded knowledge list. Ingestion, Ask AI retrieval and synthesis, entity extraction, and usage metrics will appear when their live API integrations are connected. Usage and administration have explicit placeholder views.
+The Uploads page is live for signed-in users: it accepts one UTF-8 Markdown file (up to 1 MiB), one Word `.docx` file (up to 10 MiB, converted to Markdown by the backend), or a manual note and loads the persisted knowledge list. Search filters the currently loaded knowledge list. Ingestion, Ask AI retrieval and synthesis, entity extraction, and usage metrics will appear when their live API integrations are connected. Usage and administration have explicit placeholder views.
 
 Use Ctrl/Cmd+K to focus global search and Enter to view matching knowledge items. Escape closes document previews. No new frontend dependencies are required.
 

@@ -47,8 +47,8 @@ async function readError(response: Response, fallback: string): Promise<Error> {
     if (response.status === 403) return new Error("You do not have permission to manage knowledge items.");
     if (response.status === 404) return new Error("This knowledge item no longer exists.");
     if (response.status === 409) return new Error("Only failed ingestion attempts can be retried.");
-    if (response.status === 413) return new Error("Content must not exceed 1 MiB.");
-    if (response.status === 415) return new Error("Only Markdown (.md) files can be uploaded.");
+    if (response.status === 413) return new Error("Content is too large: text is limited to 1 MiB and Word files to 10 MiB.");
+    if (response.status === 415) return new Error("Only Markdown (.md) and Word (.docx) files can be uploaded.");
 
     const message = await response.text();
     return new Error(message || fallback);
@@ -89,7 +89,7 @@ export async function uploadMarkdown(file: File, title: string, type: string): P
         headers: getAuthorizationHeader(),
         body: formData,
     });
-    if (!response.ok) throw await readError(response, "We could not upload the Markdown file.");
+    if (!response.ok) throw await readError(response, "We could not upload the file. Word files must be readable .docx documents with text.");
     return readKnowledgeItem(response);
 }
 

@@ -65,6 +65,25 @@ class KnowledgeItemServiceTests {
 	}
 
 	@Test
+	void createDocxStoresMarkdownAndSourceMetadataWithoutAFilePath() {
+		when(knowledgeItemRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+
+		KnowledgeItem result = knowledgeItemService.createDocxAndIngest(" Guide ", " Policy ", "# Guide\n", 7L,
+				"guide.docx", "application/vnd.openxmlformats-officedocument.wordprocessingml.document", "abc123");
+
+		assertThat(result.getSourceKind()).isEqualTo(KnowledgeSourceKind.DOCX);
+		assertThat(result.getTitle()).isEqualTo("Guide");
+		assertThat(result.getType()).isEqualTo("Policy");
+		assertThat(result.getBodyText()).isEqualTo("# Guide\n");
+		assertThat(result.getOriginalFilename()).isEqualTo("guide.docx");
+		assertThat(result.getSourceContentType())
+				.isEqualTo("application/vnd.openxmlformats-officedocument.wordprocessingml.document");
+		assertThat(result.getSourceSha256()).isEqualTo("abc123");
+		assertThat(result.getSourcePath()).isNull();
+		verify(ingestionService).ingest(result);
+	}
+
+	@Test
 	void createVideoPersistsMetadataAndQueuesJob() {
 		when(knowledgeItemRepository.save(any())).thenAnswer(invocation -> {
 			KnowledgeItem item = invocation.getArgument(0);

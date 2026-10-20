@@ -119,6 +119,16 @@ public class KnowledgeItem {
 		return item;
 	}
 
+	/** A .docx upload: bodyText is the converted Markdown, and the original file is not kept, so sourcePath is null. */
+	public static KnowledgeItem docx(String title, String type, Long ownerId, String bodyText, String originalFilename,
+			String sourceContentType, String sourceSha256) {
+		KnowledgeItem item = new KnowledgeItem(title, type, ownerId, bodyText, KnowledgeSourceKind.DOCX);
+		item.originalFilename = originalFilename;
+		item.sourceContentType = sourceContentType;
+		item.sourceSha256 = sourceSha256;
+		return item;
+	}
+
 	/*--- Transition Methods ---*/
 	public void markProcessing() {
 		markProcessing(IngestionStage.INDEXING);
