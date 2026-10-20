@@ -7,6 +7,8 @@ import java.util.Optional;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
 import com.capstone.knowledgebridge.cache.QueryCacheService;
@@ -23,6 +25,8 @@ import com.capstone.knowledgebridge.knowledge.KnowledgeRevisionService;
 
 @Service
 public class QueryService {
+
+	private static final Logger log = LoggerFactory.getLogger(QueryService.class);
 
 	public static final int DEFAULT_SEARCH_LIMIT = 10;
 
@@ -99,6 +103,8 @@ public class QueryService {
 		SynthesisResponse response = askGbrain(question);
 		if (response.aiGenerated()) {
 			queryCache.store(question, QueryMode.SYNTHESIS, revision, response);
+		} else {
+			log.info("Not caching synthesis answer: gbrain returned an extractive fallback");
 		}
 		return response;
 	}

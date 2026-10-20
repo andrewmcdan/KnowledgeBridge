@@ -57,9 +57,18 @@ public class KnowledgeItemService {
 		return createAndIngest(title, type, bodyText, ownerId, KnowledgeSourceKind.MARKDOWN);
 	}
 
+	public KnowledgeItem createDocxAndIngest(String title, String type, String markdown, Long ownerId,
+			String originalFilename, String contentType, String sha256) {
+		return createAndIngest(KnowledgeItem.docx(title.trim(), type.trim(), ownerId, markdown, originalFilename,
+				contentType, sha256));
+	}
+
 	private KnowledgeItem createAndIngest(String title, String type, String bodyText, Long ownerId,
 			KnowledgeSourceKind sourceKind) {
-		KnowledgeItem item = new KnowledgeItem(title.trim(), type.trim(), ownerId, bodyText, sourceKind);
+		return createAndIngest(new KnowledgeItem(title.trim(), type.trim(), ownerId, bodyText, sourceKind));
+	}
+
+	private KnowledgeItem createAndIngest(KnowledgeItem item) {
 		// Save first so the item has an id - IngestionService/GbrainDocumentMapper need it (it becomes
 		// the gbrain item key) and ingestion_attempt rows need it as a foreign key.
 		item = knowledgeItemRepository.save(item);

@@ -17,6 +17,7 @@ import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Random;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpStatus;
@@ -26,6 +27,8 @@ import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.web.multipart.MultipartFile;
 
+import com.capstone.knowledgebridge.extraction.DocxFixtures;
+import com.capstone.knowledgebridge.extraction.DocxMarkdownConverter;
 import com.capstone.knowledgebridge.gbrain.model.GbrainDocument;
 import com.capstone.knowledgebridge.ingestion.IngestionAttempt;
 import com.capstone.knowledgebridge.video.VideoStorageService;
@@ -40,7 +43,9 @@ class KnowledgeItemControllerTests {
 	private final VideoStorageService videoStorageService = mock(VideoStorageService.class);
 
 	private final KnowledgeItemController controller = new KnowledgeItemController(knowledgeItemService,
-			videoStorageService);
+			videoStorageService, new DocxMarkdownConverter());
+
+	private static final String DOCX_TYPE = "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
 
 	private static final String OVER_GBRAIN_LIMIT = "a".repeat(GbrainDocument.MAX_BODY_BYTES);
 
@@ -235,6 +240,111 @@ class KnowledgeItemControllerTests {
 				jwtFor("7"));
 
 		assertThat(response.getStatusCode()).isEqualTo(HttpStatus.CREATED);
+	}
+
+	@Test
+	void docxUploadIsConvertedToMarkdownAndSavedWithItsSourceMetadata() {
+		byte[] docx = DocxFixtures.docx(document -> {
+			DocxFixtures.style(document, "Heading1", "heading 1");
+			DocxFixtures.styled(document, "Heading1", "Equipment");
+			DocxFixtures.paragraph(document, "Monitors are replaced every 5 years.");
+		});
+		MultipartFile file = new MockMultipartFile("file", "Equipment Guide.DOCX", DOCX_TYPE, docx);
+		String sha256 = KnowledgeItemController.hexDigest("SHA-256", docx);
+		KnowledgeItem item = KnowledgeItem.docx("Title", "Guide", 7L, "markdown", "Equipment Guide.DOCX", DOCX_TYPE,
+				sha256);
+		ReflectionTestUtils.setField(item, "id", 1L);
+		when(knowledgeItemService.createDocxAndIngest("Title", "Guide",
+				"# Equipment\n\nMonitors are replaced every 5 years.\n", 7L, "Equipment Guide.DOCX", DOCX_TYPE,
+				sha256)).thenReturn(item);
+
+		ResponseEntity<KnowledgeItemResponse> response = controller.uploadDocument(file, "Title", "Guide",
+				jwtFor("7"));
+
+		assertThat(response.getStatusCode()).isEqualTo(HttpStatus.CREATED);
+		assertThat(response.getBody().sourceKind()).isEqualTo("DOCX");
+		assertThat(response.getBody().originalFilename()).isEqualTo("Equipment Guide.DOCX");
+		assertThat(sha256).hasSize(64);
+	}
+
+	@Test
+	void docxUploadRejectsAFileThatIsNotAWordDocument() {
+		MultipartFile file = new MockMultipartFile("file", "renamed.docx", DOCX_TYPE,
+				"# Markdown in disguise".getBytes(StandardCharsets.UTF_8));
+
+		ResponseEntity<KnowledgeItemResponse> response = controller.uploadDocument(file, "Title", "Guide",
+				jwtFor("7"));
+
+		assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+		verify(knowledgeItemService, never()).createDocxAndIngest(any(), any(), any(), any(), any(), any(), any());
+	}
+
+	@Test
+	void docxUploadRejectsADocumentWithoutText() {
+		MultipartFile file = new MockMultipartFile("file", "blank.docx", DOCX_TYPE,
+				DocxFixtures.docx(document -> document.createParagraph()));
+
+		ResponseEntity<KnowledgeItemResponse> response = controller.uploadDocument(file, "Title", "Guide",
+				jwtFor("7"));
+
+		assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+	}
+
+	@Test
+	void docxUploadAppliesGbrainsBodyLimitToTheConvertedMarkdown() {
+		// Text compresses, so the raw .docx is below even the Markdown limit while the converted Markdown is over it.
+		// Random letters rather than one repeated character, which POI's zip bomb check would reject.
+		Random random = new Random(42);
+		StringBuilder text = new StringBuilder();
+		while (text.length() <= GbrainDocument.MAX_BODY_BYTES) {
+			text.append((char) ('a' + random.nextInt(26)));
+		}
+		byte[] docx = DocxFixtures.docx(document -> DocxFixtures.paragraph(document, text.toString()));
+		MultipartFile file = new MockMultipartFile("file", "huge.docx", DOCX_TYPE, docx);
+
+		ResponseEntity<KnowledgeItemResponse> response = controller.uploadDocument(file, "Title", "Guide",
+				jwtFor("7"));
+
+		assertThat(docx.length).isLessThan(GbrainDocument.MAX_BODY_BYTES);
+		assertThat(response.getStatusCode()).isEqualTo(HttpStatus.CONTENT_TOO_LARGE);
+	}
+
+	@Test
+	void docxUploadAllowsMoreThanTheMarkdownRawLimitButRejectsOverTenMegabytes() throws IOException {
+		MultipartFile file = mock(MultipartFile.class);
+		when(file.isEmpty()).thenReturn(false);
+		when(file.getOriginalFilename()).thenReturn("big.docx");
+		when(file.getSize()).thenReturn(KnowledgeItemController.MAX_DOCX_BYTES + 1);
+
+		ResponseEntity<KnowledgeItemResponse> response = controller.uploadDocument(file, "Title", "Guide",
+				jwtFor("7"));
+
+		assertThat(response.getStatusCode()).isEqualTo(HttpStatus.CONTENT_TOO_LARGE);
+		verify(file, never()).getBytes();
+
+		// Over the Markdown limit but under the .docx limit: the size check passes and the file is read.
+		when(file.getSize()).thenReturn((long) GbrainDocument.MAX_BODY_BYTES + 1);
+		when(file.getBytes()).thenReturn(new byte[0]);
+		assertThat(controller.uploadDocument(file, "Title", "Guide", jwtFor("7")).getStatusCode())
+				.isEqualTo(HttpStatus.BAD_REQUEST);
+		verify(file).getBytes();
+	}
+
+	@Test
+	void docxUploadRejectsAFilenameTooLongToStore() {
+		MultipartFile file = new MockMultipartFile("file", "x".repeat(251) + ".docx", DOCX_TYPE, new byte[]{1});
+
+		ResponseEntity<KnowledgeItemResponse> response = controller.uploadDocument(file, "Title", "Guide",
+				jwtFor("7"));
+
+		assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+	}
+
+	@Test
+	void hexDigestFailsLoudlyForAnUnknownAlgorithm() {
+		assertThatThrownBy(() -> KnowledgeItemController.hexDigest("NOPE-1", new byte[0]))
+				.isInstanceOf(IllegalStateException.class)
+				.hasMessageContaining("NOPE-1");
 	}
 
 	@Test

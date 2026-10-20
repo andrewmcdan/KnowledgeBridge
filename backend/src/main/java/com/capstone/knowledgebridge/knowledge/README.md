@@ -17,11 +17,13 @@ All routes need `Authorization: Bearer <token>` from `POST /api/auth/login`. Eve
 | `GET` | `/api/knowledge-items` | — | `200`, array of items, newest first |
 | `GET` | `/api/knowledge-items/{id}` | — | `200`, one item |
 | `POST` | `/api/knowledge-items/manual` | JSON `{ "title", "type", "text" }` | `201`, the new item |
-| `POST` | `/api/knowledge-items/upload` | multipart: `file` (`.md`), `title`, `type` | `201`, the new item |
+| `POST` | `/api/knowledge-items/upload` | multipart: `file` (`.md` or `.docx`), `title`, `type` | `201`, the new item |
 | `POST` | `/api/knowledge-items/{id}/retry-ingestion` | — | `200`, the retried item |
 | `POST` | `/api/knowledge-items/video` | multipart `file`, `title`, `type` | `202`, the queued video item |
 
 Ingestion is synchronous: a create or retry returns after gbrain answers, so the returned `status` is already `COMPLETED` or `FAILED`. A `201` means the item was saved, not that ingestion succeeded — check `status`.
+
+A `.docx` upload is converted to Markdown by the `extraction` package before it is saved, then ingested exactly like a Markdown upload. Its item has `sourceKind` `DOCX` and keeps `originalFilename` and `sourceSha256`; the file itself is not stored.
 
 Video ingestion is asynchronous and returns `202 PENDING`. The bounded worker extracts segmented audio with FFmpeg,
 transcribes each segment through OpenAI, persists the joined transcript and metadata, deletes the source and derived
@@ -54,11 +56,11 @@ video items are recovered at application startup.
 
 | Status | When |
 | --- | --- |
-| `400` | Blank `title`/`type`/`text`; `title` or `type` over 255 characters; empty or unreadable upload |
+| `400` | Blank `title`/`type`/`text`; `title` or `type` over 255 characters; empty or unreadable upload; a `.docx` that isn't a readable Word document, has no text, or has a filename over 255 characters |
 | `404` | `GET` or retry on an id that doesn't exist |
 | `409` | Retry on an item that isn't `FAILED` |
-| `413` | Body over 1 MB (gbrain's limit, `GbrainDocument.MAX_BODY_BYTES`) — nothing is saved |
-| `415` | Upload whose filename doesn't end in `.md` |
+| `413` | Body over 1 MB (gbrain's limit, `GbrainDocument.MAX_BODY_BYTES`), including a `.docx` whose converted Markdown is over it; a raw `.docx` over 10 MB — nothing is saved |
+| `415` | Upload whose filename ends in neither `.md` nor `.docx` |
 
 ## Open concerns
 

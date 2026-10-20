@@ -19,6 +19,7 @@ import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.List;
+import java.util.Map;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -41,6 +42,7 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 import org.testcontainers.postgresql.PostgreSQLContainer;
 import org.testcontainers.utility.DockerImageName;
 
+import com.capstone.knowledgebridge.extraction.DocxFixtures;
 import com.capstone.knowledgebridge.gbrain.GbrainClient;
 import com.capstone.knowledgebridge.gbrain.GbrainErrorCode;
 import com.capstone.knowledgebridge.gbrain.GbrainException;
@@ -243,6 +245,37 @@ class KnowledgeBridgeApplicationTests {
 				.header("Authorization", "Bearer " + adminToken))
 				.andExpect(status().isCreated())
 				.andExpect(jsonPath("$.status").value("COMPLETED"));
+	}
+
+	@Test
+	void docxUploadIsIngestedAsMarkdownWithItsSourceMetadata() throws Exception {
+		String adminToken = loginAndGetToken("admin@acme.example", "admin123", "ADMIN");
+		byte[] docx = DocxFixtures.docx(document -> {
+			DocxFixtures.style(document, "Heading1", "heading 1");
+			DocxFixtures.styled(document, "Heading1", "Equipment");
+			DocxFixtures.paragraph(document, "Monitors are replaced every 5 years.");
+		});
+		MockMultipartFile file = new MockMultipartFile("file", "equipment.docx",
+				"application/vnd.openxmlformats-officedocument.wordprocessingml.document", docx);
+
+		MvcResult result = mockMvc.perform(multipart("/api/knowledge-items/upload")
+				.file(file)
+				.param("title", "Equipment Guide")
+				.param("type", "Guide")
+				.header("Authorization", "Bearer " + adminToken))
+				.andExpect(status().isCreated())
+				.andExpect(jsonPath("$.status").value("COMPLETED"))
+				.andExpect(jsonPath("$.sourceKind").value("DOCX"))
+				.andExpect(jsonPath("$.originalFilename").value("equipment.docx"))
+				.andReturn();
+
+		long id = ((Number) com.jayway.jsonpath.JsonPath.read(result.getResponse().getContentAsString(), "$.id"))
+				.longValue();
+		Map<String, Object> row = jdbcTemplate.queryForMap(
+				"SELECT body_text, source_path, source_sha256 FROM knowledge_item WHERE id = ?", id);
+		assertThat(row.get("body_text")).isEqualTo("# Equipment\n\nMonitors are replaced every 5 years.\n");
+		assertThat(row.get("source_path")).isNull();
+		assertThat((String) row.get("source_sha256")).hasSize(64);
 	}
 
 	@Test
