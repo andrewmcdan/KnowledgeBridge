@@ -1,7 +1,8 @@
 [CmdletBinding()]
 param(
     [Alias('KeepServices')] [switch]$KeepDatabase,
-    [switch]$CheckOnly
+    [switch]$CheckOnly,
+    [switch]$VerifyStartup
 )
 
 $ErrorActionPreference = 'Stop'
@@ -44,16 +45,23 @@ function ConvertFrom-DevEnvironment {
     return $values
 }
 
-function Clear-DevEmptyCredentialOverrides {
+function Test-DevBackendOverride {
+    param([string]$Name)
+
+    return $Name -match '^(KNOWLEDGEBRIDGE_|OPENAI_|FFMPEG_PATH$|FFPROBE_PATH$|GBRAIN_(ENABLED$|MODE$|BASE_URL$|OAUTH_|EXTRACTION_OAUTH_|CONNECT_TIMEOUT$|READ_TIMEOUT$|SYNTHESIS_TIMEOUT$|MAX_RESPONSE_SIZE$|RETRY_MAX_ATTEMPTS$|RETRY_MAX_BACKOFF$))'
+}
+
+function Clear-DevEmptyEnvironmentOverrides {
     param([hashtable]$OriginalEnvironment)
 
     # PowerShell 7 can export empty strings; Compose then ignores the populated .env value.
-    foreach ($name in @('GBRAIN_OAUTH_CLIENT_ID', 'GBRAIN_OAUTH_CLIENT_SECRET', 'GBRAIN_EXTRACTION_OAUTH_CLIENT_ID', 'GBRAIN_EXTRACTION_OAUTH_CLIENT_SECRET')) {
+    foreach ($name in @([Environment]::GetEnvironmentVariables('Process').Keys)) {
+        if (-not (Test-DevBackendOverride $name) -and $name -notin @('SPRING_SERVLET_MULTIPART_MAX_FILE_SIZE', 'SPRING_SERVLET_MULTIPART_MAX_REQUEST_SIZE')) { continue }
         $value = [Environment]::GetEnvironmentVariable($name, 'Process')
         if ($null -ne $value -and [string]::IsNullOrWhiteSpace($value)) {
             $OriginalEnvironment[$name] = $value
             Remove-Item -LiteralPath "Env:$name"
-            Write-Warning "Ignoring empty shell override for $name; using root .env instead."
+            Write-Warning "Ignoring empty shell override for $name; using root .env or application defaults instead."
         }
     }
 }
@@ -85,7 +93,7 @@ function Get-HostBackendEnvironment {
     }
     # Include documented adapter/video overrides that Compose does not explicitly forward.
     foreach ($name in $ResolvedEnvironment.Keys) {
-        if ($name -match '^(KNOWLEDGEBRIDGE_|OPENAI_|FFMPEG_PATH$|FFPROBE_PATH$|GBRAIN_(ENABLED$|MODE$|BASE_URL$|OAUTH_|EXTRACTION_OAUTH_|CONNECT_TIMEOUT$|READ_TIMEOUT$|SYNTHESIS_TIMEOUT$|MAX_RESPONSE_SIZE$|RETRY_MAX_ATTEMPTS$|RETRY_MAX_BACKOFF$))') {
+        if (Test-DevBackendOverride $name) {
             $values[$name] = $ResolvedEnvironment[$name]
         }
     }
@@ -129,12 +137,10 @@ function Wait-ForDevContainer {
 function Wait-ForDevHttp {
     param([string]$Url, [int]$TimeoutSeconds = 180)
 
+    Write-Host "Waiting for $Url..."
     $deadline = (Get-Date).AddSeconds($TimeoutSeconds)
     while ((Get-Date) -lt $deadline) {
-        foreach ($process in @($backendProcess, $frontendProcess)) {
-            $process.Refresh()
-            if ($process.HasExited) { throw "A development process exited during startup. See logs in $logDirectory." }
-        }
+        Assert-DevProcessesRunning $backendProcess $frontendProcess $logDirectory
         try {
             $response = Invoke-WebRequest -Uri $Url -UseBasicParsing -TimeoutSec 2
             if ($response.StatusCode -eq 200) { return }
@@ -144,6 +150,17 @@ function Wait-ForDevHttp {
         Start-Sleep -Seconds 1
     }
     throw "Timed out waiting for $Url. See logs in $logDirectory."
+}
+
+function Assert-DevProcessesRunning {
+    param($Backend, $Frontend, [string]$Logs)
+
+    foreach ($entry in @(@{ Name = 'Spring Boot'; Process = $Backend; Log = 'backend' }, @{ Name = 'Vite'; Process = $Frontend; Log = 'frontend' })) {
+        $entry.Process.Refresh()
+        if ($entry.Process.HasExited) {
+            throw "$($entry.Name) exited with code $($entry.Process.ExitCode). See $Logs/$($entry.Log).out.log and $Logs/$($entry.Log).err.log."
+        }
+    }
 }
 
 try {
@@ -158,7 +175,7 @@ try {
     Push-Location $projectRoot
     $locationPushed = $true
 
-    Clear-DevEmptyCredentialOverrides $originalEnvironment
+    Clear-DevEmptyEnvironmentOverrides $originalEnvironment
     $configuration = (Invoke-DevCompose -Arguments @('config', '--format', 'json')) | ConvertFrom-Json
     $resolvedEnvironment = ConvertFrom-DevEnvironment (Invoke-DevCompose -Arguments @('config', '--environment'))
     $backendEnvironment = Get-HostBackendEnvironment $configuration $resolvedEnvironment $projectRoot
@@ -218,15 +235,15 @@ try {
         -WorkingDirectory (Join-Path $projectRoot 'frontend') -WindowStyle Hidden -PassThru `
         -RedirectStandardOutput (Join-Path $logDirectory 'frontend.out.log') -RedirectStandardError (Join-Path $logDirectory 'frontend.err.log')
 
-    Wait-ForDevHttp 'http://localhost:8080/api/health'
-    Wait-ForDevHttp 'http://localhost:5173'
+    Write-Host 'Local application processes launched.'
+    # Vite binds IPv4; localhost can try IPv6 first and exhaust the short probe timeout.
+    Wait-ForDevHttp 'http://127.0.0.1:8080/api/health'
+    Wait-ForDevHttp 'http://127.0.0.1:5173'
     Write-Host 'KnowledgeBridge is ready: http://localhost:5173 (backend: http://localhost:8080/api/health)'
+    if ($VerifyStartup) { return }
     Write-Host 'Press Ctrl+C to stop local processes. Pre-existing Docker services will be left running.'
     while ($true) {
-        foreach ($process in @($backendProcess, $frontendProcess)) {
-            $process.Refresh()
-            if ($process.HasExited) { throw "A development process exited. See logs in $logDirectory." }
-        }
+        Assert-DevProcessesRunning $backendProcess $frontendProcess $logDirectory
         Start-Sleep -Seconds 1
     }
 } finally {

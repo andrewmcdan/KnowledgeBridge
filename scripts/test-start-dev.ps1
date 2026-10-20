@@ -6,7 +6,7 @@ $ast = [Management.Automation.Language.Parser]::ParseFile($launcher, [ref]$token
 if ($parseErrors.Count) { throw 'Launcher has PowerShell syntax errors.' }
 
 # Load only pure helpers, never the launcher's service/process orchestration.
-foreach ($name in @('ConvertFrom-DevEnvironment', 'Clear-DevEmptyCredentialOverrides', 'Restore-DevEnvironment', 'Get-HostBackendEnvironment', 'Get-DevServicesToStop')) {
+foreach ($name in @('ConvertFrom-DevEnvironment', 'Test-DevBackendOverride', 'Clear-DevEmptyEnvironmentOverrides', 'Restore-DevEnvironment', 'Get-HostBackendEnvironment', 'Get-DevServicesToStop', 'Assert-DevProcessesRunning')) {
     $definition = $ast.Find({ param($node) $node -is [Management.Automation.Language.FunctionDefinitionAst] -and $node.Name -eq $name }, $false)
     if ($null -eq $definition) { throw "Missing launcher helper: $name" }
     . ([scriptblock]::Create($definition.Extent.Text))
@@ -26,7 +26,7 @@ try {
         [Environment]::SetEnvironmentVariable($credentialName, $blank, 'Process')
         $beforeClear = [Environment]::GetEnvironmentVariable($credentialName, 'Process')
         $saved = @{}
-        Clear-DevEmptyCredentialOverrides $saved
+        Clear-DevEmptyEnvironmentOverrides $saved
         Assert-Equal ([Environment]::GetEnvironmentVariable($credentialName, 'Process')) $null 'clear blank shell credentials'
         if ($null -ne $beforeClear) {
             Assert-Equal $saved[$credentialName] $beforeClear 'save exact blank value for restoration'
@@ -36,12 +36,38 @@ try {
     }
     [Environment]::SetEnvironmentVariable($credentialName, 'synthetic-shell-override', 'Process')
     $saved = @{}
-    Clear-DevEmptyCredentialOverrides $saved
+    Clear-DevEmptyEnvironmentOverrides $saved
     Assert-Equal ([Environment]::GetEnvironmentVariable($credentialName, 'Process')) 'synthetic-shell-override' 'retain nonblank shell precedence'
     Assert-Equal $saved.ContainsKey($credentialName) $false 'do not replace nonblank shell override'
+    Restore-DevEnvironment $saved
     Restore-DevEnvironment @{ GBRAIN_OAUTH_CLIENT_ID = $null }
     Assert-Equal ([Environment]::GetEnvironmentVariable($credentialName, 'Process')) $null 'remove originally absent variables on exit'
 } finally { Restore-DevEnvironment @{ GBRAIN_OAUTH_CLIENT_ID = $originalCredential } }
+
+foreach ($name in @('KNOWLEDGEBRIDGE_VIDEO_MAX_UPLOAD_SIZE', 'SPRING_SERVLET_MULTIPART_MAX_FILE_SIZE', 'SPRING_SERVLET_MULTIPART_MAX_REQUEST_SIZE')) {
+    $previous = [Environment]::GetEnvironmentVariable($name, 'Process')
+    try {
+        [Environment]::SetEnvironmentVariable($name, ' ', 'Process')
+        $saved = @{}
+        Clear-DevEmptyEnvironmentOverrides $saved
+        Assert-Equal ([Environment]::GetEnvironmentVariable($name, 'Process')) $null 'remove blank multipart/video overrides'
+        Restore-DevEnvironment $saved
+        Assert-Equal ([Environment]::GetEnvironmentVariable($name, 'Process')) ' ' 'restore caller multipart/video overrides'
+    } finally { Restore-DevEnvironment @{ $name = $previous } }
+}
+$running = [pscustomobject]@{ HasExited = $false; ExitCode = 0 }
+$running | Add-Member -MemberType ScriptMethod -Name Refresh -Value {}
+$exited = [pscustomobject]@{ HasExited = $true; ExitCode = 0 }
+$exited | Add-Member -MemberType ScriptMethod -Name Refresh -Value {}
+Assert-DevProcessesRunning $running $running 'test-logs'
+foreach ($failed in @('Spring Boot', 'Vite')) {
+    $message = ''
+    try {
+        if ($failed -eq 'Spring Boot') { Assert-DevProcessesRunning $exited $running 'test-logs' }
+        else { Assert-DevProcessesRunning $running $exited 'test-logs' }
+    } catch { $message = $_.Exception.Message }
+    Assert-Equal ($message -like "$failed exited with code 0.*") $true 'identify failed child even on zero exit code'
+}
 
 $resolved = ConvertFrom-DevEnvironment "GBRAIN_OAUTH_CLIENT_SECRET=synthetic=a=b`r`nKNOWLEDGEBRIDGE_JWT_SECRET=synthetic jwt`nFFMPEG_PATH=C:/Media Tools/ffmpeg.exe`nGBRAIN_READ_TIMEOUT=PT45S`nGBRAIN_DB_PASSWORD=not-for-the-backend`n"
 Assert-Equal $resolved.GBRAIN_OAUTH_CLIENT_SECRET 'synthetic=a=b' 'preserve equals signs in resolved values'

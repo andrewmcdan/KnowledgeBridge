@@ -16,11 +16,13 @@ If the full Docker application is running, switch modes with `docker compose sto
 
 The root `.env` must contain both provisioned gbrain credentials. The launcher uses Compose's configuration parser (never executes `.env` as code), passes backend settings including OAuth, JWT, transcription, and video overrides to the host processes, and translates PostgreSQL/gbrain URLs to their published localhost ports. Video storage uses the root `.env` path relative to `backend`, or `backend/data/uploads` by default. Java 21, Docker Desktop, npm, and provisioned gbrain are required; host video ingestion also needs FFmpeg and ffprobe on PATH (or configured executable paths).
 
-Empty or whitespace-only shell overrides for the four gbrain credential variables are temporarily ignored so populated root `.env` credentials can be used (PowerShell 7 can export empty strings). Nonempty shell overrides still take precedence. The original shell values are restored on exit, including with `-CheckOnly`; existing credentials do not need re-provisioning for this case.
+Empty or whitespace-only shell overrides for forwarded backend settings and Spring's two multipart size overrides are temporarily ignored so root `.env` values or application defaults can be used (PowerShell 7 can export empty strings). Nonempty shell overrides still take precedence. Empty multipart overrides otherwise prevent Spring Boot from binding upload limits. Original shell values are restored on exit, including with `-CheckOnly`; existing credentials do not need re-provisioning for this case.
 
 Use `./scripts/start-dev.ps1 -CheckOnly` to validate configuration without starting or stopping services. The launcher waits for infrastructure health and application HTTP readiness, reports port conflicts, and writes process logs to a unique `knowledgebridge-dev-*` directory under the system temporary directory. It restores the caller's environment and stops local process trees on exit. It stops only infrastructure services it started, leaving pre-existing services running. Use `-KeepDatabase` (alias `-KeepServices`) to retain both launcher-started PostgreSQL and gbrain. No volumes are deleted.
 
 Run `./scripts/test-start-dev.ps1` for dependency-free regression checks of the launcher's configuration mapping and service ownership rules. These checks do not launch applications or mutate Docker services.
+
+Use `./scripts/start-dev.ps1 -VerifyStartup` for an actual startup check: it waits for both HTTP endpoints, then exits through normal cleanup. It temporarily starts missing infrastructure and may resume pending ingestion, just like a regular launch. Readiness checks use IPv4 loopback to avoid `localhost` IPv6 fallback delays with Vite. A failed child is reported by name with its exit code and log filenames.
 
 The older Bash launcher starts PostgreSQL and host processes only; it does not yet provide the PowerShell launcher's gbrain/environment/lifecycle behavior:
 
