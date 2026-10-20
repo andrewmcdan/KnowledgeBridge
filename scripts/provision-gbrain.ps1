@@ -39,6 +39,14 @@ function Set-DotEnvValue {
 
 Push-Location $repositoryRoot
 try {
+    # Registration bypasses the gbrain entrypoint and --no-deps never starts PostgreSQL.
+    # Fail before attempting a credential mutation when the supporting database is stopped.
+    $databaseState = & docker compose ps --format json postgres
+    if ($LASTEXITCODE -ne 0) { throw 'Could not inspect PostgreSQL. Check Docker Desktop.' }
+    $database = if ($databaseState) { ($databaseState -join "`n") | ConvertFrom-Json } else { $null }
+    if ($null -eq $database -or $database.Health -ne 'healthy') {
+        throw 'PostgreSQL must be running and healthy before provisioning. Run: docker compose up -d --wait postgres gbrain. Existing credentials in .env have not been changed.'
+    }
     $credentialPrefix = if ($Extraction) { 'GBRAIN_EXTRACTION_OAUTH' } else { 'GBRAIN_OAUTH' }
     $clientName = if ($Extraction) { 'knowledgebridge-extraction' } else { 'knowledgebridge-backend' }
     $existingClientId = $null

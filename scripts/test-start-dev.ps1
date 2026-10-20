@@ -6,7 +6,7 @@ $ast = [Management.Automation.Language.Parser]::ParseFile($launcher, [ref]$token
 if ($parseErrors.Count) { throw 'Launcher has PowerShell syntax errors.' }
 
 # Load only pure helpers, never the launcher's service/process orchestration.
-foreach ($name in @('ConvertFrom-DevEnvironment', 'Get-HostBackendEnvironment', 'Get-DevServicesToStop')) {
+foreach ($name in @('ConvertFrom-DevEnvironment', 'Clear-DevEmptyCredentialOverrides', 'Restore-DevEnvironment', 'Get-HostBackendEnvironment', 'Get-DevServicesToStop')) {
     $definition = $ast.Find({ param($node) $node -is [Management.Automation.Language.FunctionDefinitionAst] -and $node.Name -eq $name }, $false)
     if ($null -eq $definition) { throw "Missing launcher helper: $name" }
     . ([scriptblock]::Create($definition.Extent.Text))
@@ -18,6 +18,30 @@ function Assert-Equal {
         throw "Assertion failed: $Description (values withheld)."
     }
 }
+
+$credentialName = 'GBRAIN_OAUTH_CLIENT_ID'
+$originalCredential = [Environment]::GetEnvironmentVariable($credentialName, 'Process')
+try {
+    foreach ($blank in @('', '   ')) {
+        [Environment]::SetEnvironmentVariable($credentialName, $blank, 'Process')
+        $beforeClear = [Environment]::GetEnvironmentVariable($credentialName, 'Process')
+        $saved = @{}
+        Clear-DevEmptyCredentialOverrides $saved
+        Assert-Equal ([Environment]::GetEnvironmentVariable($credentialName, 'Process')) $null 'clear blank shell credentials'
+        if ($null -ne $beforeClear) {
+            Assert-Equal $saved[$credentialName] $beforeClear 'save exact blank value for restoration'
+        }
+        Restore-DevEnvironment $saved
+        Assert-Equal ([Environment]::GetEnvironmentVariable($credentialName, 'Process')) $beforeClear 'restore blank shell values'
+    }
+    [Environment]::SetEnvironmentVariable($credentialName, 'synthetic-shell-override', 'Process')
+    $saved = @{}
+    Clear-DevEmptyCredentialOverrides $saved
+    Assert-Equal ([Environment]::GetEnvironmentVariable($credentialName, 'Process')) 'synthetic-shell-override' 'retain nonblank shell precedence'
+    Assert-Equal $saved.ContainsKey($credentialName) $false 'do not replace nonblank shell override'
+    Restore-DevEnvironment @{ GBRAIN_OAUTH_CLIENT_ID = $null }
+    Assert-Equal ([Environment]::GetEnvironmentVariable($credentialName, 'Process')) $null 'remove originally absent variables on exit'
+} finally { Restore-DevEnvironment @{ GBRAIN_OAUTH_CLIENT_ID = $originalCredential } }
 
 $resolved = ConvertFrom-DevEnvironment "GBRAIN_OAUTH_CLIENT_SECRET=synthetic=a=b`r`nKNOWLEDGEBRIDGE_JWT_SECRET=synthetic jwt`nFFMPEG_PATH=C:/Media Tools/ffmpeg.exe`nGBRAIN_READ_TIMEOUT=PT45S`nGBRAIN_DB_PASSWORD=not-for-the-backend`n"
 Assert-Equal $resolved.GBRAIN_OAUTH_CLIENT_SECRET 'synthetic=a=b' 'preserve equals signs in resolved values'

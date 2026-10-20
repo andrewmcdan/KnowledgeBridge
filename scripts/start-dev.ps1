@@ -44,6 +44,32 @@ function ConvertFrom-DevEnvironment {
     return $values
 }
 
+function Clear-DevEmptyCredentialOverrides {
+    param([hashtable]$OriginalEnvironment)
+
+    # PowerShell 7 can export empty strings; Compose then ignores the populated .env value.
+    foreach ($name in @('GBRAIN_OAUTH_CLIENT_ID', 'GBRAIN_OAUTH_CLIENT_SECRET', 'GBRAIN_EXTRACTION_OAUTH_CLIENT_ID', 'GBRAIN_EXTRACTION_OAUTH_CLIENT_SECRET')) {
+        $value = [Environment]::GetEnvironmentVariable($name, 'Process')
+        if ($null -ne $value -and [string]::IsNullOrWhiteSpace($value)) {
+            $OriginalEnvironment[$name] = $value
+            Remove-Item -LiteralPath "Env:$name"
+            Write-Warning "Ignoring empty shell override for $name; using root .env instead."
+        }
+    }
+}
+
+function Restore-DevEnvironment {
+    param([hashtable]$OriginalEnvironment)
+
+    foreach ($name in $OriginalEnvironment.Keys) {
+        if ($null -eq $OriginalEnvironment[$name]) {
+            Remove-Item -LiteralPath "Env:$name" -ErrorAction SilentlyContinue
+        } else {
+            [Environment]::SetEnvironmentVariable($name, $OriginalEnvironment[$name], 'Process')
+        }
+    }
+}
+
 function Get-HostBackendEnvironment {
     param($Configuration, [hashtable]$ResolvedEnvironment, [string]$Root)
 
@@ -132,6 +158,7 @@ try {
     Push-Location $projectRoot
     $locationPushed = $true
 
+    Clear-DevEmptyCredentialOverrides $originalEnvironment
     $configuration = (Invoke-DevCompose -Arguments @('config', '--format', 'json')) | ConvertFrom-Json
     $resolvedEnvironment = ConvertFrom-DevEnvironment (Invoke-DevCompose -Arguments @('config', '--environment'))
     $backendEnvironment = Get-HostBackendEnvironment $configuration $resolvedEnvironment $projectRoot
@@ -175,7 +202,9 @@ try {
         } finally { Pop-Location }
     }
     foreach ($name in $backendEnvironment.Keys) {
-        $originalEnvironment[$name] = [Environment]::GetEnvironmentVariable($name, 'Process')
+        if (-not $originalEnvironment.ContainsKey($name)) {
+            $originalEnvironment[$name] = [Environment]::GetEnvironmentVariable($name, 'Process')
+        }
         [Environment]::SetEnvironmentVariable($name, $backendEnvironment[$name], 'Process')
     }
     $logDirectory = Join-Path ([IO.Path]::GetTempPath()) ('knowledgebridge-dev-' + [Guid]::NewGuid().ToString('N'))
@@ -212,9 +241,7 @@ try {
             } finally { $ErrorActionPreference = $cleanupPreference }
         }
     }
-    foreach ($name in $originalEnvironment.Keys) {
-        [Environment]::SetEnvironmentVariable($name, $originalEnvironment[$name], 'Process')
-    }
+    Restore-DevEnvironment $originalEnvironment
     foreach ($service in @(Get-DevServicesToStop $startedServices $previouslyRunning ([bool]$KeepDatabase))) {
         try {
             Write-Host "Stopping launcher-owned service $service..."
