@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"><title>Harbor Partner Integration Runbook</title></head>
+<body>
+<div title="header"><p>Acme Corporation — Internal — Synthetic document</p></div>
+
+<h1>Harbor Partner Integration Runbook</h1>
+<p>Owner: Morgan Reed, IT Operations. Effective date: September 15, 2026.<br>Applies to every Harbor managed integration that exchanges data with a partner system.</p>
+
+<h2>When to use this runbook</h2>
+<p>Use this runbook when a Harbor partner feed stops delivering records, delivers duplicate records, or reports authentication failures for more than 15 minutes. Customer-facing communication stays with Customer Success; this runbook covers diagnosis and recovery only.</p>
+
+<h2>Recovery steps</h2>
+<ol>
+  <li>Confirm the alert in the Harbor monitoring dashboard and note the partner feed ID.</li>
+  <li>Check the delivery mode for the feed:
+    <ol>
+      <li>For webhook feeds, replay the last failed delivery from the Harbor console.</li>
+      <li>For batch feeds, rerun the most recent batch window only once.</li>
+    </ol>
+  </li>
+  <li>If authentication failures continue, rotate the partner credential through BridgeDesk. Never paste credentials into a ticket comment.</li>
+  <li>Record the outcome in the BridgeDesk incident ticket within 30 minutes of recovery.</li>
+</ol>
+
+<h2>Escalation contacts</h2>
+<table border="1">
+  <tr><th>Situation</th><th>Delivery mode</th><th>First contact</th><th>Response target</th></tr>
+  <tr><td>Feed down over 15 minutes</td><td>Webhook | Batch</td><td>Harbor on-call engineer</td><td>15 minutes</td></tr>
+  <tr><td>Duplicate records delivered</td><td>Batch</td><td>Morgan Reed</td><td>4 business hours</td></tr>
+  <tr><td colspan="2">Partner reports a data exposure</td><td>Security on-call</td><td>Immediately</td></tr>
+</table>
+
+<h3>Known gaps</h3>
+<ul>
+  <li>There is no documented procedure for partner feeds hosted outside the United States.</li>
+  <li>Harbor does not yet alert on slow feeds, only on stopped feeds.
+    <ul>
+      <li>A latency alert is proposed for the fourth quarter of 2026.</li>
+    </ul>
+  </li>
+</ul>
+
+<div title="footer"><p>Page footer: Harbor Operations</p></div>
+</body>
+</html>
