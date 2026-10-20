@@ -6,17 +6,27 @@ Scripts should be non-interactive where practical, document prerequisites and pa
 
 ## Local development launcher
 
-The launchers start PostgreSQL/pgvector through Docker Compose while running Spring Boot and Vite directly on the host for fast reloads:
+The PowerShell launcher starts PostgreSQL/pgvector and gbrain through Docker Compose while running Spring Boot and Vite directly on the host for fast frontend reloads. It reuses already-running infrastructure without recreating it.
 
 ```powershell
 .\scripts\start-dev.ps1
 ```
 
+If the full Docker application is running, switch modes with `docker compose stop backend frontend` first (not `docker compose down`). The frontend moves from port 3000 to <http://localhost:5173>; the backend stays on port 8080. Existing database and gbrain volumes are reused. In-flight video files in Docker's backend upload volume are not shared with the host; finish pending video ingestion before switching modes.
+
+The root `.env` must contain both provisioned gbrain credentials. The launcher uses Compose's configuration parser (never executes `.env` as code), passes backend settings including OAuth, JWT, transcription, and video overrides to the host processes, and translates PostgreSQL/gbrain URLs to their published localhost ports. Video storage uses the root `.env` path relative to `backend`, or `backend/data/uploads` by default. Java 21, Docker Desktop, npm, and provisioned gbrain are required; host video ingestion also needs FFmpeg and ffprobe on PATH (or configured executable paths).
+
+Use `./scripts/start-dev.ps1 -CheckOnly` to validate configuration without starting or stopping services. The launcher waits for infrastructure health and application HTTP readiness, reports port conflicts, and writes process logs to a unique `knowledgebridge-dev-*` directory under the system temporary directory. It restores the caller's environment and stops local process trees on exit. It stops only infrastructure services it started, leaving pre-existing services running. Use `-KeepDatabase` (alias `-KeepServices`) to retain both launcher-started PostgreSQL and gbrain. No volumes are deleted.
+
+Run `./scripts/test-start-dev.ps1` for dependency-free regression checks of the launcher's configuration mapping and service ownership rules. These checks do not launch applications or mutate Docker services.
+
+The older Bash launcher starts PostgreSQL and host processes only; it does not yet provide the PowerShell launcher's gbrain/environment/lifecycle behavior:
+
 ```bash
 bash ./scripts/start-dev.sh
 ```
 
-Press `Ctrl+C` to stop the application processes and database container. Use `-KeepDatabase` in PowerShell or `--keep-database` in Bash to leave PostgreSQL running. Local data remains in the named Docker volume either way.
+For Bash, `--keep-database` leaves PostgreSQL running. Do not use that launcher as a substitute for the updated PowerShell workflow without configuring gbrain and the host backend environment separately.
 
 ## gbrain provisioning and smoke test
 
