@@ -14,7 +14,7 @@ import tools.jackson.core.JacksonException;
 import tools.jackson.databind.json.JsonMapper;
 
 /**
- * Naive exact-match response cache backed by the query_cache table (V7). An entry matches only when the trimmed
+ * Naive exact-match response cache backed by the query_cache table (V8). An entry matches only when the trimmed
  * question text, the mode, and the knowledge revision are all identical, so a knowledge write makes every older entry
  * stale without deleting it.
  *
@@ -81,9 +81,13 @@ public class QueryCacheService {
 			List<String> matches = jdbcTemplate.queryForList(LOOKUP_SQL, String.class, mode.name(), knowledgeRevision,
 					key, key);
 			if (matches.isEmpty()) {
+				log.info("Query cache miss for {} at revision {} (key {})", mode, knowledgeRevision, keyId(key));
 				return Optional.empty();
 			}
-			return Optional.of(jsonMapper.readValue(matches.get(0), responseType));
+			T response = jsonMapper.readValue(matches.get(0), responseType);
+			log.info("Query cache hit for {} at revision {} (key {}); skipping gbrain", mode, knowledgeRevision,
+					keyId(key));
+			return Optional.of(response);
 		} catch (DataAccessException | JacksonException ex) {
 			log.warn("Query cache lookup failed for {} at revision {}; treating as a miss", mode, knowledgeRevision,
 					ex);
@@ -93,9 +97,13 @@ public class QueryCacheService {
 
 	/** Stores a response for this exact question at this revision; an existing entry for the same key is kept. */
 	public void store(String queryText, QueryMode mode, long knowledgeRevision, Object response) {
+		String key = normalize(queryText);
 		try {
-			jdbcTemplate.update(STORE_SQL, normalize(queryText), mode.name(), knowledgeRevision,
+			int inserted = jdbcTemplate.update(STORE_SQL, key, mode.name(), knowledgeRevision,
 					jsonMapper.writeValueAsString(response));
+			if (inserted > 0) {
+				log.info("Query cache stored {} at revision {} (key {})", mode, knowledgeRevision, keyId(key));
+			}
 		} catch (DataAccessException | JacksonException ex) {
 			log.warn("Query cache store failed for {} at revision {}", mode, knowledgeRevision, ex);
 		}
@@ -118,6 +126,11 @@ public class QueryCacheService {
 	// Trimming is the only normalization: "naive exact match" per the brief, minus stray surrounding whitespace.
 	private static String normalize(String queryText) {
 		return queryText.strip();
+	}
+
+	// Short id so log lines for the same question can be matched without writing the (possibly sensitive) text.
+	private static String keyId(String key) {
+		return "%08x".formatted(key.hashCode());
 	}
 
 }
