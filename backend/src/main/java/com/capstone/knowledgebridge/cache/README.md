@@ -1,6 +1,6 @@
 # cache
 
-Naive exact-match response cache for Synthesis mode, stored in PostgreSQL (`query_cache` table, V8). Required by the brief to demonstrate bypassing redundant LLM calls, even though the hit rate for free-text questions is low.
+Naive exact-match response cache for Synthesis mode, stored in PostgreSQL (`query_cache` table, V10). Required by the brief to demonstrate bypassing redundant LLM calls, even though the hit rate for free-text questions is low.
 
 Implemented:
 

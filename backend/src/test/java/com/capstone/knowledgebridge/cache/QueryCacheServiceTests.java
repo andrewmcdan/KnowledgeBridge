@@ -28,7 +28,7 @@ import tools.jackson.databind.json.JsonMapper;
 
 /**
  * Runs QueryCacheService against a real PostgreSQL migrated by the application's own Flyway scripts, so the md5 cache
- * key, ON CONFLICT, and hit counting are exercised exactly as V8 defines them. No Spring context is needed.
+ * key, ON CONFLICT, and hit counting are exercised exactly as V10 defines them. No Spring context is needed.
  */
 @Testcontainers
 class QueryCacheServiceTests {

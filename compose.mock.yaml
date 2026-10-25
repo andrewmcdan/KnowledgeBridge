@@ -1,0 +1,9 @@
+# Reuses the existing in-memory adapter for development without provider credentials.
+# Run with: docker compose -f compose.yaml -f compose.mock.yaml up --build
+services:
+  backend:
+    environment:
+      GBRAIN_MODE: in-memory
+      GBRAIN_ENABLED: "false"
+  gbrain:
+    profiles: [live-engine]

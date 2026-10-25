@@ -67,7 +67,6 @@ public class KnowledgeItemController {
 	// uploads early; the converted Markdown still has to fit gbrain's MAX_BODY_BYTES.
 	static final long MAX_DOCX_BYTES = 10L * 1024 * 1024;
 
-
 	public record ManualKnowledgeItemRequest(@NotBlank @Size(max = MAX_FIELD_LENGTH) String title,
 			@NotBlank @Size(max = MAX_FIELD_LENGTH) String type, @NotBlank String text) {
 	}
@@ -97,9 +96,11 @@ public class KnowledgeItemController {
 	}
 
 	@GetMapping
-	@PreAuthorize("hasRole('ADMIN')")
-	public List<KnowledgeItemResponse> list() {
-		return toResponses(knowledgeItemService.findAll());
+	@PreAuthorize("hasAnyRole('ADMIN', 'USER')")
+	public List<KnowledgeItemResponse> list(@AuthenticationPrincipal Jwt jwt) {
+		boolean admin = "ADMIN".equals(jwt.getClaimAsString("role"));
+		return toResponses(knowledgeItemService.findAll().stream()
+				.filter(item -> admin || item.getStatus() == KnowledgeItemStatus.COMPLETED).toList());
 	}
 
 	@GetMapping("/{id}")

@@ -16,28 +16,60 @@ The gbrain knowledge engine is an external service boundary. Application code mu
 
 ## Getting started
 
-Prerequisites are Docker Desktop with Docker Compose. Start the current application stack from the repository root:
+Prerequisites are Docker Desktop with its Linux engine running and Docker Compose. For local JVM/Vite development, also install Java 21 and Node.js 24 with npm. Java 25 alone does not satisfy the backend's Java 21 toolchain.
+
+For a repeatable application startup without AI-provider credentials, use the existing in-memory engine adapter:
 
 ```powershell
-Copy-Item .env.example .env # First setup only; preserve an existing .env.
+docker compose -f compose.yaml -f compose.mock.yaml up --build
+```
+
+Open <http://localhost:3000> and sign in as `admin@acme.example` / `admin123` or `user@acme.example` / `user123`. The mock workflow supports authentication, item creation/listing, and permission checks. It does not provide semantic search, synthesis, or entity extraction, and its engine metadata is lost when the backend restarts. PostgreSQL application records remain in the volume. Stop with Ctrl+C, then `docker compose -f compose.yaml -f compose.mock.yaml down`; do not add `-v` unless you intend to delete this project's data.
+
+For the real gbrain workflow, copy `.env.example` to `.env` on first setup, preserving any existing file. Configure `OPENAI_API_KEY` or `OPENROUTER_API_KEY`, then initialize and provision the engine:
+
+```powershell
+Copy-Item .env.example .env # First setup only.
+docker compose up -d --build --wait gbrain
+.\scripts\provision-gbrain.ps1
+.\scripts\provision-gbrain.ps1 -Extraction
 docker compose up --build
 ```
 
-Keep local environment settings in the root `.env`; `.env.example` documents the supported variables. Git ignores `.env`. Compose and both `scripts/start-dev.*` launchers use this configuration, with shell environment variables taking precedence. Existing database passwords must also be changed in PostgreSQL if you change their values in `.env`. Direct `gradlew bootRun` does not load `.env`; use the launcher for shared configuration.
+On an already initialized PostgreSQL volume, follow [the gbrain database setup](docker/README.md) if its database/role is missing. The engine has its own database and credentials inside the shared PostgreSQL/pgvector server. Its host health URL is <http://localhost:3131/health>. Real AI operations use the configured providers; routine tests use mocks.
 
-Open `http://localhost:3000`. The Ask AI workspace displays labeled sample content, with a live Spring Boot/database connection indicator below the main panel. Stop the services with `Ctrl+C`, then run `docker compose down`. Add `-v` to the down command only when you intentionally want to delete the local PostgreSQL volume.
+Keep secrets only in the ignored root `.env`. Compose and the PowerShell launcher read it, with shell overrides taking precedence. Direct `gradlew bootRun` does not load it. Changing a password in `.env` does not change an already initialized PostgreSQL role password. See [the integration guide](Docs/Integration-and-authentication.md#integration-status-and-migration-history) before reusing a database from a branch with a different V8 migration.
 
-Compose also builds and starts [garrytan/gbrain](https://github.com/garrytan/gbrain), with its own database and role inside the shared PostgreSQL/pgvector server, plus a persistent configuration volume. Its health endpoint is `http://localhost:3131/health`; containers reach it at `http://gbrain:3131`. See [gbrain setup](docker/README.md) for configuration and limitations. `docker compose down -v` deletes gbrain data as well as the application database.
-
-For development with frontend hot-module replacement, start Spring Boot from `backend/` with `.\gradlew.bat bootRun`, then run `npm install` and `npm run dev` from `frontend/`. The Vite server is available at `http://localhost:5173` and proxies `/api` to port 8080.
-
-Alternatively, start PostgreSQL in Docker and both application processes locally with one command:
+After live engine provisioning, start host Spring Boot and Vite with hot reload:
 
 ```powershell
 .\scripts\start-dev.ps1
 ```
 
-On macOS, Linux, or WSL, use `bash ./scripts/start-dev.sh`. Both launchers stop PostgreSQL on exit unless their keep-database option is supplied.
+If containerized backend/frontend services are running, first run `docker compose stop backend frontend`. The launcher serves Vite at <http://localhost:5173> and Spring at <http://localhost:8080>. It preserves pre-existing infrastructure and stops only infrastructure it started, unless `-KeepServices` is passed. Use `-CheckOnly` to check configuration. The older Bash launcher is not equivalent: configure gbrain and the backend environment separately as explained in [scripts/README.md](scripts/README.md).
+
+## API contracts and verification
+
+Use [Docs/openapi.json](Docs/openapi.json) and the [integration/authentication guide](Docs/Integration-and-authentication.md) for the agreed ingestion, list, retry, authentication, and error contracts. Normal users can list completed knowledge; ingestion and management remain admin-only. Logout clears the frontend token and acknowledges it through the API; stateless JWTs are not revoked server-side.
+
+Before submitting changes:
+
+```powershell
+cd frontend
+npm ci
+npm run format:check
+npm run lint
+npm test
+npm run build
+cd ../backend
+.\gradlew.bat check
+cd ..
+.\scripts\test-start-dev.ps1
+docker compose config --quiet
+docker compose -f compose.yaml -f compose.mock.yaml config --quiet
+```
+
+The backend checks require Java 21 and Docker/Testcontainers. They include formatting and the existing 100% line/branch coverage gate. `.github/workflows/ci.yml` runs these checks on pull requests and pushes to `main`/`dylan-auth`. Paid live-engine checks remain separate from routine CI.
 
 ## MVP scope
 
