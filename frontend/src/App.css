@@ -817,6 +817,7 @@ small {
 }
 .upload-tabs {
     display: flex;
+    flex-wrap: wrap;
     gap: 4px;
     padding: 8px 12px 0;
     border-bottom: 1px solid var(--border);
@@ -889,6 +890,16 @@ small {
     inset: 0;
     opacity: 0;
     cursor: pointer;
+}
+
+.folder-upload-results {
+    max-height: 320px;
+    overflow: auto;
+    padding-left: 24px;
+    overflow-wrap: anywhere;
+}
+.folder-upload-results li {
+    margin-bottom: 10px;
 }
 .upload-form .primary-button {
     justify-self: start;

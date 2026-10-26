@@ -1,3 +1,5 @@
+import { uploadKind } from "./uploadFiles";
+
 export type IngestionStatus = "PENDING" | "PROCESSING" | "COMPLETED" | "FAILED";
 
 export interface KnowledgeItem {
@@ -47,8 +49,8 @@ export async function readError(response: Response, fallback: string): Promise<E
     if (response.status === 403) return new Error("You do not have permission to manage knowledge items.");
     if (response.status === 404) return new Error("This knowledge item no longer exists.");
     if (response.status === 409) return new Error("Only failed ingestion attempts can be retried.");
-    if (response.status === 413) return new Error("Content is too large: text is limited to 1 MiB and Word files to 10 MiB.");
-    if (response.status === 415) return new Error("Only Markdown (.md) and Word (.docx) files can be uploaded.");
+    if (response.status === 413) return new Error("The file exceeds the server upload limit. Markdown is limited to 1 MiB, Word to 10 MiB, and video uses the configured server limit (500 MiB by default).");
+    if (response.status === 415) return new Error("Only Markdown (.md), Word (.docx), and video (.mp4, .mov, .webm) files can be uploaded.");
 
     const message = await response.text();
     return new Error(message || fallback);
@@ -79,12 +81,14 @@ export async function createManualKnowledgeItem(title: string, type: string, tex
     return readKnowledgeItem(response);
 }
 
-export async function uploadMarkdown(file: File, title: string, type: string): Promise<KnowledgeItem> {
+export async function uploadKnowledgeFile(file: File, title: string, type: string): Promise<KnowledgeItem> {
+    const kind = uploadKind(file.name);
+    if (kind === null) throw new Error("This file type is not supported.");
     const formData = new FormData();
     formData.append("file", file);
     formData.append("title", title);
     formData.append("type", type);
-    const response = await fetch("/api/knowledge-items/upload", {
+    const response = await fetch(`/api/knowledge-items/${kind === "video" ? "video" : "upload"}`, {
         method: "POST",
         headers: getAuthorizationHeader(),
         body: formData,

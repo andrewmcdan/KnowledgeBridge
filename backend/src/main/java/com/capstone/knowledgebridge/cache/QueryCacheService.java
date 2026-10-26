@@ -14,7 +14,7 @@ import tools.jackson.core.JacksonException;
 import tools.jackson.databind.json.JsonMapper;
 
 /**
- * Naive exact-match response cache backed by the query_cache table (V8). An entry matches only when the trimmed
+ * Naive exact-match response cache backed by the query_cache table (V7). An entry matches only when the trimmed
  * question text, the mode, and the knowledge revision are all identical, so a knowledge write makes every older entry
  * stale without deleting it.
  *
