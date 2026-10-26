@@ -15,6 +15,7 @@ export interface KnowledgeItem {
     lastErrorMessage: string | null;
     createdAt: string;
     updatedAt: string;
+    sourceKind: "MANUAL" | "MARKDOWN" | "DOCX" | "VIDEO";
 }
 
 export function getAuthorizationHeader(): Record<string, string> {
@@ -35,6 +36,7 @@ function isKnowledgeItem(value: unknown): value is KnowledgeItem {
         typeof item.title === "string" &&
         typeof item.type === "string" &&
         typeof item.ownerId === "number" &&
+        (item.sourceKind === "MANUAL" || item.sourceKind === "MARKDOWN" || item.sourceKind === "DOCX" || item.sourceKind === "VIDEO") &&
         isIngestionStatus(item.status) &&
         typeof item.characterCount === "number" &&
         (typeof item.externalEngineId === "string" || item.externalEngineId === null) &&
@@ -100,5 +102,45 @@ export async function retryKnowledgeItem(id: number): Promise<KnowledgeItem> {
         headers,
     });
     if (!response.ok) throw await readError(response, "We could not retry ingestion.", headers.Authorization);
+    return readKnowledgeItem(response);
+}
+
+export interface ManualNote {
+    id: number;
+    title: string;
+    type: string;
+    text: string;
+    revision: number;
+}
+
+export async function getManualNote(id: number): Promise<ManualNote> {
+    const headers = getAuthorizationHeader();
+    const response = await fetch(`/api/knowledge-items/${id}/manual`, { headers });
+    if (!response.ok) throw await readError(response, "We could not load this note.", headers.Authorization);
+    const note: unknown = await response.json();
+    if (typeof note !== "object" || note === null) throw new Error("The server returned an invalid note.");
+    const value = note as Record<string, unknown>;
+    if (
+        typeof value.id !== "number" ||
+        typeof value.title !== "string" ||
+        typeof value.type !== "string" ||
+        typeof value.text !== "string" ||
+        typeof value.revision !== "number" ||
+        !Number.isSafeInteger(value.revision) ||
+        value.revision < 1
+    ) {
+        throw new Error("The server returned an invalid note.");
+    }
+    return value as unknown as ManualNote;
+}
+
+export async function updateManualNote(note: ManualNote): Promise<KnowledgeItem> {
+    const headers = getAuthorizationHeader();
+    const response = await fetch(`/api/knowledge-items/${note.id}/manual`, {
+        method: "PUT",
+        headers: { ...headers, "Content-Type": "application/json" },
+        body: JSON.stringify({ title: note.title.trim(), type: note.type.trim(), text: note.text, revision: note.revision }),
+    });
+    if (!response.ok) throw await readError(response, "We could not save and reindex this note.", headers.Authorization);
     return readKnowledgeItem(response);
 }

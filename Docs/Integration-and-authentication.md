@@ -93,11 +93,21 @@ An engine outage can produce **HTTP 201 with `status: FAILED`**. Creation succee
 
 `POST /api/knowledge-items/{id}/retry-ingestion` takes no body. Missing item returns 404; any status other than FAILED returns 409. Successful invocation returns `200` with the updated item and preserves prior attempt history. Text/DOCX retries are synchronous. Existing video retries can return PENDING while the background job runs; the video-upload endpoint itself continues returning 202.
 
+## Manual note editing and query usage
+
+Admin-only `GET /api/knowledge-items/{id}/manual` returns `{id,title,type,text,revision}` for manual notes, including notes whose ingestion failed. `PUT` to the same route accepts `{title,type,text,revision}` with the creation field and UTF-8 size limits. Only completed or failed manual notes are editable. Missing notes return 404; uploads, active ingestion, or stale revisions return 409 without overwriting content.
+
+An edit atomically claims the note, increments its content revision, and invalidates cached answers before contacting the engine. The existing ingestion pipeline replaces the same engine item and records a new attempt. HTTP 200 with `status: FAILED` means the edit was saved but indexing failed; the latest text remains editable and retryable. Content timestamps stay stable on retries. Two editors cannot both claim the same revision.
+
+Successful `/api/query/search` and `/api/query/synthesize` requests record usage in PostgreSQL. Synthesis returns `usage.estimated` alongside input/output counts, and cache hits return zero new tokens. Engine-reported counts are preferred. Missing counts use four UTF-16 characters per token, rounded up: the question plus unique full cited document bodies for input, the answer for output. This is a proxy for a prompt the backend does not observe, not exact provider billing.
+
+`GET /api/usage` returns `{scope,queryCount,inputTokens,outputTokens,totalTokens,cacheHits,estimatedQueryCount}`. Users see their own records; administrators see workspace totals. Scope comes from the verified JWT, never a supplied user id. Tracking starts at V11. Failed/unreported provider calls, ingestion, embedding, and earlier activity are excluded. An accounting database failure is logged without failing an already completed query; totals may then be incomplete.
+
 ## Integration status and migration history
 
 At the start of this change, remote `main` and `dylan-auth` pointed at `4d0b7f7`. `Adrian-dev` at `5b78f0f` and `frontend/ethan-ui` at `a0c03b4` were already ancestors of `dylan-auth`; neither contained additional commits to merge. No artificial merge commit is needed. Recheck remote tips before a later integration.
 
-The merged tree had two Flyway V8 migrations. This change preserves `V8__add_video_ingestion_metadata.sql` and moves the cache migration to `V10__create_query_cache.sql`. V9 entity tables do not depend on the cache table. The cache SQL itself is unchanged.
+The merged tree had two Flyway V8 migrations. Integration preserves `V8__add_video_ingestion_metadata.sql` and moves the cache migration to `V10__create_query_cache.sql`. V9 entity tables do not depend on the cache table. The cache SQL itself is unchanged. V11 adds stable content timestamps and durable query usage; existing content timestamps are backfilled from creation time.
 
 Fresh databases apply these versions in order. An integration test upgrades an existing video-V8 database through V10 and verifies that notes, attempt history, and the global knowledge revision are preserved. Existing developer databases that recorded V8 as `create_query_cache` require their migration history and schema to be reconciled against a backup before using this sequence. Do not delete volumes or run Flyway repair blindly. Existing databases whose V8 is video metadata retain that migration's original version and checksum.
 
@@ -105,4 +115,4 @@ Fresh databases apply these versions in order. An integration test upgrades an e
 
 `.github/workflows/ci.yml` runs frontend install/format/lint/tests/build, Java 21 backend `check` with Docker/Testcontainers, and development Compose/launcher validation. Backend `check` retains the project's 100% line and branch coverage thresholds. Paid live-provider tests are excluded from routine CI.
 
-Before review, run the commands in the root README. There is no configured duplication-check command. No user-management, usage-dashboard, editing/deletion, or ingestion-engine feature work is included here.
+Before review, run the commands in the root README. There is no configured duplication-check command. User management and document deletion remain outside these workflows.

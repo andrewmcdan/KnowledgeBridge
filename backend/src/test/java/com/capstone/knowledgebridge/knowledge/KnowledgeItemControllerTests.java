@@ -42,8 +42,10 @@ class KnowledgeItemControllerTests {
 
 	private final VideoStorageService videoStorageService = mock(VideoStorageService.class);
 
+	private final ManualNoteEditor manualNoteEditor = mock(ManualNoteEditor.class);
+
 	private final KnowledgeItemController controller = new KnowledgeItemController(knowledgeItemService,
-			videoStorageService, new DocxMarkdownConverter());
+			videoStorageService, new DocxMarkdownConverter(), manualNoteEditor);
 
 	private static final String DOCX_TYPE = "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
 
@@ -454,11 +456,27 @@ class KnowledgeItemControllerTests {
 		item.markProcessing();
 		item.markFailed();
 		when(knowledgeItemService.findById(1L)).thenReturn(Optional.of(item));
+		when(manualNoteEditor.prepareRetry(1L, 1L)).thenReturn(Optional.of(item));
 		when(knowledgeItemService.retry(item)).thenReturn(item);
 
 		ResponseEntity<KnowledgeItemResponse> response = controller.retryIngestion(1L);
 
 		assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+	}
+
+	@Test
+	void retryRejectsANoteClaimedByAnEditorButAllowsFailedUploads() {
+		KnowledgeItem note = new KnowledgeItem("Title", "Note", 7L, "body");
+		note.markFailed();
+		when(knowledgeItemService.findById(1L)).thenReturn(Optional.of(note));
+		assertThat(controller.retryIngestion(1L).getStatusCode()).isEqualTo(HttpStatus.CONFLICT);
+		verify(knowledgeItemService, never()).retry(note);
+		KnowledgeItem upload = new KnowledgeItem("Title", "Note", 7L, "body", KnowledgeSourceKind.MARKDOWN);
+		ReflectionTestUtils.setField(upload, "id", 2L);
+		upload.markFailed();
+		when(knowledgeItemService.findById(2L)).thenReturn(Optional.of(upload));
+		when(knowledgeItemService.retry(upload)).thenReturn(upload);
+		assertThat(controller.retryIngestion(2L).getStatusCode()).isEqualTo(HttpStatus.OK);
 	}
 
 }

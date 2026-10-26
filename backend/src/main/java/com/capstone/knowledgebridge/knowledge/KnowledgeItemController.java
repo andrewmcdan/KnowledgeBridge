@@ -24,6 +24,7 @@ import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -32,6 +33,7 @@ import org.springframework.web.multipart.MultipartFile;
 
 import com.capstone.knowledgebridge.extraction.DocxMarkdownConverter;
 import com.capstone.knowledgebridge.extraction.ExtractionException;
+import com.capstone.knowledgebridge.common.ApiError;
 import com.capstone.knowledgebridge.ingestion.IngestionAttempt;
 import com.capstone.knowledgebridge.ingestion.IngestionService;
 import com.capstone.knowledgebridge.gbrain.model.GbrainDocument;
@@ -40,6 +42,7 @@ import com.capstone.knowledgebridge.video.VideoStorageService;
 
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.Size;
 
 @RestController
@@ -71,6 +74,13 @@ public class KnowledgeItemController {
 			@NotBlank @Size(max = MAX_FIELD_LENGTH) String type, @NotBlank String text) {
 	}
 
+	public record ManualNoteResponse(long id, String title, String type, String text, long revision) {
+	}
+
+	public record EditManualNoteRequest(@NotBlank @Size(max = MAX_FIELD_LENGTH) String title,
+			@NotBlank @Size(max = MAX_FIELD_LENGTH) String type, @NotBlank String text, @Min(1) long revision) {
+	}
+
 	/**
 	 * lastErrorCode/lastErrorMessage come from the item's latest ingestion attempt, so they're null unless that attempt
 	 * failed - a FAILED item always has them, and a successful retry clears them.
@@ -88,11 +98,41 @@ public class KnowledgeItemController {
 
 	private final DocxMarkdownConverter docxMarkdownConverter;
 
+	private final ManualNoteEditor manualNoteEditor;
+
 	public KnowledgeItemController(KnowledgeItemService knowledgeItemService, VideoStorageService videoStorageService,
-			DocxMarkdownConverter docxMarkdownConverter) {
+			DocxMarkdownConverter docxMarkdownConverter, ManualNoteEditor manualNoteEditor) {
 		this.knowledgeItemService = knowledgeItemService;
 		this.videoStorageService = videoStorageService;
 		this.docxMarkdownConverter = docxMarkdownConverter;
+		this.manualNoteEditor = manualNoteEditor;
+	}
+
+	@GetMapping("/{id}/manual")
+	@PreAuthorize("hasRole('ADMIN')")
+	public ResponseEntity<ManualNoteResponse> manualNote(@PathVariable Long id) {
+		return ResponseEntity.of(knowledgeItemService.findById(id)
+				.filter(item -> item.getSourceKind() == KnowledgeSourceKind.MANUAL)
+				.map(item -> new ManualNoteResponse(item.getId(), item.getTitle(), item.getType(), item.getBodyText(),
+						item.getRevision())));
+	}
+
+	@PutMapping("/{id}/manual")
+	@PreAuthorize("hasRole('ADMIN')")
+	public ResponseEntity<?> editManualNote(@PathVariable Long id, @Valid @RequestBody EditManualNoteRequest request) {
+		if (IngestionService.exceedsBodyLimit(request.text())) {
+			return ResponseEntity.status(HttpStatus.CONTENT_TOO_LARGE).build();
+		}
+		if (knowledgeItemService.findById(id).isEmpty()) {
+			return ResponseEntity.notFound().build();
+		}
+		Optional<KnowledgeItem> prepared = manualNoteEditor.prepareUpdate(id, request.title(), request.type(),
+				request.text(), request.revision());
+		if (prepared.isEmpty()) {
+			return ResponseEntity.status(HttpStatus.CONFLICT).body(new ApiError("NOTE_CONFLICT",
+					"This note changed or cannot be edited right now. Reload it before saving again."));
+		}
+		return ResponseEntity.ok(toResponse(knowledgeItemService.retry(prepared.get())));
 	}
 
 	@GetMapping
@@ -213,6 +253,13 @@ public class KnowledgeItemController {
 		// COMPLETED doesn't need it. 409 Conflict: the request is fine, the resource's state isn't.
 		if (item.getStatus() != KnowledgeItemStatus.FAILED) {
 			return ResponseEntity.status(HttpStatus.CONFLICT).build();
+		}
+		if (item.getSourceKind() == KnowledgeSourceKind.MANUAL) {
+			Optional<KnowledgeItem> prepared = manualNoteEditor.prepareRetry(id, item.getRevision());
+			if (prepared.isEmpty()) {
+				return ResponseEntity.status(HttpStatus.CONFLICT).build();
+			}
+			item = prepared.get();
 		}
 		item = knowledgeItemService.retry(item);
 		return ResponseEntity.ok(toResponse(item));

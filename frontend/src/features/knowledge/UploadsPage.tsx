@@ -3,24 +3,13 @@ import { Icon } from "../../components/ui/Icon";
 import { createManualKnowledgeItem, getKnowledgeItems, retryKnowledgeItem, uploadKnowledgeFile, type KnowledgeItem } from "./knowledgeApi";
 import { UPLOAD_ACCEPT, uploadTitle as titleFromFilename, validateUpload } from "./uploadFiles";
 import { FolderUpload } from "./FolderUpload";
+import { NoteEditor } from "./NoteEditor";
+import { MAX_CONTENT_BYTES, validateManualNote as validateTextFields } from "./manualNotes";
 
-const MAX_CONTENT_BYTES = 1024 * 1024;
 const POLLING_INTERVAL_MS = 10_000;
-
-function contentSize(value: string): number {
-    return new TextEncoder().encode(value).byteLength;
-}
 
 function isInProgress(item: KnowledgeItem): boolean {
     return item.status === "PENDING" || item.status === "PROCESSING";
-}
-
-function validateTextFields(title: string, type: string, text: string): string | null {
-    if (!title.trim()) return "Enter a title.";
-    if (!type.trim()) return "Enter a document type.";
-    if (!text.trim()) return "Enter content before adding the note.";
-    if (contentSize(text) > MAX_CONTENT_BYTES) return "Content must not exceed 1 MiB.";
-    return null;
 }
 
 export function UploadsPage() {
@@ -38,6 +27,7 @@ export function UploadsPage() {
     const [submitting, setSubmitting] = useState(false);
     const [folderBusy, setFolderBusy] = useState(false);
     const [retryingId, setRetryingId] = useState<number | null>(null);
+    const [editingId, setEditingId] = useState<number | null>(null);
     const fileInput = useRef<HTMLInputElement>(null);
 
     const loadItems = useCallback(async () => {
@@ -279,12 +269,27 @@ export function UploadsPage() {
                             </div>
                             <div className="knowledge-item-actions">
                                 <span className={`status-${item.status.toLowerCase()}`}>{item.status.toLowerCase()}</span>
+                                {item.sourceKind === "MANUAL" && !isInProgress(item) && (
+                                    <button className="secondary-button" type="button" disabled={editingId !== null || submitting || folderBusy || retryingId !== null} onClick={() => setEditingId(item.id)}>
+                                        Edit note
+                                    </button>
+                                )}
                                 {item.status === "FAILED" && (
-                                    <button className="secondary-button" type="button" disabled={retryingId === item.id} onClick={() => void retry(item)}>
+                                    <button className="secondary-button" type="button" disabled={retryingId === item.id || editingId === item.id} onClick={() => void retry(item)}>
                                         {retryingId === item.id ? "Retrying…" : "Retry"}
                                     </button>
                                 )}
                             </div>
+                            {editingId === item.id && (
+                                <NoteEditor
+                                    id={item.id}
+                                    onCancel={() => setEditingId(null)}
+                                    onSaved={(updated) => {
+                                        addItem(updated);
+                                        setEditingId(null);
+                                    }}
+                                />
+                            )}
                         </article>
                     ))
                 ) : (

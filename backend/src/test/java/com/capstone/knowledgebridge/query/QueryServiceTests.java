@@ -30,6 +30,7 @@ import com.capstone.knowledgebridge.gbrain.model.GbrainSynthesisResult;
 import com.capstone.knowledgebridge.knowledge.KnowledgeItem;
 import com.capstone.knowledgebridge.knowledge.KnowledgeItemRepository;
 import com.capstone.knowledgebridge.knowledge.KnowledgeRevisionService;
+import com.capstone.knowledgebridge.usage.TokenUsage;
 
 class QueryServiceTests {
 
@@ -81,7 +82,7 @@ class QueryServiceTests {
 		assertThat(response.citations()).containsExactly(
 				new QueryService.CitationResponse("42", "knowledgebridge/42", "Travel Policy", "Policy"),
 				new QueryService.CitationResponse("not-a-number", "knowledgebridge/not-a-number", null, null));
-		assertThat(response.usage()).isEqualTo(new QueryService.UsageResponse("openrouter:model", 12L, 8L,
+		assertThat(response.usage()).isEqualTo(new TokenUsage("openrouter:model", 12L, 8L,
 				new BigDecimal("0.001")));
 	}
 
@@ -133,7 +134,7 @@ class QueryServiceTests {
 		when(knowledgeRevisionService.current()).thenReturn(7L);
 		QueryService.SynthesisResponse stored = new QueryService.SynthesisResponse("Employees need approval.", true,
 				false, List.of(), List.of(), List.of(),
-				new QueryService.UsageResponse("openrouter:model", 12L, 8L, new BigDecimal("0.001")), false);
+				new TokenUsage("openrouter:model", 12L, 8L, new BigDecimal("0.001")), false);
 		when(queryCache.lookup("What travel approval is needed?", QueryMode.SYNTHESIS, 7L,
 				QueryService.SynthesisResponse.class)).thenReturn(Optional.of(stored));
 
@@ -142,13 +143,13 @@ class QueryServiceTests {
 		assertThat(response.cacheHit()).isTrue();
 		assertThat(response.answer()).isEqualTo("Employees need approval.");
 		assertThat(response.usage())
-				.isEqualTo(new QueryService.UsageResponse("openrouter:model", 0L, 0L, BigDecimal.ZERO));
+				.isEqualTo(new TokenUsage("openrouter:model", 0L, 0L, BigDecimal.ZERO));
 		verify(gbrainClient, never()).synthesize(any());
 		verify(queryCache, never()).store(anyString(), any(), anyLong(), any());
 	}
 
 	@Test
-	void cachedAnswerWithoutUsageStaysWithoutUsage() {
+	void cachedAnswerWithoutUsageReportsZeroNewTokens() {
 		QueryService.SynthesisResponse stored = new QueryService.SynthesisResponse("Answer", true, false, List.of(),
 				List.of(), List.of(), null, false);
 		when(queryCache.lookup(anyString(), eq(QueryMode.SYNTHESIS), anyLong(),
@@ -157,7 +158,7 @@ class QueryServiceTests {
 		QueryService.SynthesisResponse response = queryService.synthesize("Anything?");
 
 		assertThat(response.cacheHit()).isTrue();
-		assertThat(response.usage()).isNull();
+		assertThat(response.usage()).isEqualTo(new TokenUsage("unknown", 0L, 0L, BigDecimal.ZERO));
 	}
 
 	@Test
@@ -168,6 +169,35 @@ class QueryServiceTests {
 		assertThatThrownBy(() -> queryService.synthesize("What travel approval is needed?"))
 				.isInstanceOf(GbrainException.class);
 		verify(queryCache, never()).store(anyString(), any(), anyLong(), any());
+	}
+
+	@Test
+	void estimatesUseTheQuestionAndUniqueCitedDocumentTextWhenUsageIsAbsent() {
+		KnowledgeItem item = new KnowledgeItem("Note", "Note", 1L, "abcdefgh");
+		ReflectionTestUtils.setField(item, "id", 42L);
+		when(knowledgeItemRepository.findAllById(List.of(42L))).thenReturn(List.of(item));
+		var citation = new GbrainSynthesisResult.GbrainCitation("42", "knowledgebridge/42");
+		when(gbrainClient.synthesize(any())).thenReturn(new GbrainSynthesisResult("abcdefgh",
+				GbrainSynthesisResult.Status.SYNTHESIZED, List.of(citation, citation), List.of(), null, List.of()));
+		assertThat(queryService.synthesize("abcd").usage())
+				.isEqualTo(new TokenUsage("unknown", 3L, 2L, null, true));
+	}
+
+	@Test
+	void partialUsageKeepsReportedCountsAndEstimatesOnlyMissingCounts() {
+		for (GbrainSynthesisResult.Usage usage : List.of(
+				new GbrainSynthesisResult.Usage("model", 10L, null, null),
+				new GbrainSynthesisResult.Usage(null, null, 20L, null),
+				new GbrainSynthesisResult.Usage("model", -1L, -2L, null))) {
+			when(gbrainClient.synthesize(any())).thenReturn(new GbrainSynthesisResult("abcdefgh",
+					GbrainSynthesisResult.Status.SYNTHESIZED, List.of(), List.of(), usage, List.of()));
+			TokenUsage result = queryService.synthesize("abcd").usage();
+			assertThat(result.inputTokens())
+					.isEqualTo(usage.inputTokens() == null ? 1L : Math.max(0, usage.inputTokens()));
+			assertThat(result.outputTokens())
+					.isEqualTo(usage.outputTokens() == null ? 2L : Math.max(0, usage.outputTokens()));
+			assertThat(result.estimated()).isEqualTo(usage.inputTokens() == null || usage.outputTokens() == null);
+		}
 	}
 
 }

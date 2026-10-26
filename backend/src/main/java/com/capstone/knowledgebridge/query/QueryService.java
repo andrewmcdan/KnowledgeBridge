@@ -22,6 +22,8 @@ import com.capstone.knowledgebridge.gbrain.model.GbrainSynthesisResult;
 import com.capstone.knowledgebridge.knowledge.KnowledgeItem;
 import com.capstone.knowledgebridge.knowledge.KnowledgeItemRepository;
 import com.capstone.knowledgebridge.knowledge.KnowledgeRevisionService;
+import com.capstone.knowledgebridge.usage.TokenEstimator;
+import com.capstone.knowledgebridge.usage.TokenUsage;
 
 @Service
 public class QueryService {
@@ -43,7 +45,7 @@ public class QueryService {
 
 	/** cacheHit is true when the answer came from the exact-match cache instead of a new LLM call. */
 	public record SynthesisResponse(String answer, boolean aiGenerated, boolean extractiveFallback,
-			List<CitationResponse> citations, List<String> gaps, List<String> warnings, UsageResponse usage,
+			List<CitationResponse> citations, List<String> gaps, List<String> warnings, TokenUsage usage,
 			boolean cacheHit) {
 
 		/**
@@ -51,16 +53,14 @@ public class QueryService {
 		 * requires it whenever usage is present.
 		 */
 		SynthesisResponse asCacheHit() {
-			UsageResponse noCost = usage == null ? null : new UsageResponse(usage.model(), 0L, 0L, BigDecimal.ZERO);
+			TokenUsage noCost = new TokenUsage(usage == null ? "unknown" : usage.model(), 0L, 0L,
+					BigDecimal.ZERO);
 			return new SynthesisResponse(answer, aiGenerated, extractiveFallback, citations, gaps, warnings, noCost,
 					true);
 		}
 	}
 
 	public record CitationResponse(String itemKey, String externalId, String title, String documentType) {
-	}
-
-	public record UsageResponse(String model, Long inputTokens, Long outputTokens, BigDecimal estimatedCostUsd) {
 	}
 
 	private final GbrainClient gbrainClient;
@@ -118,9 +118,17 @@ public class QueryService {
 				.map(citation -> toCitation(citation, itemsById.get(citation.itemKey())))
 				.toList();
 		GbrainSynthesisResult.Usage usage = result.usage();
-		UsageResponse responseUsage = usage == null
-				? null
-				: new UsageResponse(usage.model(), usage.inputTokens(), usage.outputTokens(), usage.estimatedCostUsd());
+		TokenUsage responseUsage = null;
+		if (usage != null || result.status() == GbrainSynthesisResult.Status.SYNTHESIZED) {
+			Long input = usage == null ? null : usage.inputTokens();
+			Long output = usage == null ? null : usage.outputTokens();
+			long inputCharacters = question.length()
+					+ itemsById.values().stream().mapToLong(item -> item.getBodyText().length()).sum();
+			responseUsage = new TokenUsage(usage == null || usage.model() == null ? "unknown" : usage.model(),
+					input == null ? TokenEstimator.estimate(inputCharacters) : Math.max(0, input),
+					output == null ? TokenEstimator.estimate(result.answer().length()) : Math.max(0, output),
+					usage == null ? null : usage.estimatedCostUsd(), input == null || output == null);
+		}
 		return new SynthesisResponse(result.answer(), result.status() == GbrainSynthesisResult.Status.SYNTHESIZED,
 				result.status() == GbrainSynthesisResult.Status.EXTRACTIVE_FALLBACK, citations, result.gaps(),
 				result.warnings(), responseUsage, false);

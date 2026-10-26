@@ -2,8 +2,8 @@
     "openapi": "3.0.3",
     "info": {
         "title": "KnowledgeBridge integration and authentication API",
-        "version": "1.0.0",
-        "description": "Canonical contracts for Member 1 integration. JSON errors use {code,message}. Ingestion errors on a created record are represented by its status and latest error fields. Other project routes are outside this specification."
+        "version": "1.1.0",
+        "description": "Canonical contracts for authentication, document ingestion, manual note editing, synthesized answers, and query usage totals. JSON errors use {code,message}. Saved records can have ingestion status FAILED. Other project routes remain outside this specification."
     },
     "servers": [
         {
@@ -288,6 +288,179 @@
                     }
                 },
                 "description": "Used on page load to restore a stored session. Missing, expired, or invalid tokens return 401. Frontend disposes a rejected session and returns to login."
+            }
+        },
+        "/api/knowledge-items/{id}/manual": {
+            "parameters": [
+                {
+                    "name": "id",
+                    "in": "path",
+                    "required": true,
+                    "schema": {
+                        "type": "integer",
+                        "format": "int64"
+                    }
+                }
+            ],
+            "get": {
+                "summary": "Load a manual note and its editable revision, including failed ingestion",
+                "x-roles": [
+                    "ADMIN"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Manual note content.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ManualNote"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/ApiError"
+                    },
+                    "403": {
+                        "$ref": "#/components/responses/ApiError"
+                    },
+                    "404": {
+                        "$ref": "#/components/responses/ApiError"
+                    },
+                    "500": {
+                        "$ref": "#/components/responses/ApiError"
+                    }
+                }
+            },
+            "put": {
+                "summary": "Save and reindex a manual note at the expected revision",
+                "description": "Only MANUAL notes in COMPLETED or FAILED state are editable. The content revision and global cache revision advance before reindexing. HTTP 200 with status FAILED means the new content was saved but indexing failed; retry ingestion using the saved revision. Conflicting edits return 409 without overwriting the note.",
+                "x-roles": [
+                    "ADMIN"
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/EditManualNoteRequest"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Saved note with the resulting ingestion status.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/KnowledgeItem"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "$ref": "#/components/responses/ApiError"
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/ApiError"
+                    },
+                    "403": {
+                        "$ref": "#/components/responses/ApiError"
+                    },
+                    "404": {
+                        "$ref": "#/components/responses/ApiError"
+                    },
+                    "409": {
+                        "$ref": "#/components/responses/ApiError"
+                    },
+                    "413": {
+                        "$ref": "#/components/responses/ApiError"
+                    },
+                    "500": {
+                        "$ref": "#/components/responses/ApiError"
+                    }
+                }
+            }
+        },
+        "/api/usage": {
+            "get": {
+                "summary": "Read persisted query and synthesis-token totals",
+                "description": "Users see only their own successful query requests; admins see workspace totals. No client-supplied user id or scope is accepted. Cache hits and search-only queries add zero synthesis tokens. Tracking starts at V11; failed/unreported calls and ingestion/embedding usage are excluded.",
+                "x-roles": [
+                    "ADMIN",
+                    "USER"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Personal or workspace totals based on the authenticated role.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/UsageTotals"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/ApiError"
+                    },
+                    "500": {
+                        "$ref": "#/components/responses/ApiError"
+                    }
+                }
+            }
+        },
+        "/api/query/synthesize": {
+            "post": {
+                "summary": "Synthesize an answer with source citations and token usage",
+                "x-roles": [
+                    "ADMIN",
+                    "USER"
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/SynthesisRequest"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Synthesized or extractive-fallback answer. The usage and cache markers describe this request.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/SynthesisResponse"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "$ref": "#/components/responses/ApiError"
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/ApiError"
+                    },
+                    "429": {
+                        "$ref": "#/components/responses/ApiError"
+                    },
+                    "502": {
+                        "$ref": "#/components/responses/ApiError"
+                    },
+                    "503": {
+                        "$ref": "#/components/responses/ApiError"
+                    },
+                    "504": {
+                        "$ref": "#/components/responses/ApiError"
+                    },
+                    "500": {
+                        "$ref": "#/components/responses/ApiError"
+                    }
+                }
             }
         }
     },
@@ -587,6 +760,269 @@
                     },
                     "user": {
                         "$ref": "#/components/schemas/AuthUser"
+                    }
+                }
+            },
+            "EditManualNoteRequest": {
+                "type": "object",
+                "required": [
+                    "title",
+                    "type",
+                    "text",
+                    "revision"
+                ],
+                "properties": {
+                    "title": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 255,
+                        "description": "Required and not whitespace-only; trimmed before storage."
+                    },
+                    "type": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 255,
+                        "description": "Required and not whitespace-only; trimmed before storage."
+                    },
+                    "text": {
+                        "type": "string",
+                        "minLength": 1,
+                        "description": "Required and not whitespace-only. Normalized UTF-8 text plus its final newline must fit 1 MiB (1048576 bytes)."
+                    },
+                    "revision": {
+                        "type": "integer",
+                        "format": "int64",
+                        "minimum": 1,
+                        "description": "Revision returned by GET; stale revisions return 409."
+                    }
+                }
+            },
+            "ManualNote": {
+                "type": "object",
+                "required": [
+                    "id",
+                    "title",
+                    "type",
+                    "text",
+                    "revision"
+                ],
+                "properties": {
+                    "id": {
+                        "type": "integer",
+                        "format": "int64"
+                    },
+                    "title": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 255,
+                        "description": "Required and not whitespace-only; trimmed before storage."
+                    },
+                    "type": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 255,
+                        "description": "Required and not whitespace-only; trimmed before storage."
+                    },
+                    "text": {
+                        "type": "string",
+                        "minLength": 1,
+                        "description": "Required and not whitespace-only. Normalized UTF-8 text plus its final newline must fit 1 MiB (1048576 bytes)."
+                    },
+                    "revision": {
+                        "type": "integer",
+                        "format": "int64",
+                        "minimum": 1,
+                        "description": "Revision returned by GET; stale revisions return 409."
+                    }
+                },
+                "example": {
+                    "id": 1,
+                    "title": "Travel policy",
+                    "type": "Note",
+                    "text": "Travel requires approval.",
+                    "revision": 2
+                }
+            },
+            "UsageTotals": {
+                "type": "object",
+                "required": [
+                    "scope",
+                    "queryCount",
+                    "inputTokens",
+                    "outputTokens",
+                    "totalTokens",
+                    "cacheHits",
+                    "estimatedQueryCount"
+                ],
+                "properties": {
+                    "scope": {
+                        "type": "string",
+                        "enum": [
+                            "personal",
+                            "workspace"
+                        ]
+                    },
+                    "queryCount": {
+                        "type": "integer",
+                        "format": "int64",
+                        "minimum": 0
+                    },
+                    "inputTokens": {
+                        "type": "integer",
+                        "format": "int64",
+                        "minimum": 0
+                    },
+                    "outputTokens": {
+                        "type": "integer",
+                        "format": "int64",
+                        "minimum": 0
+                    },
+                    "totalTokens": {
+                        "type": "integer",
+                        "format": "int64",
+                        "minimum": 0
+                    },
+                    "cacheHits": {
+                        "type": "integer",
+                        "format": "int64",
+                        "minimum": 0
+                    },
+                    "estimatedQueryCount": {
+                        "type": "integer",
+                        "format": "int64",
+                        "minimum": 0
+                    }
+                },
+                "example": {
+                    "scope": "personal",
+                    "queryCount": 2,
+                    "inputTokens": 12,
+                    "outputTokens": 8,
+                    "totalTokens": 20,
+                    "cacheHits": 1,
+                    "estimatedQueryCount": 1
+                }
+            },
+            "TokenUsage": {
+                "type": "object",
+                "required": [
+                    "model",
+                    "inputTokens",
+                    "outputTokens",
+                    "estimatedCostUsd",
+                    "estimated"
+                ],
+                "properties": {
+                    "model": {
+                        "type": "string"
+                    },
+                    "inputTokens": {
+                        "type": "integer",
+                        "format": "int64",
+                        "nullable": true,
+                        "minimum": 0
+                    },
+                    "outputTokens": {
+                        "type": "integer",
+                        "format": "int64",
+                        "nullable": true,
+                        "minimum": 0
+                    },
+                    "estimatedCostUsd": {
+                        "type": "number",
+                        "nullable": true
+                    },
+                    "estimated": {
+                        "type": "boolean"
+                    }
+                },
+                "description": "Reported engine counts are preferred. Missing counts are estimated at four UTF-16 characters per token, rounded up. Input uses the question plus unique cited document bodies; output uses the answer. This proxy does not reconstruct the provider prompt. Cache hits return zero counts and estimated=false."
+            },
+            "SynthesisResponse": {
+                "type": "object",
+                "required": [
+                    "answer",
+                    "aiGenerated",
+                    "extractiveFallback",
+                    "citations",
+                    "gaps",
+                    "warnings",
+                    "usage",
+                    "cacheHit"
+                ],
+                "properties": {
+                    "answer": {
+                        "type": "string"
+                    },
+                    "aiGenerated": {
+                        "type": "boolean"
+                    },
+                    "extractiveFallback": {
+                        "type": "boolean"
+                    },
+                    "citations": {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "required": [
+                                "itemKey",
+                                "externalId",
+                                "title",
+                                "documentType"
+                            ],
+                            "properties": {
+                                "itemKey": {
+                                    "type": "string"
+                                },
+                                "externalId": {
+                                    "type": "string"
+                                },
+                                "title": {
+                                    "type": "string",
+                                    "nullable": true
+                                },
+                                "documentType": {
+                                    "type": "string",
+                                    "nullable": true
+                                }
+                            }
+                        }
+                    },
+                    "gaps": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        }
+                    },
+                    "warnings": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        }
+                    },
+                    "usage": {
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/TokenUsage"
+                            }
+                        ],
+                        "nullable": true
+                    },
+                    "cacheHit": {
+                        "type": "boolean"
+                    }
+                }
+            },
+            "SynthesisRequest": {
+                "type": "object",
+                "required": [
+                    "question"
+                ],
+                "properties": {
+                    "question": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 2000
                     }
                 }
             }

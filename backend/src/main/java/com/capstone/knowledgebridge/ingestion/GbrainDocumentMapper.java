@@ -21,13 +21,8 @@ public final class GbrainDocumentMapper {
 		// Long.toString throws on a null id instead of silently producing the string "null" the way
 		// String.valueOf would - item must already be saved (have a real id) before this is called.
 		//
-		// Both timestamp slots use createdAt, not getUpdatedAt(): updatedAt bumps on every status
-		// transition (markProcessing/markFailed/...), but GbrainDocument.contentDigest() hashes this
-		// field in. If we fed it updatedAt, a retry after a timeout would always hash differently from
-		// the original attempt even though the actual content hasn't changed, which defeats gbrain's own
-		// identical-content UNCHANGED check right when retry needs it most. There's no edit endpoint yet,
-		// so content genuinely never changes after creation - createdAt is the right "last content
-		// change" timestamp until one exists.
+		// Content time advances on edits, but stays stable across status transitions and retries so
+		// identical content retains the same engine digest after an uncertain network result.
 		return new GbrainDocument(
 				Long.toString(item.getId()),
 				item.getTitle(),
@@ -35,7 +30,7 @@ public final class GbrainDocumentMapper {
 				Long.toString(item.getOwnerId()),
 				item.getRevision(),
 				item.getCreatedAt(),
-				item.getCreatedAt(),
+				item.getContentUpdatedAt(),
 				item.getBodyText());
 	}
 

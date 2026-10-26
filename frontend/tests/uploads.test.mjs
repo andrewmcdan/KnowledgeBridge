@@ -123,7 +123,20 @@ test("reuses the document route for Markdown/Word and the video route for all vi
             return {
                 ok: true,
                 status: 202,
-                json: async () => ({ id: 1, title: "Title", type: "Document", ownerId: 1, status: "PENDING", characterCount: 0, externalEngineId: null, lastErrorCode: null, lastErrorMessage: null, createdAt: "now", updatedAt: "now" }),
+                json: async () => ({
+                    id: 1,
+                    title: "Title",
+                    type: "Document",
+                    sourceKind: "MANUAL",
+                    ownerId: 1,
+                    status: "PENDING",
+                    characterCount: 0,
+                    externalEngineId: null,
+                    lastErrorCode: null,
+                    lastErrorMessage: null,
+                    createdAt: "now",
+                    updatedAt: "now",
+                }),
             };
         },
     });

@@ -2,7 +2,7 @@
 
 Candidate REST routes between the React frontend and the Spring Boot backend. This expands the sketch in section 4.5 of the [execution plan](./KnowledgeBridge%20Capstone%20Project%20Execution%20Plan.md) with routes implied by the frontend scaffold and the project brief. Paths are prefixed with `/api`; the Vite dev server proxies `/api` to port 8080.
 
-The committed [OpenAPI contract](./openapi.json) and [integration guide](./Integration-and-authentication.md) are authoritative for authentication and the four ingestion/list/retry endpoints. Other rows below remain a feature inventory and may describe planned behavior; they are not a promise that every route exists.
+The committed [OpenAPI contract](./openapi.json) and [integration guide](./Integration-and-authentication.md) are authoritative for authentication, ingestion/list/retry, manual note editing, synthesized answers, and query usage totals. Other rows below remain a feature inventory and may describe planned behavior; they are not a promise that every route exists.
 
 **Roles:** `Public` = no login, `User` = any signed-in user, `Admin` = admin role only. Authorization is enforced in the backend, not just hidden in the UI.
 
@@ -65,6 +65,8 @@ The committed [OpenAPI contract](./openapi.json) and [integration guide](./Integ
 | DELETE | `/api/bookmarks/{knowledgeItemId}` | User | Removes a saved knowledge item. |
 
 ## Usage and cost (Usage, Dashboard)
+
+Implemented: `GET /api/usage` returns personal query/token totals for users and workspace totals for admins. Ask AI and Usage display these totals. `GET` and `PUT /api/knowledge-items/{id}/manual` implement admin-only manual note editing and reindexing with a required revision. Broader administration and cost routes in the inventory below remain planned.
 
 | Method | Route | Role | Description |
 |---|---|---|---|

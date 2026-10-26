@@ -10,10 +10,13 @@ import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.oauth2.jwt.Jwt;
 
 import com.capstone.knowledgebridge.gbrain.GbrainErrorCode;
 import com.capstone.knowledgebridge.gbrain.GbrainException;
 import com.capstone.knowledgebridge.common.ApiError;
+import com.capstone.knowledgebridge.cache.QueryMode;
+import com.capstone.knowledgebridge.usage.UsageService;
 import com.capstone.knowledgebridge.query.QueryController.SearchRequest;
 import com.capstone.knowledgebridge.query.QueryController.SynthesisRequest;
 import com.capstone.knowledgebridge.query.QueryService.RetrievalResponse;
@@ -24,17 +27,25 @@ class QueryControllerTests {
 
 	private final QueryService queryService = mock(QueryService.class);
 
-	private final QueryController controller = new QueryController(queryService);
+	private final UsageService usage = mock(UsageService.class);
+	private final QueryController controller = new QueryController(queryService, usage);
+
+	private Jwt user() {
+		Jwt jwt = mock(Jwt.class);
+		when(jwt.getSubject()).thenReturn("2");
+		return jwt;
+	}
 
 	@Test
 	void searchDelegatesToTheService() {
 		SearchResponse expected = new SearchResponse(List.of(), new RetrievalResponse(true, true, false));
 		when(queryService.search("What changed?", 5)).thenReturn(expected);
 
-		SearchResponse response = controller.search(new SearchRequest("What changed?", 5));
+		SearchResponse response = controller.search(new SearchRequest("What changed?", 5), user());
 
 		assertThat(response).isSameAs(expected);
 		verify(queryService).search("What changed?", 5);
+		verify(usage).record(2L, QueryMode.SEARCH, false, null);
 	}
 
 	@Test
@@ -43,10 +54,11 @@ class QueryControllerTests {
 				null, false);
 		when(queryService.synthesize("What changed?")).thenReturn(expected);
 
-		SynthesisResponse response = controller.synthesize(new SynthesisRequest("What changed?"));
+		SynthesisResponse response = controller.synthesize(new SynthesisRequest("What changed?"), user());
 
 		assertThat(response).isSameAs(expected);
 		verify(queryService).synthesize("What changed?");
+		verify(usage).record(2L, QueryMode.SYNTHESIS, false, null);
 	}
 
 	@Test

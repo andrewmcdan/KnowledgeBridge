@@ -10,12 +10,14 @@ Knowledge item CRUD and metadata — the `/api/knowledge-items` routes. Ingestio
 
 ## Endpoints
 
-All routes need `Authorization: Bearer <token>` from `POST /api/auth/login`. Every route below is currently **admin only**: no token gets `401`, a non-admin token gets `403`.
+All routes need `Authorization: Bearer <token>` from `POST /api/auth/login`. Management routes are **admin only**: no token gets `401`, a non-admin token gets `403`. Signed-in users can list completed items and read their content; administrators see all item statuses in the list.
 
 | Method | Path | Body | Success |
 | --- | --- | --- | --- |
 | `GET` | `/api/knowledge-items` | — | `200`, array of items, newest first |
 | `GET` | `/api/knowledge-items/{id}` | — | `200`, one item |
+| `GET` | `/api/knowledge-items/{id}/manual` | — | `200`, manual note text and revision (admin only) |
+| `PUT` | `/api/knowledge-items/{id}/manual` | JSON `{ "title", "type", "text", "revision" }` | `200`, saved and reindexed manual note (admin only) |
 | `POST` | `/api/knowledge-items/manual` | JSON `{ "title", "type", "text" }` | `201`, the new item |
 | `POST` | `/api/knowledge-items/upload` | multipart: `file` (`.md` or `.docx`), `title`, `type` | `201`, the new item |
 | `POST` | `/api/knowledge-items/{id}/retry-ingestion` | — | `200`, the retried item |
@@ -62,10 +64,12 @@ video items are recovered at application startup.
 | `413` | Body over 1 MB (gbrain's limit, `GbrainDocument.MAX_BODY_BYTES`), including a `.docx` whose converted Markdown is over it; a raw `.docx` over 10 MB — nothing is saved |
 | `415` | Upload whose filename ends in neither `.md` nor `.docx` |
 
+## Manual note edits
+
+`ManualNoteEditor` atomically claims only completed/failed manual notes at the supplied revision. It advances the content revision and global cache revision before network I/O, then the controller reuses the ingestion pipeline. Stale edits, uploaded documents, and active ingestion return 409. A failed reindex keeps the new text and attempt history for retry. V11 adds `content_updated_at`, which changes on edits but stays stable across retries for engine digest consistency.
+
 ## Open concerns
 
-- **Error bodies.** `400`/`413`/`415` responses have no body, and running locally with devtools a validation `400` includes a stack trace. These should switch to the team's shared API error format once it's agreed.
-- **List/get permissions.** The original plan gave all users list/get. They're admin only for now because they expose ingestion errors. Decide before the frontend relies on either behaviour.
 - **gbrain timeouts.** A `TIMEOUT` marks the item `FAILED`, but the write may have landed in gbrain. Retrying is safe (gbrain upserts), but reconciling with `GbrainClient.documentState()` before marking `FAILED` would keep the status accurate.
 - **Video polling.** Video clients should poll `GET /{id}` while status is `PENDING` or `PROCESSING`.
 - **No pagination.** `GET /api/knowledge-items` returns every item; fine for the 50-document corpus.
