@@ -1,5 +1,6 @@
 package com.capstone.knowledgebridge.auth;
 
+import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
@@ -24,10 +25,17 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+
+import com.capstone.knowledgebridge.common.ApiError;
 import com.capstone.knowledgebridge.configuration.SecurityConfiguration;
 
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotEmpty;
+import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Size;
 
 @RestController
 @RequestMapping("/api/auth")
@@ -35,7 +43,25 @@ public class AuthController {
 
 	private static final Logger log = LoggerFactory.getLogger(AuthController.class);
 
-	public record LoginRequest(@NotBlank String email, @NotBlank String password) {
+	public record LoginRequest(@NotBlank String email, @NotEmpty String password) {
+	}
+
+	@JsonIgnoreProperties(ignoreUnknown = true)
+	public record RegistrationRequest(@NotBlank @Size(max = 255) String displayName,
+			@NotBlank @Email @Size(max = 255) String email, @NotNull @Size(max = 72) String password) {
+		public RegistrationRequest {
+			if (displayName != null) {
+				displayName = displayName.trim();
+			}
+			if (email != null) {
+				email = email.trim().toLowerCase(Locale.ROOT);
+			}
+		}
+
+		@Override
+		public String toString() {
+			return "RegistrationRequest[credentials=<redacted>]";
+		}
 	}
 
 	public record LoginResponse(String token, Instant expiresAt, MeResponse user) {
@@ -68,7 +94,7 @@ public class AuthController {
 	@PostMapping("/login")
 	public ResponseEntity<LoginResponse> login(@Valid @RequestBody LoginRequest request) {
 		List<AppUser> matches = jdbcTemplate.query(
-				"SELECT id, email, password_hash, display_name, role, enabled FROM app_user WHERE email = ?",
+				"SELECT id, email, password_hash, display_name, role, enabled FROM app_user WHERE lower(btrim(email)) = ?",
 				(rs, rowNum) -> new AppUser(rs.getLong("id"), rs.getString("email"), rs.getString("password_hash"),
 						rs.getString("display_name"), rs.getString("role"), rs.getBoolean("enabled")),
 				request.email().trim().toLowerCase(Locale.ROOT));
@@ -81,7 +107,33 @@ public class AuthController {
 			return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
 		}
 
-		AppUser user = matches.get(0);
+		return ResponseEntity.ok(createSession(toMeResponse(matches.get(0))));
+	}
+
+	@PostMapping("/register")
+	public ResponseEntity<?> register(@Valid @RequestBody RegistrationRequest request) {
+		String password = request.password();
+		if (password.codePointCount(0, password.length()) < 8
+				|| password.getBytes(StandardCharsets.UTF_8).length > 72) {
+			return ResponseEntity.badRequest().body(new ApiError("VALIDATION_ERROR",
+					"Password must contain at least eight characters and fit within 72 UTF-8 bytes."));
+		}
+		List<MeResponse> created = jdbcTemplate.query("""
+				INSERT INTO app_user (email, password_hash, display_name, role, enabled)
+				VALUES (?, ?, ?, 'USER', true)
+				ON CONFLICT DO NOTHING
+				RETURNING id, email, display_name, role
+				""", (row, index) -> new MeResponse(row.getLong("id"), row.getString("email"),
+				row.getString("display_name"), row.getString("role")),
+				request.email(), passwordEncoder.encode(password), request.displayName());
+		if (created.isEmpty()) {
+			return ResponseEntity.status(HttpStatus.CONFLICT).body(new ApiError("EMAIL_ALREADY_REGISTERED",
+					"An account with this email already exists. Sign in instead."));
+		}
+		return ResponseEntity.status(HttpStatus.CREATED).body(createSession(created.get(0)));
+	}
+
+	private LoginResponse createSession(MeResponse user) {
 		Instant now = Instant.now();
 		Instant expiresAt = now.plus(tokenTtl);
 		JwtClaimsSet claims = JwtClaimsSet.builder()
@@ -97,7 +149,7 @@ public class AuthController {
 		String token = jwtEncoder.encode(JwtEncoderParameters.from(header, claims)).getTokenValue();
 
 		log.info("Issued token for user {} ({})", user.id(), user.role());
-		return ResponseEntity.ok(new LoginResponse(token, expiresAt, toMeResponse(user)));
+		return new LoginResponse(token, expiresAt, user);
 	}
 
 	/**

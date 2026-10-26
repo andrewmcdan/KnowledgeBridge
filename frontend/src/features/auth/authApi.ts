@@ -9,10 +9,22 @@ export interface AuthUser {
     role: UserRole;
 }
 
-interface LoginResponse {
+export interface LoginResponse {
     token: string;
     expiresAt: string;
     user: AuthUser;
+}
+
+export async function register(displayName: string, email: string, password: string): Promise<LoginResponse> {
+    const response = await fetch("/api/auth/register", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ displayName: displayName.trim(), email: email.trim(), password }),
+    });
+    if (!response.ok) throw await readApiError(response, "We could not create your account. Please try again.");
+    const payload: unknown = await response.json();
+    if (!isLoginResponse(payload) || payload.user.role !== "USER") throw new Error("The server returned an invalid registration response.");
+    return payload;
 }
 
 function isAuthUser(value: unknown): value is AuthUser {

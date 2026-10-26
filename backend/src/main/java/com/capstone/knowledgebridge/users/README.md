@@ -8,4 +8,6 @@ Expected contents:
 - `AppUserRepository` — lookup by email for login; listing and role/enabled updates for the admin user-management routes.
 - `Role` enum if the string column becomes awkward to work with.
 
+Registration in `auth` hashes exact passwords with the existing encoder and exclusively assigns enabled USER accounts. V12 enforces normalized email uniqueness for enabled and disabled accounts. Existing normalization collisions fail migration without changing account IDs or ownership.
+
 Password hashes are compared only in `auth` via `PasswordEncoder.matches`; they are never returned from any route. `AuthController` currently reads `app_user` with `JdbcTemplate` directly and should switch to the repository once it exists.

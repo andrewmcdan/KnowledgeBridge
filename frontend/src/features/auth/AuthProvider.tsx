@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { authContext, type AuthContextValue, type AuthStatus } from "./AuthContext";
-import { getCurrentUser, login, logout, type AuthUser } from "./authApi";
+import { getCurrentUser, login, logout, register, type AuthUser, type LoginResponse } from "./authApi";
 import { AUTH_EXPIRED_EVENT } from "../../api/apiError";
 
 const SESSION_TOKEN_KEY = "knowledgebridge.auth.token";
@@ -52,16 +52,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         };
     }, []);
 
-    const value = useMemo<AuthContextValue>(
-        () => ({
+    const value = useMemo<AuthContextValue>(() => {
+        const acceptSession = (response: LoginResponse, remember: boolean) => {
+            clearStoredToken();
+            (remember ? localStorage : sessionStorage).setItem(SESSION_TOKEN_KEY, response.token);
+            setUser(response.user);
+            setStatus("authenticated");
+        };
+        return {
             status,
             user,
             async signIn(email, password, remember) {
-                const response = await login(email, password);
-                clearStoredToken();
-                (remember ? localStorage : sessionStorage).setItem(SESSION_TOKEN_KEY, response.token);
-                setUser(response.user);
-                setStatus("authenticated");
+                acceptSession(await login(email, password), remember);
+            },
+            async signUp(displayName, email, password) {
+                acceptSession(await register(displayName, email, password), false);
             },
             async signOut() {
                 const token = getStoredToken();
@@ -71,9 +76,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                 // Local sign-out must complete even when the stateless API is unreachable.
                 if (token) await logout(token).catch(() => undefined);
             },
-        }),
-        [status, user],
-    );
+        };
+    }, [status, user]);
 
     return <authContext.Provider value={value}>{children}</authContext.Provider>;
 }

@@ -25,6 +25,7 @@ function loadApi(file, fetch) {
             Event,
             CustomEvent,
             FormData,
+            TextEncoder,
             URLSearchParams,
             sessionStorage: { getItem: () => "signed-token" },
             localStorage: { getItem: () => null },
@@ -98,6 +99,7 @@ function setupAuthProvider(getCurrentUser = async () => user) {
             if (specifier === "./authApi") {
                 return {
                     getCurrentUser,
+                    register: async () => ({ token: "registration-token", user }),
                     login: async () => ({ token: "new-token", user: { ...user, role: "ADMIN" } }),
                     logout: async () => {
                         throw new Error("Server unavailable");
@@ -226,4 +228,56 @@ test("protected APIs associate rejected responses with the token sent on that re
         await assert.rejects(invoke(api), { message: "Expired." });
         assert.deepEqual(rejected, ["Bearer signed-token"], file);
     }
+});
+
+test("registration sends only identity fields and preserves the exact password", async () => {
+    const { api } = loadApi("features/auth/authApi", async (path, options) => {
+        assert.equal(path, "/api/auth/register");
+        assert.equal(options.method, "POST");
+        assert.equal(options.headers["Content-Type"], "application/json");
+        assert.deepEqual(JSON.parse(options.body), { displayName: "New Reader", email: "READER@example.test", password: "  exact password  " });
+        return Response.json({ token: "created-token", expiresAt: "2026-10-26T00:00:00Z", user }, { status: 201 });
+    });
+    assert.equal((await api.register(" New Reader ", " READER@example.test ", "  exact password  ")).user.role, "USER");
+});
+
+test("registration reports duplicates safely and rejects invalid or privileged sessions", async () => {
+    const duplicate = loadApi("features/auth/authApi", async () => Response.json({ code: "EMAIL_ALREADY_REGISTERED", message: "An account with this email already exists. Sign in instead." }, { status: 409 })).api;
+    await assert.rejects(duplicate.register("Reader", "reader@example.test", "password"), /Sign in instead/);
+    const unavailable = loadApi("features/auth/authApi", async () => new Response("<html>private error</html>", { status: 500 })).api;
+    await assert.rejects(unavailable.register("Reader", "reader@example.test", "password"), /We could not create your account/);
+    for (const payload of [null, {}, { token: "token", expiresAt: "date", user: { ...user, role: "ADMIN" } }]) {
+        const invalid = loadApi("features/auth/authApi", async () => Response.json(payload)).api;
+        await assert.rejects(invalid.register("Reader", "reader@example.test", "password"), /invalid registration response/);
+    }
+});
+
+test("registration authenticates in session storage, survives old responses, and logs out", async () => {
+    const auth = setupAuthProvider();
+    await new Promise((resolve) => setImmediate(resolve));
+    assert.equal(auth.state[0], "authenticated", "stored session restores on mount");
+    await auth.actions.signUp("Reader", "reader@example.test", "password");
+    assert.equal(auth.stored.get("knowledgebridge.auth.token"), "registration-token");
+    assert.equal(auth.state[0], "authenticated");
+    assert.equal(auth.state[1].role, "USER");
+    await auth.api.readApiError(Response.json({ code: "UNAUTHENTICATED", message: "Expired." }, { status: 401 }), "fallback", "Bearer old-token");
+    assert.equal(auth.stored.get("knowledgebridge.auth.token"), "registration-token");
+    await auth.actions.signOut();
+    assert.equal(auth.stored.size, 0);
+    assert.equal(auth.state[0], "unauthenticated");
+    auth.cleanup();
+});
+
+test("registration validation counts Unicode characters and UTF-8 bytes without trimming passwords", () => {
+    const { validateRegistration } = loadApi("features/auth/registration", async () => {}).api;
+    for (const password of ["12345678", "        ", "  exact password  ", "a".repeat(72), "😀".repeat(8), "😀".repeat(18)]) {
+        assert.equal(validateRegistration(" Reader ", " reader@example.test ", password, password), null);
+    }
+    assert.match(validateRegistration(" ", "email", "password", "password"), /Enter your name/);
+    assert.match(validateRegistration("x".repeat(256), "email", "password", "password"), /255/);
+    assert.match(validateRegistration("Reader", " ", "password", "password"), /Enter your email/);
+    assert.match(validateRegistration("Reader", "x".repeat(256), "password", "password"), /255/);
+    for (const password of ["", "1234567", "😀".repeat(4)]) assert.match(validateRegistration("Reader", "email", password, password), /eight/);
+    for (const password of ["a".repeat(73), "😀".repeat(19)]) assert.match(validateRegistration("Reader", "email", password, password), /72 UTF-8 bytes/);
+    assert.match(validateRegistration("Reader", "email", " password ", "password"), /do not match/);
 });

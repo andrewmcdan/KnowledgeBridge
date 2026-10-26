@@ -13,6 +13,7 @@ import { UploadsPage } from "./features/knowledge/UploadsPage";
 import { UsagePage } from "./features/usage/UsagePage";
 import { PlaceholderPage } from "./features/overview/PlaceholderPage";
 import { LoginPage } from "./features/auth/LoginPage";
+import { RegisterPage } from "./features/auth/RegisterPage";
 import { AuthProvider } from "./features/auth/AuthProvider";
 import { useAuth } from "./features/auth/useAuth";
 import { useGlobalShortcuts } from "./hooks/useGlobalShortcuts";
@@ -98,7 +99,10 @@ function AppRoutes() {
                         <Route path="/*" element={<Workspace />} />
                     </>
                 ) : (
-                    <Route path="*" element={<LoginPage />} />
+                    <>
+                        <Route path="/register" element={<RegisterPage />} />
+                        <Route path="*" element={<LoginPage />} />
+                    </>
                 )}
             </Routes>
         </BrowserRouter>

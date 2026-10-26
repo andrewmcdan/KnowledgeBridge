@@ -16,6 +16,7 @@ The committed [OpenAPI contract](./openapi.json) and [integration guide](./Integ
 
 | Method | Route | Role | Description |
 |---|---|---|---|
+| POST | `/api/auth/register` | Public | Creates an enabled USER account and returns 201 with `{token, expiresAt, user}`. Duplicate normalized email returns 409. *(implemented)* |
 | POST | `/api/auth/login` | Public | Returns `{token, expiresAt, user}` after email/password authentication. *(implemented)* |
 | POST | `/api/auth/logout` | User | Returns 204; frontend discards its token. Stateless JWTs are not revoked. *(implemented)* |
 | GET | `/api/auth/me` | User | Returns the signed-in user's id, display name, and role so the UI can show/hide admin navigation. |

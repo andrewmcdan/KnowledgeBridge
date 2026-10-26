@@ -29,6 +29,7 @@ class CommittedApiContractTests {
 		assertFields("KnowledgeItem", KnowledgeItemController.KnowledgeItemResponse.class);
 		assertFields("ManualKnowledgeItemRequest", KnowledgeItemController.ManualKnowledgeItemRequest.class);
 		assertFields("LoginRequest", AuthController.LoginRequest.class);
+		assertFields("RegistrationRequest", AuthController.RegistrationRequest.class);
 		assertFields("LoginResponse", AuthController.LoginResponse.class);
 		assertFields("AuthUser", AuthController.MeResponse.class);
 		assertFields("ApiError", ApiError.class);
