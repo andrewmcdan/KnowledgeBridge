@@ -47,6 +47,7 @@ public class SecurityConfiguration {
 								"/api/knowledge-items/*/extract-entities")
 						.hasRole("ADMIN")
 						.requestMatchers("/api/admin/**").hasRole("ADMIN")
+						.requestMatchers(HttpMethod.PUT, "/api/knowledge-items/*/manual").hasRole("ADMIN")
 						.anyRequest().authenticated())
 				// Validates the Authorization: Bearer <jwt> header on every other request.
 				.oauth2ResourceServer(oauth2 -> oauth2

@@ -807,6 +807,41 @@ small {
     display: grid;
     gap: 16px;
 }
+.knowledge-item:has(.note-editor) {
+    flex-wrap: wrap;
+}
+.note-editor {
+    flex-basis: 100%;
+    max-width: none;
+    border-top: 1px solid var(--border);
+    padding-top: 16px;
+}
+.usage-panel {
+    margin-top: 18px;
+}
+.usage-totals {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 16px;
+    margin: 20px 0;
+}
+.usage-totals dt,
+.usage-explanation,
+.query-usage {
+    color: var(--muted);
+    font-size: 12px;
+    line-height: 1.55;
+}
+.usage-totals dd {
+    margin: 6px 0 0;
+    color: var(--ink);
+    font-size: 23px;
+    font-weight: 600;
+}
+.query-usage {
+    margin: 14px 0;
+    border-top: 1px solid var(--border);
+}
 .uploads-intro {
     color: #4c5973;
     font-size: 13px;
@@ -817,6 +852,7 @@ small {
 }
 .upload-tabs {
     display: flex;
+    flex-wrap: wrap;
     gap: 4px;
     padding: 8px 12px 0;
     border-bottom: 1px solid var(--border);
@@ -889,6 +925,16 @@ small {
     inset: 0;
     opacity: 0;
     cursor: pointer;
+}
+
+.folder-upload-results {
+    max-height: 320px;
+    overflow: auto;
+    padding-left: 24px;
+    overflow-wrap: anywhere;
+}
+.folder-upload-results li {
+    margin-bottom: 10px;
 }
 .upload-form .primary-button {
     justify-self: start;

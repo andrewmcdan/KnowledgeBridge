@@ -6,7 +6,7 @@ $ast = [Management.Automation.Language.Parser]::ParseFile($launcher, [ref]$token
 if ($parseErrors.Count) { throw 'Launcher has PowerShell syntax errors.' }
 
 # Load only pure helpers, never the launcher's service/process orchestration.
-foreach ($name in @('ConvertFrom-DevEnvironment', 'Test-DevBackendOverride', 'Clear-DevEmptyEnvironmentOverrides', 'Restore-DevEnvironment', 'Get-HostBackendEnvironment', 'Get-DevServicesToStop', 'Assert-DevProcessesRunning')) {
+foreach ($name in @('ConvertFrom-DevEnvironment', 'Test-DevBackendOverride', 'Clear-DevEmptyEnvironmentOverrides', 'Restore-DevEnvironment', 'Get-HostBackendEnvironment', 'Get-DevServicesToStop', 'Assert-DevProcessesRunning', 'Get-DevBackendArguments')) {
     $definition = $ast.Find({ param($node) $node -is [Management.Automation.Language.FunctionDefinitionAst] -and $node.Name -eq $name }, $false)
     if ($null -eq $definition) { throw "Missing launcher helper: $name" }
     . ([scriptblock]::Create($definition.Extent.Text))
@@ -60,6 +60,7 @@ $running | Add-Member -MemberType ScriptMethod -Name Refresh -Value {}
 $exited = [pscustomobject]@{ HasExited = $true; ExitCode = 0 }
 $exited | Add-Member -MemberType ScriptMethod -Name Refresh -Value {}
 Assert-DevProcessesRunning $running $running 'test-logs'
+Assert-Equal (Get-DevBackendArguments) @('bootRun', '--no-daemon', '--console=plain', '-PdevtoolsRestart=false') 'disable DevTools restart before Java main so startup failure returns a nonzero exit code'
 foreach ($failed in @('Spring Boot', 'Vite')) {
     $message = ''
     try {

@@ -24,6 +24,7 @@ export interface SynthesisResponse {
     answer: string;
     aiGenerated: boolean;
     extractiveFallback: boolean;
+    cacheHit: boolean;
     citations: Array<{
         itemKey: string;
         externalId: string;
@@ -37,6 +38,7 @@ export interface SynthesisResponse {
         inputTokens: number | null;
         outputTokens: number | null;
         estimatedCostUsd: number | null;
+        estimated: boolean;
     } | null;
 }
 
@@ -54,6 +56,10 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 
 function isStringArray(value: unknown): value is string[] {
     return Array.isArray(value) && value.every((item) => typeof item === "string");
+}
+
+function isTokenCount(value: unknown): boolean {
+    return value === null || (typeof value === "number" && Number.isSafeInteger(value) && value >= 0);
 }
 
 function isSearchResponse(value: unknown): value is SearchResponse {
@@ -85,14 +91,16 @@ function isSynthesisResponse(value: unknown): value is SynthesisResponse {
         usage === null ||
         (isRecord(usage) &&
             typeof usage.model === "string" &&
-            (typeof usage.inputTokens === "number" || usage.inputTokens === null) &&
-            (typeof usage.outputTokens === "number" || usage.outputTokens === null) &&
+            typeof usage.estimated === "boolean" &&
+            isTokenCount(usage.inputTokens) &&
+            isTokenCount(usage.outputTokens) &&
             (typeof usage.estimatedCostUsd === "number" || usage.estimatedCostUsd === null));
 
     return (
         typeof value.answer === "string" &&
         typeof value.aiGenerated === "boolean" &&
         typeof value.extractiveFallback === "boolean" &&
+        typeof value.cacheHit === "boolean" &&
         validUsage &&
         value.citations.every(
             (citation) =>

@@ -39,7 +39,7 @@ class IntegrationMigrationTests {
 
 		Flyway upgraded = Flyway.configure()
 				.dataSource(postgres.getJdbcUrl(), postgres.getUsername(), postgres.getPassword()).load();
-		assertThat(upgraded.migrate().migrationsExecuted).isEqualTo(2);
+		assertThat(upgraded.migrate().migrationsExecuted).isEqualTo(3);
 		upgraded.validate();
 
 		assertThat(jdbc.queryForObject("SELECT body_text FROM knowledge_item WHERE id = ?", String.class, id))
@@ -50,6 +50,9 @@ class IntegrationMigrationTests {
 		assertThat(jdbc.queryForObject("SELECT knowledge_revision FROM system_state WHERE id = 1", Long.class))
 				.isEqualTo(42L);
 		assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM query_cache", Integer.class)).isZero();
+		assertThat(jdbc.queryForObject("SELECT content_updated_at = created_at FROM knowledge_item WHERE id = ?",
+				Boolean.class, id)).isTrue();
+		assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM query_usage", Integer.class)).isZero();
 		assertThat(
 				jdbc.queryForObject("SELECT description FROM flyway_schema_history WHERE version = '8'", String.class))
 				.isEqualTo("add video ingestion metadata");

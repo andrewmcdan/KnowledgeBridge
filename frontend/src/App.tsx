@@ -10,6 +10,7 @@ import { AskAiPage } from "./features/ask-ai/AskAiPage";
 import { EntitiesPage } from "./features/entities/EntitiesPage";
 import { KnowledgeBasePage } from "./features/knowledge/KnowledgeBasePage";
 import { UploadsPage } from "./features/knowledge/UploadsPage";
+import { UsagePage } from "./features/usage/UsagePage";
 import { PlaceholderPage } from "./features/overview/PlaceholderPage";
 import { LoginPage } from "./features/auth/LoginPage";
 import { AuthProvider } from "./features/auth/AuthProvider";
@@ -70,7 +71,7 @@ function Workspace() {
                             <Route path="/entities" element={<EntitiesPage onOpenDetail={setDetail} />} />
                             <Route path="/dashboard" element={<PlaceholderPage page="Dashboard" service={service} onAskAi={() => go("/ask-ai")} />} />
                             <Route path="/uploads" element={user?.role === "ADMIN" ? <UploadsPage /> : <Navigate to="/ask-ai" replace />} />
-                            <Route path="/usage" element={<PlaceholderPage page="Usage" service={service} onAskAi={() => go("/ask-ai")} />} />
+                            <Route path="/usage" element={<UsagePage />} />
                             <Route path="/admin" element={user?.role === "ADMIN" ? <PlaceholderPage page="Admin" service={service} onAskAi={() => go("/ask-ai")} /> : <Navigate to="/ask-ai" replace />} />
                             <Route path="*" element={<Navigate to="/ask-ai" replace />} />
                         </Routes>

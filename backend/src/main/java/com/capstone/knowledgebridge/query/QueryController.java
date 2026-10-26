@@ -3,6 +3,8 @@ package com.capstone.knowledgebridge.query;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -11,6 +13,8 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.capstone.knowledgebridge.gbrain.GbrainException;
 import com.capstone.knowledgebridge.common.ApiError;
+import com.capstone.knowledgebridge.cache.QueryMode;
+import com.capstone.knowledgebridge.usage.UsageService;
 import com.capstone.knowledgebridge.query.QueryService.SearchResponse;
 import com.capstone.knowledgebridge.query.QueryService.SynthesisResponse;
 
@@ -31,21 +35,29 @@ public class QueryController {
 	}
 
 	private final QueryService queryService;
+	private final UsageService usageService;
 
-	public QueryController(QueryService queryService) {
+	public QueryController(QueryService queryService, UsageService usageService) {
 		this.queryService = queryService;
+		this.usageService = usageService;
 	}
 
 	@PostMapping("/search")
 	@PreAuthorize("isAuthenticated()")
-	public SearchResponse search(@Valid @RequestBody SearchRequest request) {
-		return queryService.search(request.question(), request.limit());
+	public SearchResponse search(@Valid @RequestBody SearchRequest request, @AuthenticationPrincipal Jwt jwt) {
+		SearchResponse response = queryService.search(request.question(), request.limit());
+		usageService.record(Long.parseLong(jwt.getSubject()), QueryMode.SEARCH, false, null);
+		return response;
 	}
 
 	@PostMapping("/synthesize")
 	@PreAuthorize("isAuthenticated()")
-	public SynthesisResponse synthesize(@Valid @RequestBody SynthesisRequest request) {
-		return queryService.synthesize(request.question());
+	public SynthesisResponse synthesize(@Valid @RequestBody SynthesisRequest request,
+			@AuthenticationPrincipal Jwt jwt) {
+		SynthesisResponse response = queryService.synthesize(request.question());
+		usageService.record(Long.parseLong(jwt.getSubject()), QueryMode.SYNTHESIS, response.cacheHit(),
+				response.usage());
+		return response;
 	}
 
 	@ExceptionHandler(GbrainException.class)

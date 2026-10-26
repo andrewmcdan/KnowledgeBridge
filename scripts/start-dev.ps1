@@ -163,6 +163,10 @@ function Assert-DevProcessesRunning {
     }
 }
 
+function Get-DevBackendArguments {
+    return @('bootRun', '--no-daemon', '--console=plain', '-PdevtoolsRestart=false')
+}
+
 try {
     foreach ($command in @('docker', 'npm.cmd', 'java', 'taskkill.exe')) {
         if (-not (Get-Command $command -ErrorAction SilentlyContinue)) {
@@ -228,7 +232,7 @@ try {
     $null = New-Item -ItemType Directory -Path $logDirectory
     Write-Host "Starting Spring Boot and Vite. Logs: $logDirectory"
     $backendProcess = Start-Process -FilePath (Join-Path $projectRoot 'backend/gradlew.bat') `
-        -ArgumentList 'bootRun', '--no-daemon', '--console=plain' `
+        -ArgumentList (Get-DevBackendArguments) `
         -WorkingDirectory (Join-Path $projectRoot 'backend') -WindowStyle Hidden -PassThru `
         -RedirectStandardOutput (Join-Path $logDirectory 'backend.out.log') -RedirectStandardError (Join-Path $logDirectory 'backend.err.log')
     $frontendProcess = Start-Process -FilePath 'npm.cmd' -ArgumentList 'run', 'dev', '--', '--strictPort' `

@@ -18,7 +18,7 @@ class GbrainDocumentMapperTests {
 	}
 
 	@Test
-	void mapsFieldsAndUsesCreatedAtForBothTimestamps() {
+	void mapsFieldsAndKeepsContentTimeStableAcrossRetries() {
 		KnowledgeItem item = itemWithType("Policy");
 
 		GbrainDocument document = GbrainDocumentMapper.toDocument(item);
@@ -31,9 +31,14 @@ class GbrainDocumentMapperTests {
 		// GbrainDocument's own compact constructor normalizes the body and always appends exactly one
 		// trailing newline - not something the mapper does itself, just worth asserting we know about it.
 		assertThat(document.body()).isEqualTo("body text\n");
-		// The digest-stability fix: both timestamp slots use createdAt, never updatedAt.
+		// New notes begin with the same creation and content times.
 		assertThat(document.createdAt()).isEqualTo(item.getCreatedAt());
 		assertThat(document.updatedAt()).isEqualTo(item.getCreatedAt());
+		item.markFailed();
+		item.markProcessing();
+		assertThat(GbrainDocumentMapper.toDocument(item).contentDigest()).isEqualTo(document.contentDigest());
+		ReflectionTestUtils.setField(item, "contentUpdatedAt", item.getCreatedAt().plusSeconds(60));
+		assertThat(GbrainDocumentMapper.toDocument(item).updatedAt()).isEqualTo(item.getContentUpdatedAt());
 	}
 
 	@Test

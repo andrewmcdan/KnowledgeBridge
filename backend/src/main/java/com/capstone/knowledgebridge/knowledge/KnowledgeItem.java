@@ -85,6 +85,9 @@ public class KnowledgeItem {
 	@Column(name = "updated_at", nullable = false)
 	private Instant updatedAt;
 
+	@Column(name = "content_updated_at", nullable = false)
+	private Instant contentUpdatedAt;
+
 	protected KnowledgeItem() {
 		// JPA
 	}
@@ -107,6 +110,7 @@ public class KnowledgeItem {
 		Instant now = Instant.now();
 		this.createdAt = now;
 		this.updatedAt = now;
+		this.contentUpdatedAt = now;
 	}
 
 	public static KnowledgeItem video(String title, String type, Long ownerId, String originalFilename,
@@ -154,6 +158,7 @@ public class KnowledgeItem {
 		this.transcriptionLanguage = language;
 		this.transcriptionSegmentCount = segmentCount;
 		this.transcribedAt = Instant.now();
+		this.contentUpdatedAt = this.transcribedAt;
 		this.ingestionStage = IngestionStage.INDEXING;
 		this.updatedAt = Instant.now();
 	}
@@ -263,5 +268,9 @@ public class KnowledgeItem {
 
 	public Instant getUpdatedAt() {
 		return updatedAt;
+	}
+
+	public Instant getContentUpdatedAt() {
+		return contentUpdatedAt;
 	}
 }

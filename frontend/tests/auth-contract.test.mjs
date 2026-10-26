@@ -196,7 +196,7 @@ test("knowledge requests and response guards accept the committed contract examp
     await api.createManualKnowledgeItem("Title", "Note", "Body");
     assert.deepEqual(JSON.parse(calls[1].options.body), { title: "Title", type: "Note", text: "Body" });
     const file = new File(["# Body"], "note.md", { type: "text/markdown" });
-    await api.uploadMarkdown(file, "Title", "Note");
+    await api.uploadKnowledgeFile(file, "Title", "Note");
     assert.equal(calls[2].options.body.get("file").name, "note.md");
     assert.equal(calls[2].options.body.get("title"), "Title");
     assert.equal(calls[2].options.body.get("type"), "Note");
@@ -213,7 +213,8 @@ test("protected APIs associate rejected responses with the token sent on that re
         ["features/auth/authApi", (api) => api.getCurrentUser("signed-token")],
         ["features/knowledge/knowledgeApi", (api) => api.getKnowledgeItems()],
         ["features/knowledge/knowledgeApi", (api) => api.createManualKnowledgeItem("Title", "Note", "Body")],
-        ["features/knowledge/knowledgeApi", (api) => api.uploadMarkdown(new File(["Body"], "note.md"), "Title", "Note")],
+        ["features/knowledge/knowledgeApi", (api) => api.uploadKnowledgeFile(new File(["Body"], "note.md"), "Title", "Note")],
+        ["features/knowledge/knowledgeApi", (api) => api.uploadKnowledgeFile(new File(["Body"], "talk.mp4"), "Title", "Video")],
         ["features/knowledge/knowledgeApi", (api) => api.retryKnowledgeItem(1)],
         ["features/ask-ai/askAiApi", (api) => api.submitQuestion("Search", "Question")],
         ["features/entities/entitiesApi", (api) => api.getEntities()],

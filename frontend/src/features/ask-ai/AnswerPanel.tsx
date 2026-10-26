@@ -64,6 +64,18 @@ function SynthesisAnswer({ result }: { result: SynthesisResponse }) {
             <p className="synthesis-answer">{result.answer}</p>
             {result.gaps.length > 0 && <p className="query-warning">Knowledge gaps: {result.gaps.join(" ")}</p>}
             {result.warnings.length > 0 && <p className="query-warning">Warnings: {result.warnings.join(" ")}</p>}
+            <div className="query-usage" aria-label="Query token usage">
+                {result.cacheHit ? (
+                    <p>Cached answer · 0 new synthesis tokens</p>
+                ) : result.usage ? (
+                    <p>
+                        {result.usage.estimated ? "Estimated" : "Engine-reported"} synthesis tokens: {(result.usage.inputTokens ?? 0).toLocaleString()} input + {(result.usage.outputTokens ?? 0).toLocaleString()} output ={" "}
+                        {((result.usage.inputTokens ?? 0) + (result.usage.outputTokens ?? 0)).toLocaleString()} total.
+                    </p>
+                ) : (
+                    <p>No synthesis token usage was reported for this response.</p>
+                )}
+            </div>
             <h3 className="citation-heading">Citations ({result.citations.length})</h3>
             {result.citations.length ? (
                 <ol className="query-citations">

@@ -19,6 +19,13 @@ repositories {
 	mavenCentral()
 }
 
+// The launcher disables the restart thread so application startup failures reach Gradle's exit code.
+tasks.named('bootRun') {
+	if (providers.gradleProperty('devtoolsRestart').isPresent()) {
+		systemProperty 'spring.devtools.restart.enabled', providers.gradleProperty('devtoolsRestart').get()
+	}
+}
+
 spotless {
 	java {
 		target 'src/*/java/**/*.java'
