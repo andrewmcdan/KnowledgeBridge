@@ -63,3 +63,5 @@ jobs:
       - run: docker compose -f compose.yaml -f compose.mock.yaml config --quiet
       - shell: pwsh
         run: ./scripts/test-start-dev.ps1
+      - shell: pwsh
+        run: ./scripts/test-purge-documents.ps1
