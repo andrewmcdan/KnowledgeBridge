@@ -29,5 +29,6 @@
         "editor.defaultFormatter": "redhat.java",
         "editor.insertSpaces": false,
         "editor.tabSize": 4
-    }
+    },
+    "java.compile.nullAnalysis.mode": "disabled"
 }
