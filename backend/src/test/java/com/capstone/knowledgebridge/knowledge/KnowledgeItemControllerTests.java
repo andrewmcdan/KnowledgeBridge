@@ -134,7 +134,7 @@ class KnowledgeItemControllerTests {
 	void uploadRejectsEmptyFile() {
 		MultipartFile file = new MockMultipartFile("file", "doc.md", "text/markdown", new byte[0]);
 
-		ResponseEntity<KnowledgeItemResponse> response = controller.uploadDocument(file, "Title", "Policy",
+		ResponseEntity<KnowledgeItemResponse> response = controller.uploadDocument(file, "Title", "Policy", false,
 				jwtFor("7"));
 
 		assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
@@ -145,7 +145,8 @@ class KnowledgeItemControllerTests {
 		MultipartFile file = new MockMultipartFile("file", "doc.md", "text/markdown",
 				"content".getBytes(StandardCharsets.UTF_8));
 
-		ResponseEntity<KnowledgeItemResponse> response = controller.uploadDocument(file, "  ", "Policy", jwtFor("7"));
+		ResponseEntity<KnowledgeItemResponse> response = controller.uploadDocument(file, "  ", "Policy", false,
+				jwtFor("7"));
 
 		assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
 	}
@@ -155,7 +156,8 @@ class KnowledgeItemControllerTests {
 		MultipartFile file = new MockMultipartFile("file", "doc.md", "text/markdown",
 				"content".getBytes(StandardCharsets.UTF_8));
 
-		ResponseEntity<KnowledgeItemResponse> response = controller.uploadDocument(file, "Title", "  ", jwtFor("7"));
+		ResponseEntity<KnowledgeItemResponse> response = controller.uploadDocument(file, "Title", "  ", false,
+				jwtFor("7"));
 
 		assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
 	}
@@ -166,9 +168,9 @@ class KnowledgeItemControllerTests {
 				"content".getBytes(StandardCharsets.UTF_8));
 		String overlong = "x".repeat(256);
 
-		assertThat(controller.uploadDocument(file, overlong, "Policy", jwtFor("7")).getStatusCode())
+		assertThat(controller.uploadDocument(file, overlong, "Policy", false, jwtFor("7")).getStatusCode())
 				.isEqualTo(HttpStatus.BAD_REQUEST);
-		assertThat(controller.uploadDocument(file, "Title", overlong, jwtFor("7")).getStatusCode())
+		assertThat(controller.uploadDocument(file, "Title", overlong, false, jwtFor("7")).getStatusCode())
 				.isEqualTo(HttpStatus.BAD_REQUEST);
 	}
 
@@ -177,7 +179,7 @@ class KnowledgeItemControllerTests {
 		MultipartFile file = new MockMultipartFile("file", "doc.md", "text/markdown",
 				OVER_GBRAIN_LIMIT.getBytes(StandardCharsets.UTF_8));
 
-		ResponseEntity<KnowledgeItemResponse> response = controller.uploadDocument(file, "Title", "Policy",
+		ResponseEntity<KnowledgeItemResponse> response = controller.uploadDocument(file, "Title", "Policy", false,
 				jwtFor("7"));
 
 		assertThat(response.getStatusCode()).isEqualTo(HttpStatus.CONTENT_TOO_LARGE);
@@ -188,7 +190,7 @@ class KnowledgeItemControllerTests {
 		MultipartFile file = new MockMultipartFile("file", "doc.pdf", "application/pdf",
 				"content".getBytes(StandardCharsets.UTF_8));
 
-		ResponseEntity<KnowledgeItemResponse> response = controller.uploadDocument(file, "Title", "Policy",
+		ResponseEntity<KnowledgeItemResponse> response = controller.uploadDocument(file, "Title", "Policy", false,
 				jwtFor("7"));
 
 		assertThat(response.getStatusCode()).isEqualTo(HttpStatus.UNSUPPORTED_MEDIA_TYPE);
@@ -201,7 +203,7 @@ class KnowledgeItemControllerTests {
 		when(file.isEmpty()).thenReturn(false);
 		when(file.getOriginalFilename()).thenReturn(null);
 
-		ResponseEntity<KnowledgeItemResponse> response = controller.uploadDocument(file, "Title", "Policy",
+		ResponseEntity<KnowledgeItemResponse> response = controller.uploadDocument(file, "Title", "Policy", false,
 				jwtFor("7"));
 
 		assertThat(response.getStatusCode()).isEqualTo(HttpStatus.UNSUPPORTED_MEDIA_TYPE);
@@ -212,7 +214,7 @@ class KnowledgeItemControllerTests {
 		MultipartFile file = new MockMultipartFile("file", "doc.md", "text/markdown",
 				"   \n  ".getBytes(StandardCharsets.UTF_8));
 
-		ResponseEntity<KnowledgeItemResponse> response = controller.uploadDocument(file, "Title", "Policy",
+		ResponseEntity<KnowledgeItemResponse> response = controller.uploadDocument(file, "Title", "Policy", false,
 				jwtFor("7"));
 
 		assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
@@ -225,7 +227,7 @@ class KnowledgeItemControllerTests {
 		when(file.getOriginalFilename()).thenReturn("doc.md");
 		when(file.getSize()).thenReturn((long) GbrainDocument.MAX_BODY_BYTES + 1);
 
-		ResponseEntity<KnowledgeItemResponse> response = controller.uploadDocument(file, "Title", "Policy",
+		ResponseEntity<KnowledgeItemResponse> response = controller.uploadDocument(file, "Title", "Policy", false,
 				jwtFor("7"));
 
 		assertThat(response.getStatusCode()).isEqualTo(HttpStatus.CONTENT_TOO_LARGE);
@@ -239,7 +241,7 @@ class KnowledgeItemControllerTests {
 		when(file.getOriginalFilename()).thenReturn("doc.md");
 		when(file.getBytes()).thenThrow(new IOException("disk exploded"));
 
-		ResponseEntity<KnowledgeItemResponse> response = controller.uploadDocument(file, "Title", "Policy",
+		ResponseEntity<KnowledgeItemResponse> response = controller.uploadDocument(file, "Title", "Policy", false,
 				jwtFor("7"));
 
 		assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
@@ -251,10 +253,11 @@ class KnowledgeItemControllerTests {
 				"# Hello".getBytes(StandardCharsets.UTF_8));
 		KnowledgeItem item = new KnowledgeItem("Title", "Policy", 7L, "# Hello");
 		ReflectionTestUtils.setField(item, "id", 1L);
-		when(knowledgeItemService.createMarkdownAndIngest(eq("Title"), eq("Policy"), anyString(), eq(7L)))
+		when(knowledgeItemService.createMarkdownAndIngest(eq("Title"), eq("Policy"), anyString(), eq(7L),
+				org.mockito.ArgumentMatchers.eq(false)))
 				.thenReturn(item);
 
-		ResponseEntity<KnowledgeItemResponse> response = controller.uploadDocument(file, "Title", "Policy",
+		ResponseEntity<KnowledgeItemResponse> response = controller.uploadDocument(file, "Title", "Policy", false,
 				jwtFor("7"));
 
 		assertThat(response.getStatusCode()).isEqualTo(HttpStatus.CREATED);
@@ -274,9 +277,9 @@ class KnowledgeItemControllerTests {
 		ReflectionTestUtils.setField(item, "id", 1L);
 		when(knowledgeItemService.createDocxAndIngest("Title", "Guide",
 				"# Equipment\n\nMonitors are replaced every 5 years.\n", 7L, "Equipment Guide.DOCX", DOCX_TYPE,
-				sha256)).thenReturn(item);
+				sha256, false)).thenReturn(item);
 
-		ResponseEntity<KnowledgeItemResponse> response = controller.uploadDocument(file, "Title", "Guide",
+		ResponseEntity<KnowledgeItemResponse> response = controller.uploadDocument(file, "Title", "Guide", false,
 				jwtFor("7"));
 
 		assertThat(response.getStatusCode()).isEqualTo(HttpStatus.CREATED);
@@ -290,11 +293,12 @@ class KnowledgeItemControllerTests {
 		MultipartFile file = new MockMultipartFile("file", "renamed.docx", DOCX_TYPE,
 				"# Markdown in disguise".getBytes(StandardCharsets.UTF_8));
 
-		ResponseEntity<KnowledgeItemResponse> response = controller.uploadDocument(file, "Title", "Guide",
+		ResponseEntity<KnowledgeItemResponse> response = controller.uploadDocument(file, "Title", "Guide", false,
 				jwtFor("7"));
 
 		assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
-		verify(knowledgeItemService, never()).createDocxAndIngest(any(), any(), any(), any(), any(), any(), any());
+		verify(knowledgeItemService, never()).createDocxAndIngest(any(), any(), any(), any(), any(), any(), any(),
+				org.mockito.ArgumentMatchers.eq(false));
 	}
 
 	@Test
@@ -302,7 +306,7 @@ class KnowledgeItemControllerTests {
 		MultipartFile file = new MockMultipartFile("file", "blank.docx", DOCX_TYPE,
 				DocxFixtures.docx(document -> document.createParagraph()));
 
-		ResponseEntity<KnowledgeItemResponse> response = controller.uploadDocument(file, "Title", "Guide",
+		ResponseEntity<KnowledgeItemResponse> response = controller.uploadDocument(file, "Title", "Guide", false,
 				jwtFor("7"));
 
 		assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
@@ -320,7 +324,7 @@ class KnowledgeItemControllerTests {
 		byte[] docx = DocxFixtures.docx(document -> DocxFixtures.paragraph(document, text.toString()));
 		MultipartFile file = new MockMultipartFile("file", "huge.docx", DOCX_TYPE, docx);
 
-		ResponseEntity<KnowledgeItemResponse> response = controller.uploadDocument(file, "Title", "Guide",
+		ResponseEntity<KnowledgeItemResponse> response = controller.uploadDocument(file, "Title", "Guide", false,
 				jwtFor("7"));
 
 		assertThat(docx.length).isLessThan(GbrainDocument.MAX_BODY_BYTES);
@@ -334,7 +338,7 @@ class KnowledgeItemControllerTests {
 		when(file.getOriginalFilename()).thenReturn("big.docx");
 		when(file.getSize()).thenReturn(KnowledgeItemController.MAX_DOCX_BYTES + 1);
 
-		ResponseEntity<KnowledgeItemResponse> response = controller.uploadDocument(file, "Title", "Guide",
+		ResponseEntity<KnowledgeItemResponse> response = controller.uploadDocument(file, "Title", "Guide", false,
 				jwtFor("7"));
 
 		assertThat(response.getStatusCode()).isEqualTo(HttpStatus.CONTENT_TOO_LARGE);
@@ -343,7 +347,7 @@ class KnowledgeItemControllerTests {
 		// Over the Markdown limit but under the .docx limit: the size check passes and the file is read.
 		when(file.getSize()).thenReturn((long) GbrainDocument.MAX_BODY_BYTES + 1);
 		when(file.getBytes()).thenReturn(new byte[0]);
-		assertThat(controller.uploadDocument(file, "Title", "Guide", jwtFor("7")).getStatusCode())
+		assertThat(controller.uploadDocument(file, "Title", "Guide", false, jwtFor("7")).getStatusCode())
 				.isEqualTo(HttpStatus.BAD_REQUEST);
 		verify(file).getBytes();
 	}
@@ -352,7 +356,7 @@ class KnowledgeItemControllerTests {
 	void docxUploadRejectsAFilenameTooLongToStore() {
 		MultipartFile file = new MockMultipartFile("file", "x".repeat(251) + ".docx", DOCX_TYPE, new byte[]{1});
 
-		ResponseEntity<KnowledgeItemResponse> response = controller.uploadDocument(file, "Title", "Guide",
+		ResponseEntity<KnowledgeItemResponse> response = controller.uploadDocument(file, "Title", "Guide", false,
 				jwtFor("7"));
 
 		assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
@@ -368,21 +372,21 @@ class KnowledgeItemControllerTests {
 	@Test
 	void videoUploadRejectsEachInvalidRequestField() {
 		MultipartFile empty = new MockMultipartFile("file", "meeting.mp4", "video/mp4", new byte[0]);
-		assertThat(controller.uploadVideo(empty, "Title", "Meeting", jwtFor("7")).getStatusCode())
+		assertThat(controller.uploadVideo(empty, "Title", "Meeting", false, jwtFor("7")).getStatusCode())
 				.isEqualTo(HttpStatus.BAD_REQUEST);
 
 		MultipartFile file = mock(MultipartFile.class);
 		when(file.isEmpty()).thenReturn(false);
 		when(file.getOriginalFilename()).thenReturn("meeting.mp4");
-		assertThat(controller.uploadVideo(file, " ", "Meeting", jwtFor("7")).getStatusCode())
+		assertThat(controller.uploadVideo(file, " ", "Meeting", false, jwtFor("7")).getStatusCode())
 				.isEqualTo(HttpStatus.BAD_REQUEST);
-		assertThat(controller.uploadVideo(file, "Title", " ", jwtFor("7")).getStatusCode())
+		assertThat(controller.uploadVideo(file, "Title", " ", false, jwtFor("7")).getStatusCode())
 				.isEqualTo(HttpStatus.BAD_REQUEST);
 		when(file.getOriginalFilename()).thenReturn(null);
-		assertThat(controller.uploadVideo(file, "Title", "Meeting", jwtFor("7")).getStatusCode())
+		assertThat(controller.uploadVideo(file, "Title", "Meeting", false, jwtFor("7")).getStatusCode())
 				.isEqualTo(HttpStatus.BAD_REQUEST);
 		when(file.getOriginalFilename()).thenReturn("x".repeat(256));
-		assertThat(controller.uploadVideo(file, "Title", "Meeting", jwtFor("7")).getStatusCode())
+		assertThat(controller.uploadVideo(file, "Title", "Meeting", false, jwtFor("7")).getStatusCode())
 				.isEqualTo(HttpStatus.BAD_REQUEST);
 	}
 
@@ -392,9 +396,9 @@ class KnowledgeItemControllerTests {
 		when(videoStorageService.isSupportedFilename("meeting.mp4")).thenReturn(false).thenReturn(true);
 		when(videoStorageService.exceedsUploadLimit(1)).thenReturn(true);
 
-		assertThat(controller.uploadVideo(file, "Title", "Meeting", jwtFor("7")).getStatusCode())
+		assertThat(controller.uploadVideo(file, "Title", "Meeting", false, jwtFor("7")).getStatusCode())
 				.isEqualTo(HttpStatus.UNSUPPORTED_MEDIA_TYPE);
-		assertThat(controller.uploadVideo(file, "Title", "Meeting", jwtFor("7")).getStatusCode())
+		assertThat(controller.uploadVideo(file, "Title", "Meeting", false, jwtFor("7")).getStatusCode())
 				.isEqualTo(HttpStatus.CONTENT_TOO_LARGE);
 	}
 
@@ -407,9 +411,10 @@ class KnowledgeItemControllerTests {
 		ReflectionTestUtils.setField(item, "id", 2L);
 		when(videoStorageService.isSupportedFilename("meeting.mp4")).thenReturn(true);
 		when(videoStorageService.store(file)).thenReturn(stored);
-		when(knowledgeItemService.createVideoAndIngest("Title", "Meeting", 7L, stored)).thenReturn(item);
+		when(knowledgeItemService.createVideoAndIngest("Title", "Meeting", 7L, stored, false)).thenReturn(item);
 
-		ResponseEntity<KnowledgeItemResponse> response = controller.uploadVideo(file, "Title", "Meeting", jwtFor("7"));
+		ResponseEntity<KnowledgeItemResponse> response = controller.uploadVideo(file, "Title", "Meeting", false,
+				jwtFor("7"));
 
 		assertThat(response.getStatusCode()).isEqualTo(HttpStatus.ACCEPTED);
 		assertThat(response.getBody().sourceKind()).isEqualTo("VIDEO");
@@ -422,10 +427,10 @@ class KnowledgeItemControllerTests {
 		StoredVideo stored = new StoredVideo("meeting.mp4", "video/mp4", "hash", Path.of("stored"));
 		when(videoStorageService.isSupportedFilename("meeting.mp4")).thenReturn(true);
 		when(videoStorageService.store(file)).thenReturn(stored);
-		when(knowledgeItemService.createVideoAndIngest("Title", "Meeting", 7L, stored))
+		when(knowledgeItemService.createVideoAndIngest("Title", "Meeting", 7L, stored, false))
 				.thenThrow(new IllegalStateException("database down"));
 
-		assertThatThrownBy(() -> controller.uploadVideo(file, "Title", "Meeting", jwtFor("7")))
+		assertThatThrownBy(() -> controller.uploadVideo(file, "Title", "Meeting", false, jwtFor("7")))
 				.isInstanceOf(IllegalStateException.class);
 		verify(videoStorageService).delete(Path.of("stored"));
 	}

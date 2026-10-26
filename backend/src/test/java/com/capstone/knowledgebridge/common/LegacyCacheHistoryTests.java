@@ -61,7 +61,7 @@ class LegacyCacheHistoryTests {
 		jdbc.execute(reconciliation);
 		Flyway upgraded = Flyway.configure()
 				.dataSource(postgres.getJdbcUrl(), postgres.getUsername(), postgres.getPassword()).load();
-		assertThat(upgraded.migrate().migrationsExecuted).isEqualTo(2);
+		assertThat(upgraded.migrate().migrationsExecuted).isEqualTo(3);
 		upgraded.validate();
 		assertThat(jdbc.queryForObject("SELECT body_text FROM knowledge_item WHERE id = ?", String.class, id))
 				.isEqualTo("Body");

@@ -14,6 +14,8 @@ import com.capstone.knowledgebridge.gbrain.model.GbrainWriteResult;
 import com.capstone.knowledgebridge.knowledge.KnowledgeItem;
 import com.capstone.knowledgebridge.knowledge.KnowledgeRevisionService;
 import com.capstone.knowledgebridge.entities.EntityService;
+import com.capstone.knowledgebridge.titles.TitleGenerationService;
+import com.capstone.knowledgebridge.titles.TitleGenerationException;
 
 /**
  * Pushes a knowledge item's content to gbrain and records what happened. Synchronous for MVP - this method is
@@ -36,13 +38,16 @@ public class IngestionService {
 	private final KnowledgeRevisionService knowledgeRevisionService;
 
 	private final EntityService entityService;
+	private final TitleGenerationService titles;
 
 	public IngestionService(GbrainClient gbrainClient, IngestionAttemptRepository ingestionAttemptRepository,
-			KnowledgeRevisionService knowledgeRevisionService, EntityService entityService) {
+			KnowledgeRevisionService knowledgeRevisionService, EntityService entityService,
+			TitleGenerationService titles) {
 		this.gbrainClient = gbrainClient;
 		this.ingestionAttemptRepository = ingestionAttemptRepository;
 		this.knowledgeRevisionService = knowledgeRevisionService;
 		this.entityService = entityService;
+		this.titles = titles;
 	}
 
 	/**
@@ -65,6 +70,7 @@ public class IngestionService {
 		Instant startedAt = Instant.now();
 
 		try {
+			titles.prepare(item);
 			// GbrainDocument's own constructor validates (body size, title length, control characters,
 			// ...) and throws GbrainException on a bad value, same as upsertDocument failing - both need
 			// to land in the same catch block so a too-large body fails the attempt cleanly instead of
@@ -77,6 +83,8 @@ public class IngestionService {
 			long revision = knowledgeRevisionService.bump();
 			log.info("Ingested knowledge item {} into gbrain as '{}' ({}, {} chunks, knowledge_revision={})",
 					item.getId(), result.externalId(), result.status(), result.chunks(), revision);
+		} catch (TitleGenerationException ex) {
+			recordFailure(item, startedAt, "AI_TITLE_FAILED", ex.getMessage());
 		} catch (GbrainException ex) {
 			item.markFailed();
 			String errorMessage = ex.upstreamCode()

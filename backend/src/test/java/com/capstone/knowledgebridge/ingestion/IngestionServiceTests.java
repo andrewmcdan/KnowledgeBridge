@@ -32,7 +32,8 @@ class IngestionServiceTests {
 	private final KnowledgeRevisionService knowledgeRevisionService = mock(KnowledgeRevisionService.class);
 
 	private final IngestionService ingestionService = new IngestionService(gbrainClient, ingestionAttemptRepository,
-			knowledgeRevisionService, mock(com.capstone.knowledgebridge.entities.EntityService.class));
+			knowledgeRevisionService, mock(com.capstone.knowledgebridge.entities.EntityService.class),
+			mock(com.capstone.knowledgebridge.titles.TitleGenerationService.class));
 
 	private static KnowledgeItem newItem() {
 		KnowledgeItem item = new KnowledgeItem("Title", "Policy", 7L, "body text");

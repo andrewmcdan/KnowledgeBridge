@@ -2,7 +2,7 @@
     "openapi": "3.0.3",
     "info": {
         "title": "KnowledgeBridge integration and authentication API",
-        "version": "1.3.0",
+        "version": "1.4.0",
         "description": "Canonical contracts for authentication, document ingestion, manual note editing, synthesized answers, and query usage totals. JSON errors use {code,message}. Saved records can have ingestion status FAILED. Other project routes remain outside this specification."
     },
     "servers": [
@@ -100,7 +100,7 @@
                         "$ref": "#/components/responses/ApiError"
                     }
                 },
-                "description": "Filename extension is case-insensitive. Markdown is decoded as UTF-8. Empty/unreadable content and blank/overlong title or type are rejected. DOCX filenames must fit 255 characters. The original DOCX is not retained.",
+                "description": "Filename extension is case-insensitive. Markdown is decoded as UTF-8. Empty/unreadable content and blank/overlong title or type are rejected. DOCX filenames must fit 255 characters. The original DOCX is not retained. Optional useAiTitle generates a content-based title before indexing; failures remain retryable without losing the supplied title or content.",
                 "requestBody": {
                     "required": true,
                     "content": {
@@ -589,6 +589,55 @@
                     }
                 }
             }
+        },
+        "/api/knowledge-items/video": {
+            "post": {
+                "summary": "Queue transcription and indexing of a video, optionally naming it with AI",
+                "x-roles": [
+                    "ADMIN"
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "multipart/form-data": {
+                            "schema": {
+                                "$ref": "#/components/schemas/UploadVideoRequest"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "202": {
+                        "description": "Video saved and queued. With useAiTitle=true, the supplied title is guidance; its final title is generated from the persisted transcript before indexing. Poll for the updated title and status.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/KnowledgeItem"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "$ref": "#/components/responses/ApiError"
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/ApiError"
+                    },
+                    "403": {
+                        "$ref": "#/components/responses/ApiError"
+                    },
+                    "413": {
+                        "$ref": "#/components/responses/ApiError"
+                    },
+                    "415": {
+                        "$ref": "#/components/responses/ApiError"
+                    },
+                    "500": {
+                        "$ref": "#/components/responses/ApiError"
+                    }
+                },
+                "description": "MP4, MOV and WebM accepted under configured size/duration limits. Transcription and optional title generation may incur provider charges. Naming failures report AI_TITLE_FAILED in ingestion status."
+            }
         }
     },
     "components": {
@@ -656,6 +705,7 @@
                             "QUEUED",
                             "EXTRACTING_AUDIO",
                             "TRANSCRIBING",
+                            "GENERATING_TITLE",
                             "INDEXING",
                             "COMPLETE",
                             "FAILED"
@@ -792,12 +842,18 @@
                     "title": {
                         "type": "string",
                         "minLength": 1,
-                        "maxLength": 255
+                        "maxLength": 255,
+                        "description": "Required, max 255 characters. Exact document title by default; guidance when useAiTitle is true."
                     },
                     "type": {
                         "type": "string",
                         "minLength": 1,
                         "maxLength": 255
+                    },
+                    "useAiTitle": {
+                        "type": "boolean",
+                        "default": false,
+                        "description": "Generate the final title from extracted content before indexing. The title field is guidance; it remains required. Naming failures save a FAILED item with AI_TITLE_FAILED for explicit retry."
                     }
                 }
             },
@@ -1213,6 +1269,37 @@
                     },
                     "enabled": {
                         "type": "boolean"
+                    }
+                }
+            },
+            "UploadVideoRequest": {
+                "type": "object",
+                "required": [
+                    "file",
+                    "title",
+                    "type"
+                ],
+                "properties": {
+                    "file": {
+                        "type": "string",
+                        "format": "binary",
+                        "description": "One MP4, MOV, or WebM video under the configured size and duration limits."
+                    },
+                    "title": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 255,
+                        "description": "Required, max 255 characters. Exact document title by default; guidance when useAiTitle is true."
+                    },
+                    "type": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 255
+                    },
+                    "useAiTitle": {
+                        "type": "boolean",
+                        "default": false,
+                        "description": "Generate the final title from extracted content before indexing. The title field is guidance; it remains required. Naming failures save a FAILED item with AI_TITLE_FAILED for explicit retry."
                     }
                 }
             }

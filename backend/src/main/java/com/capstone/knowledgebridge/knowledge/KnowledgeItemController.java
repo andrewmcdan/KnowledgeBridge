@@ -167,6 +167,7 @@ public class KnowledgeItemController {
 	@PreAuthorize("hasRole('ADMIN')")
 	public ResponseEntity<KnowledgeItemResponse> uploadDocument(@RequestParam("file") MultipartFile file,
 			@RequestParam("title") String title, @RequestParam("type") String type,
+			@RequestParam(value = "useAiTitle", defaultValue = "false") boolean useAiTitle,
 			@AuthenticationPrincipal Jwt jwt) {
 		if (file.isEmpty() || !isValidField(title) || !isValidField(type)) {
 			return ResponseEntity.badRequest().build();
@@ -207,8 +208,8 @@ public class KnowledgeItemController {
 		long ownerId = Long.parseLong(jwt.getSubject());
 		KnowledgeItem item = docx
 				? knowledgeItemService.createDocxAndIngest(title, type, text, ownerId, filename,
-						file.getContentType(), hexDigest("SHA-256", content))
-				: knowledgeItemService.createMarkdownAndIngest(title, type, text, ownerId);
+						file.getContentType(), hexDigest("SHA-256", content), useAiTitle)
+				: knowledgeItemService.createMarkdownAndIngest(title, type, text, ownerId, useAiTitle);
 		return ResponseEntity.status(HttpStatus.CREATED).body(toResponse(item));
 	}
 
@@ -216,6 +217,7 @@ public class KnowledgeItemController {
 	@PreAuthorize("hasRole('ADMIN')")
 	public ResponseEntity<KnowledgeItemResponse> uploadVideo(@RequestParam("file") MultipartFile file,
 			@RequestParam("title") String title, @RequestParam("type") String type,
+			@RequestParam(value = "useAiTitle", defaultValue = "false") boolean useAiTitle,
 			@AuthenticationPrincipal Jwt jwt) {
 		String filename = file.getOriginalFilename();
 		if (file.isEmpty() || !isValidField(title) || !isValidField(type) || filename == null
@@ -233,7 +235,7 @@ public class KnowledgeItemController {
 		try {
 			KnowledgeItem item = knowledgeItemService.createVideoAndIngest(title, type,
 					Long.parseLong(jwt.getSubject()),
-					storedVideo);
+					storedVideo, useAiTitle);
 			return ResponseEntity.status(HttpStatus.ACCEPTED).body(toResponse(item));
 		} catch (RuntimeException ex) {
 			videoStorageService.delete(storedVideo.path());

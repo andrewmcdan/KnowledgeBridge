@@ -39,6 +39,9 @@ services:
       OPENAI_TRANSCRIPTION_BASE_URL: ${OPENAI_TRANSCRIPTION_BASE_URL:-https://api.openai.com/v1}
       OPENAI_TRANSCRIPTION_MODEL: ${OPENAI_TRANSCRIPTION_MODEL:-gpt-4o-mini-transcribe}
       OPENAI_TRANSCRIPTION_TIMEOUT: ${OPENAI_TRANSCRIPTION_TIMEOUT:-PT5M}
+      OPENAI_TITLE_BASE_URL: ${OPENAI_TITLE_BASE_URL:-https://api.openai.com/v1}
+      OPENAI_TITLE_MODEL: ${OPENAI_TITLE_MODEL:-gpt-4o-mini}
+      OPENAI_TITLE_TIMEOUT: ${OPENAI_TITLE_TIMEOUT:-PT45S}
       # Consumed by the backend gbrain adapter (knowledgebridge.gbrain.*).
       GBRAIN_BASE_URL: http://gbrain:3131
       GBRAIN_ENABLED: ${GBRAIN_ENABLED:-true}

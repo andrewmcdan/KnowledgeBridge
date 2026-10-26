@@ -18,6 +18,9 @@ public class KnowledgeItem {
 	@Column(nullable = false)
 	private String title;
 
+	@Column(name = "ai_title_requested", nullable = false)
+	private boolean aiTitleRequested;
+
 	@Column(nullable = false)
 	private String type;
 
@@ -134,6 +137,19 @@ public class KnowledgeItem {
 	}
 
 	/*--- Transition Methods ---*/
+	public void requestAiTitle(boolean requested) {
+		this.aiTitleRequested = requested;
+	}
+
+	public boolean isAiTitleRequested() {
+		return aiTitleRequested;
+	}
+
+	public void applyGeneratedTitle(String generatedTitle) {
+		this.title = generatedTitle;
+		this.aiTitleRequested = false;
+	}
+
 	public void markProcessing() {
 		markProcessing(IngestionStage.INDEXING);
 	}
