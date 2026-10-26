@@ -1,3 +1,5 @@
+import { readApiError } from "../../api/apiError";
+
 export type AskAiMode = "Search" | "Synthesis";
 
 export interface SearchHit {
@@ -103,22 +105,19 @@ function isSynthesisResponse(value: unknown): value is SynthesisResponse {
     );
 }
 
-async function readError(response: Response): Promise<Error> {
-    const payload: unknown = await response.json().catch(() => null);
-    if (isRecord(payload) && typeof payload.message === "string") return new Error(payload.message);
-    if (response.status === 401) return new Error("Your sign-in session is no longer valid.");
-    if (response.status === 403) return new Error("You do not have permission to ask questions.");
-    return new Error("We could not complete your question. Please try again.");
+async function readError(response: Response, requestAuthorization: string): Promise<Error> {
+    return readApiError(response, "We could not complete your question. Please try again.", requestAuthorization);
 }
 
 export async function submitQuestion(mode: AskAiMode, question: string): Promise<QueryResult> {
     const endpoint = mode === "Search" ? "/api/query/search" : "/api/query/synthesize";
+    const headers = getAuthorizationHeader();
     const response = await fetch(endpoint, {
         method: "POST",
-        headers: { ...getAuthorizationHeader(), "Content-Type": "application/json" },
+        headers: { ...headers, "Content-Type": "application/json" },
         body: JSON.stringify({ question }),
     });
-    if (!response.ok) throw await readError(response);
+    if (!response.ok) throw await readError(response, headers.Authorization);
 
     const payload: unknown = await response.json();
     if (mode === "Search" && isSearchResponse(payload)) return { mode, response: payload };

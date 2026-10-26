@@ -24,23 +24,34 @@ public class SecurityConfiguration {
 	public static final String ROLE_CLAIM = "role";
 
 	@Bean
-	SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
+	SecurityFilterChain securityFilterChain(HttpSecurity http, ApiSecurityExceptionHandler errors) throws Exception {
 		http
 				// Stateless bearer-token API: no session cookie, so no CSRF token to check.
 				.csrf(csrf -> csrf.disable())
 				.sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
 				.httpBasic(basic -> basic.disable())
 				.formLogin(form -> form.disable())
+				.cors(cors -> {
+				})
+				.exceptionHandling(
+						exceptions -> exceptions.authenticationEntryPoint(errors).accessDeniedHandler(errors))
 				.authorizeHttpRequests(authorize -> authorize
 						// Let Boot's /error forward render 400/404/500 bodies instead of turning them
 						// into 401.
 						.dispatcherTypeMatchers(DispatcherType.ERROR).permitAll()
 						.requestMatchers(HttpMethod.OPTIONS, "/api/**").permitAll()
 						.requestMatchers("/api/health", "/api/auth/login").permitAll()
+						// Reject non-admin writes before MVC parses JSON or uploaded content.
+						.requestMatchers(HttpMethod.POST, "/api/knowledge-items/manual", "/api/knowledge-items/upload",
+								"/api/knowledge-items/video", "/api/knowledge-items/*/retry-ingestion",
+								"/api/knowledge-items/*/extract-entities")
+						.hasRole("ADMIN")
 						.requestMatchers("/api/admin/**").hasRole("ADMIN")
 						.anyRequest().authenticated())
 				// Validates the Authorization: Bearer <jwt> header on every other request.
 				.oauth2ResourceServer(oauth2 -> oauth2
+						.authenticationEntryPoint(errors)
+						.accessDeniedHandler(errors)
 						.jwt(jwt -> jwt.jwtAuthenticationConverter(jwtAuthenticationConverter())));
 
 		return http.build();

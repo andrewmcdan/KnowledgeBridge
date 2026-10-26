@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { authContext, type AuthContextValue, type AuthStatus } from "./AuthContext";
-import { getCurrentUser, login, type AuthUser } from "./authApi";
+import { getCurrentUser, login, logout, type AuthUser } from "./authApi";
+import { AUTH_EXPIRED_EVENT } from "../../api/apiError";
 
 const SESSION_TOKEN_KEY = "knowledgebridge.auth.token";
 
@@ -18,18 +19,30 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const [user, setUser] = useState<AuthUser | null>(null);
 
     useEffect(() => {
+        const expireSession = (event: Event) => {
+            // Ignore a delayed response from a token that has already been replaced by a new login.
+            if ((event as CustomEvent<string>).detail !== `Bearer ${getStoredToken()}`) return;
+            clearStoredToken();
+            setUser(null);
+            setStatus("unauthenticated");
+        };
+        window.addEventListener(AUTH_EXPIRED_EVENT, expireSession);
+        return () => window.removeEventListener(AUTH_EXPIRED_EVENT, expireSession);
+    }, []);
+
+    useEffect(() => {
         const token = getStoredToken();
         if (!token) return;
 
         let cancelled = false;
         getCurrentUser(token)
             .then((currentUser) => {
-                if (cancelled) return;
+                if (cancelled || getStoredToken() !== token) return;
                 setUser(currentUser);
                 setStatus("authenticated");
             })
             .catch(() => {
-                if (cancelled) return;
+                if (cancelled || getStoredToken() !== token) return;
                 clearStoredToken();
                 setStatus("unauthenticated");
             });
@@ -50,10 +63,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                 setUser(response.user);
                 setStatus("authenticated");
             },
-            signOut() {
+            async signOut() {
+                const token = getStoredToken();
                 clearStoredToken();
                 setUser(null);
                 setStatus("unauthenticated");
+                // Local sign-out must complete even when the stateless API is unreachable.
+                if (token) await logout(token).catch(() => undefined);
             },
         }),
         [status, user],

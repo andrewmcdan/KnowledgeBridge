@@ -13,7 +13,7 @@ import org.springframework.http.ResponseEntity;
 
 import com.capstone.knowledgebridge.gbrain.GbrainErrorCode;
 import com.capstone.knowledgebridge.gbrain.GbrainException;
-import com.capstone.knowledgebridge.query.QueryController.ErrorResponse;
+import com.capstone.knowledgebridge.common.ApiError;
 import com.capstone.knowledgebridge.query.QueryController.SearchRequest;
 import com.capstone.knowledgebridge.query.QueryController.SynthesisRequest;
 import com.capstone.knowledgebridge.query.QueryService.RetrievalResponse;
@@ -71,11 +71,11 @@ class QueryControllerTests {
 	}
 
 	private void assertError(GbrainErrorCode code, HttpStatus expectedStatus, String expectedMessage) {
-		ResponseEntity<ErrorResponse> response = controller
+		ResponseEntity<ApiError> response = controller
 				.handleGbrainException(new GbrainException(code, "internal"));
 
 		assertThat(response.getStatusCode()).isEqualTo(expectedStatus);
-		assertThat(response.getBody()).isEqualTo(new ErrorResponse(code.name(), expectedMessage));
+		assertThat(response.getBody()).isEqualTo(new ApiError(code.name(), expectedMessage));
 	}
 
 }

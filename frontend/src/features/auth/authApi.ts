@@ -1,3 +1,5 @@
+import { readApiError } from "../../api/apiError";
+
 export type UserRole = "ADMIN" | "USER";
 
 export interface AuthUser {
@@ -35,7 +37,7 @@ export async function login(email: string, password: string): Promise<LoginRespo
     });
 
     if (response.status === 401) throw new Error("The email address or password is incorrect.");
-    if (!response.ok) throw new Error("We could not sign you in. Please try again.");
+    if (!response.ok) throw await readApiError(response, "We could not sign you in. Please try again.");
 
     const payload: unknown = await response.json();
     if (!isLoginResponse(payload)) throw new Error("The server returned an invalid sign-in response.");
@@ -48,10 +50,18 @@ export async function getCurrentUser(token: string): Promise<AuthUser> {
         headers: { Authorization: `Bearer ${token}` },
     });
 
-    if (!response.ok) throw new Error("Your sign-in session is no longer valid.");
+    if (!response.ok) throw await readApiError(response, "Your sign-in session is no longer valid.", `Bearer ${token}`);
 
     const payload: unknown = await response.json();
     if (!isAuthUser(payload)) throw new Error("The server returned an invalid user profile.");
 
     return payload;
+}
+
+export async function logout(token: string): Promise<void> {
+    const response = await fetch("/api/auth/logout", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+    });
+    if (!response.ok) throw await readApiError(response, "The server could not acknowledge sign-out.");
 }

@@ -10,6 +10,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.capstone.knowledgebridge.gbrain.GbrainException;
+import com.capstone.knowledgebridge.common.ApiError;
 import com.capstone.knowledgebridge.query.QueryService.SearchResponse;
 import com.capstone.knowledgebridge.query.QueryService.SynthesisResponse;
 
@@ -27,9 +28,6 @@ public class QueryController {
 	}
 
 	public record SynthesisRequest(@NotBlank @Size(max = 2000) String question) {
-	}
-
-	public record ErrorResponse(String code, String message) {
 	}
 
 	private final QueryService queryService;
@@ -51,7 +49,7 @@ public class QueryController {
 	}
 
 	@ExceptionHandler(GbrainException.class)
-	ResponseEntity<ErrorResponse> handleGbrainException(GbrainException exception) {
+	ResponseEntity<ApiError> handleGbrainException(GbrainException exception) {
 		HttpStatus status = switch (exception.code()) {
 			case VALIDATION -> HttpStatus.BAD_REQUEST;
 			case UNAUTHORIZED -> HttpStatus.BAD_GATEWAY;
@@ -66,7 +64,7 @@ public class QueryController {
 			case CONFIGURATION, UNAUTHORIZED, PROTOCOL, ENGINE, NOT_FOUND ->
 				"The knowledge service could not complete the request.";
 		};
-		return ResponseEntity.status(status).body(new ErrorResponse(exception.code().name(), message));
+		return ResponseEntity.status(status).body(new ApiError(exception.code().name(), message));
 	}
 
 }

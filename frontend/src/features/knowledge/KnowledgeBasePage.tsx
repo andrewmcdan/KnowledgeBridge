@@ -32,7 +32,7 @@ export function KnowledgeBasePage({ search, saved, onOpenDetail, onToggleSaved }
     return (
         <section className="collection panel">
             <h2>Knowledge items</h2>
-            <p className="knowledge-list-description">Items are shown as they are stored. Only items marked completed will be available to Ask AI after ingestion is connected.</p>
+            <p className="knowledge-list-description">Completed items are available to everyone in the workspace. Administrators also see items awaiting ingestion or needing a retry.</p>
             {error && (
                 <p className="upload-error" role="alert">
                     {error}
@@ -41,7 +41,7 @@ export function KnowledgeBasePage({ search, saved, onOpenDetail, onToggleSaved }
             {filtered.map((document) => (
                 <DocumentRow key={`${document.title}-${document.date}`} document={document} saved={saved.includes(document.title)} onOpen={onOpenDetail} onToggleSaved={onToggleSaved} />
             ))}
-            {!error && !filtered.length && <p>{search ? `No knowledge items match “${search}”.` : "No knowledge has been added yet. Use Uploads to add Markdown files or notes."}</p>}
+            {!error && !filtered.length && <p>{search ? `No knowledge items match “${search}”.` : "No knowledge is available yet. Administrators can add documents or notes from Uploads."}</p>}
         </section>
     );
 }

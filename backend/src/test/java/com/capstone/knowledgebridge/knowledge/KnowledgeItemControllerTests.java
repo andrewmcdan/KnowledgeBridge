@@ -52,6 +52,7 @@ class KnowledgeItemControllerTests {
 	private static Jwt jwtFor(String subject) {
 		Jwt jwt = mock(Jwt.class);
 		when(jwt.getSubject()).thenReturn(subject);
+		when(jwt.getClaimAsString("role")).thenReturn("ADMIN");
 		return jwt;
 	}
 
@@ -80,7 +81,7 @@ class KnowledgeItemControllerTests {
 		when(knowledgeItemService.findLatestAttempts(List.of(1L, 2L))).thenReturn(
 				Map.of(1L, IngestionAttempt.failed(1L, 1, Instant.now(), "TIMEOUT", "gbrain timed out")));
 
-		List<KnowledgeItemResponse> responses = controller.list();
+		List<KnowledgeItemResponse> responses = controller.list(jwtFor("7"));
 
 		assertThat(responses).extracting(KnowledgeItemResponse::title).containsExactly("Failed", "Pending");
 		assertThat(responses.get(0).status()).isEqualTo("FAILED");
@@ -102,6 +103,21 @@ class KnowledgeItemControllerTests {
 		assertThat(found.getStatusCode()).isEqualTo(HttpStatus.OK);
 		assertThat(found.getBody().id()).isEqualTo(1L);
 		assertThat(controller.get(2L).getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
+	}
+
+	@Test
+	void normalUsersListOnlyCompletedItems() {
+		KnowledgeItem completed = new KnowledgeItem("Ready", "Policy", 7L, "body");
+		ReflectionTestUtils.setField(completed, "id", 1L);
+		completed.markCompleted("engine-id");
+		KnowledgeItem pending = new KnowledgeItem("Pending", "Policy", 7L, "body");
+		ReflectionTestUtils.setField(pending, "id", 2L);
+		when(knowledgeItemService.findAll()).thenReturn(List.of(completed, pending));
+		Jwt user = jwtFor("7");
+		when(user.getClaimAsString("role")).thenReturn("USER");
+
+		assertThat(controller.list(user)).extracting(KnowledgeItemResponse::title).containsExactly("Ready");
+		verify(knowledgeItemService).findLatestAttempts(List.of(1L));
 	}
 
 	@Test

@@ -1,23 +1,40 @@
 package com.capstone.knowledgebridge.common;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.HttpStatusCode;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
-import org.springframework.web.multipart.MaxUploadSizeExceededException;
+import org.springframework.web.context.request.WebRequest;
+import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExceptionHandler;
 
 /**
- * Spring already turns bean-validation failures and missing multipart parts into 400s on its own. This is only for
- * MaxUploadSizeExceededException, which would otherwise surface as a bare 500.
+ * Safe JSON errors for validation, malformed requests, multipart limits, and unexpected failures.
  */
 @RestControllerAdvice
-public class GlobalExceptionHandler {
+public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
 
-	@ExceptionHandler(MaxUploadSizeExceededException.class)
-	public ResponseEntity<Void> handleMaxUploadSizeExceeded(MaxUploadSizeExceededException exception) {
-		// RFC 9110 renamed 413 from "Payload Too Large" to "Content Too Large"; HttpStatus still has
-		// PAYLOAD_TOO_LARGE but it's deprecated in favor of this one.
-		return ResponseEntity.status(HttpStatus.CONTENT_TOO_LARGE).build();
+	private static final Logger log = LoggerFactory.getLogger(GlobalExceptionHandler.class);
+
+	@Override
+	protected ResponseEntity<Object> handleExceptionInternal(Exception exception, Object body, HttpHeaders headers,
+			HttpStatusCode status, WebRequest request) {
+		return new ResponseEntity<>(ApiError.forStatus(status.value()), headers, status);
+	}
+
+	@ExceptionHandler(AccessDeniedException.class)
+	public ResponseEntity<ApiError> handleAccessDenied(AccessDeniedException exception) {
+		return ResponseEntity.status(HttpStatus.FORBIDDEN).body(ApiError.forStatus(403));
+	}
+
+	@ExceptionHandler(Exception.class)
+	public ResponseEntity<ApiError> handleUnexpected(Exception exception) {
+		log.error("Unhandled API failure", exception);
+		return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(ApiError.forStatus(500));
 	}
 
 }
