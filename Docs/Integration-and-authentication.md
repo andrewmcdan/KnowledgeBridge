@@ -74,9 +74,17 @@ Send the token as `Authorization: Bearer <token>`. Tokens expire after eight hou
 
 Unauthorized responses are associated with the bearer token sent on that request. A delayed 401 from a previous session cannot clear a newer login. Logout failures also leave a later login intact.
 
-`POST /api/auth/logout` requires the current bearer token and returns an empty `204`. The frontend calls it and always removes its local token, even if the acknowledgement fails. The backend is stateless: logout does not revoke a captured JWT. That token remains usable until expiry. Server-side revocation and account administration are not added in this change.
+`POST /api/auth/logout` requires the current bearer token and returns an empty `204`. The frontend calls it and always removes its local token, even if the acknowledgement fails. The backend is stateless: logout does not revoke a captured JWT. That token remains usable until expiry. Server-side revocation, account disabling, and demotion are not added in this change.
 
 The `users` package still has no repository. Authentication therefore retains its current JDBC lookup and registration insert; the conditional repository refactor remains pending Member 2's implementation.
+
+## Granting admin access
+
+Existing admins can open **Admin**, search accounts by name or email, select **Grant admin**, and review the named account before choosing **Confirm grant admin**. Cancel or Escape closes the confirmation without changing the account. Disabled accounts cannot be promoted.
+
+`GET /api/admin/users` returns account summaries `{id,email,displayName,role,enabled}`, sorted by lowercase display name then ID. `POST /api/admin/users/{id}/promote` takes no body and returns `200` with the same summary and `role: ADMIN`. Both routes require an existing admin JWT; anonymous callers receive `401` and USER sessions receive `403`, regardless of the UI. The controller also enforces method authorization.
+
+Promotion locks the account row within a transaction, sets only its role and update timestamp, and preserves credentials, enabled status, IDs and knowledge ownership. Repeated/concurrent requests are safe. Missing accounts return `404 NOT_FOUND`; disabled accounts return `409 CONFLICT`. Actual promotions log the acting and target user IDs. The target must sign out and sign in again to receive an ADMIN JWT; an existing USER token keeps its original permissions until replaced or expired. Account disabling and demotion remain outside this interface.
 
 ## Ingestion requests and responses
 
@@ -134,4 +142,4 @@ For the known history with query cache at V7 and video metadata at V8, use the g
 
 `.github/workflows/ci.yml` runs frontend install/format/lint/tests/build, Java 21 backend `check` with Docker/Testcontainers, and development Compose/launcher validation. Backend `check` retains the project's 100% line and branch coverage thresholds. Paid live-provider tests are excluded from routine CI.
 
-Before review, run the commands in the root README. There is no configured duplication-check command. User management and document deletion remain outside these workflows.
+Before review, run the commands in the root README. There is no configured duplication-check command. Account disabling, demotion, and document deletion remain outside these workflows.

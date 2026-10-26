@@ -15,6 +15,7 @@ import com.capstone.knowledgebridge.knowledge.IngestionStage;
 import com.capstone.knowledgebridge.knowledge.KnowledgeItemController;
 import com.capstone.knowledgebridge.knowledge.KnowledgeItemStatus;
 import com.capstone.knowledgebridge.knowledge.KnowledgeSourceKind;
+import com.capstone.knowledgebridge.users.UserAdministrationService;
 
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.json.JsonMapper;
@@ -32,6 +33,7 @@ class CommittedApiContractTests {
 		assertFields("RegistrationRequest", AuthController.RegistrationRequest.class);
 		assertFields("LoginResponse", AuthController.LoginResponse.class);
 		assertFields("AuthUser", AuthController.MeResponse.class);
+		assertFields("ManagedUser", UserAdministrationService.ManagedUser.class);
 		assertFields("ApiError", ApiError.class);
 	}
 

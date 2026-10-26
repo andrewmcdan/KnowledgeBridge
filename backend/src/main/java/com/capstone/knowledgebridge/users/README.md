@@ -2,7 +2,9 @@
 
 User accounts and roles backing the `app_user` table (created in `V2__create_app_user.sql`).
 
-Expected contents:
+`UserAdministrationService` implements admin account summaries and transactional USER-to-ADMIN promotion through the protected `/api/admin/users` routes. It never returns password hashes or enables disabled accounts; role updates require a new login to take effect.
+
+Expected future contents:
 
 - `AppUser` entity — id, email, `password_hash`, display name, `role` (`ADMIN` | `USER`), `enabled`, timestamps.
 - `AppUserRepository` — lookup by email for login; listing and role/enabled updates for the admin user-management routes.

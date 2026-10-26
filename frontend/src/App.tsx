@@ -7,6 +7,7 @@ import { Topbar } from "./components/layout/Topbar";
 import { DetailDialog } from "./components/ui/DetailDialog";
 import { navigation } from "./data/navigation";
 import { AskAiPage } from "./features/ask-ai/AskAiPage";
+import { AdminPage } from "./features/admin/AdminPage";
 import { EntitiesPage } from "./features/entities/EntitiesPage";
 import { KnowledgeBasePage } from "./features/knowledge/KnowledgeBasePage";
 import { UploadsPage } from "./features/knowledge/UploadsPage";
@@ -73,7 +74,7 @@ function Workspace() {
                             <Route path="/dashboard" element={<PlaceholderPage page="Dashboard" service={service} onAskAi={() => go("/ask-ai")} />} />
                             <Route path="/uploads" element={user?.role === "ADMIN" ? <UploadsPage /> : <Navigate to="/ask-ai" replace />} />
                             <Route path="/usage" element={<UsagePage />} />
-                            <Route path="/admin" element={user?.role === "ADMIN" ? <PlaceholderPage page="Admin" service={service} onAskAi={() => go("/ask-ai")} /> : <Navigate to="/ask-ai" replace />} />
+                            <Route path="/admin" element={user?.role === "ADMIN" ? <AdminPage /> : <Navigate to="/ask-ai" replace />} />
                             <Route path="*" element={<Navigate to="/ask-ai" replace />} />
                         </Routes>
                     </main>

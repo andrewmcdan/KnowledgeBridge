@@ -281,3 +281,54 @@ test("registration validation counts Unicode characters and UTF-8 bytes without 
     for (const password of ["a".repeat(73), "😀".repeat(19)]) assert.match(validateRegistration("Reader", "email", password, password), /72 UTF-8 bytes/);
     assert.match(validateRegistration("Reader", "email", " password ", "password"), /do not match/);
 });
+
+test("admin user management sends authenticated list and promotion requests without editable roles", async () => {
+    const managed = { ...user, enabled: true };
+    const calls = [];
+    const { api } = loadApi("features/admin/adminApi", async (path, options) => {
+        calls.push({ path, options });
+        return Response.json(options.method === "POST" ? { ...managed, role: "ADMIN" } : [managed]);
+    });
+    assert.equal((await api.getUsers())[0].id, user.id);
+    assert.equal((await api.promoteUser(user.id)).role, "ADMIN");
+    assert.equal(calls[0].path, "/api/admin/users");
+    assert.equal(calls[1].path, `/api/admin/users/${user.id}/promote`);
+    assert.equal(calls[1].options.method, "POST");
+    assert.equal(calls[1].options.body, undefined);
+    assert.ok(calls.every((call) => call.options.headers.Authorization === "Bearer signed-token"));
+});
+
+test("admin APIs reject malformed identities, wrong promotion targets and invalid ids", async () => {
+    const managed = { ...user, enabled: true };
+    for (const value of [null, {}, { ...managed, id: -1 }, { ...managed, id: 1.5 }, { ...managed, role: "OWNER" }, { ...managed, enabled: "true" }]) {
+        const { api } = loadApi("features/admin/adminApi", async () => Response.json([value]));
+        await assert.rejects(api.getUsers(), /invalid user list/);
+    }
+    const notArray = loadApi("features/admin/adminApi", async () => Response.json(managed)).api;
+    await assert.rejects(notArray.getUsers(), /invalid user list/);
+    for (const value of [null, managed, { ...managed, role: "ADMIN", id: 99 }, { ...managed, role: "ADMIN", enabled: false }]) {
+        const { api } = loadApi("features/admin/adminApi", async () => Response.json(value));
+        await assert.rejects(api.promoteUser(user.id), /invalid promotion response/);
+    }
+    const invalidId = loadApi("features/admin/adminApi", () => {
+        throw new Error("Must not fetch");
+    }).api;
+    for (const id of [0, -1, 1.5, NaN]) await assert.rejects(invalidId.promoteUser(id), /Select a valid user/);
+});
+
+test("admin APIs surface permission and conflict errors and expire only the rejected session", async () => {
+    for (const [status, code, message] of [
+        [403, "FORBIDDEN", "Admin access required."],
+        [404, "NOT_FOUND", "User not found."],
+        [409, "CONFLICT", "Disabled account."],
+    ]) {
+        const { api } = loadApi("features/admin/adminApi", async () => Response.json({ code, message }, { status }));
+        await assert.rejects(api.promoteUser(user.id), { message });
+        await assert.rejects(api.getUsers(), { message });
+    }
+    const { api, window } = loadApi("features/admin/adminApi", async () => Response.json({ code: "UNAUTHENTICATED", message: "Expired" }, { status: 401 }));
+    const expired = [];
+    window.addEventListener("knowledgebridge:auth-expired", (event) => expired.push(event.detail));
+    await assert.rejects(api.promoteUser(user.id), /Expired/);
+    assert.deepEqual(expired, ["Bearer signed-token"]);
+});
