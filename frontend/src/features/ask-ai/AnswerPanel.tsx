@@ -1,5 +1,6 @@
 import { Icon } from "../../components/ui/Icon";
 import { MarkdownContent } from "../../components/ui/MarkdownContent";
+import { parseDocumentMarkdown } from "../../components/ui/documentPreview";
 import type { Detail } from "../../types/models";
 import { citationDetail } from "./citations";
 import type { AskAiMode, QueryResult, SearchResponse, SynthesisResponse } from "./askAiApi";
@@ -36,27 +37,57 @@ export function AnswerPanel({ mode, result, submitting, error, onOpenDetail }: A
                     </p>
                 )}
                 {!submitting && !error && !result && <p>Ask a question to search indexed knowledge or generate a cited AI answer.</p>}
-                {!submitting && !error && result?.mode === "Search" && <SearchResults result={result.response} />}
+                {!submitting && !error && result?.mode === "Search" && <SearchResults result={result.response} onOpenDetail={onOpenDetail} />}
                 {!submitting && !error && result?.mode === "Synthesis" && <SynthesisAnswer result={result.response} onOpenDetail={onOpenDetail} />}
             </div>
         </section>
     );
 }
 
-function SearchResults({ result }: { result: SearchResponse }) {
-    if (!result.hits.length) return <p>No indexed knowledge matched this question.</p>;
-
+function SearchResults({ result, onOpenDetail }: { result: SearchResponse; onOpenDetail: (detail: Detail) => void }) {
     return (
         <>
             {result.retrieval.degraded && <p className="query-warning">Some semantic retrieval signals were unavailable for this search.</p>}
+            <p className="search-results-summary">{result.hits.length ? `${result.hits.length} ${result.hits.length === 1 ? "result" : "results"} · Ranked by relevance` : "No indexed knowledge matched this question."}</p>
             <div className="query-results">
-                {result.hits.map((hit) => (
-                    <article className="query-hit" key={`${hit.externalId}-${hit.snippet}`}>
-                        <strong>{hit.title}</strong>
-                        <small>{hit.documentType}</small>
-                        <p>{hit.snippet}</p>
-                    </article>
-                ))}
+                {result.hits.map((hit, index) => {
+                    const detail = citationDetail(hit);
+                    const title = hit.title || detail?.title || "Untitled document";
+                    const excerpt = parseDocumentMarkdown(hit.snippet).markdown.trim();
+                    return (
+                        <article className="query-hit" key={`${hit.itemKey}-${index}`}>
+                            <header className="search-hit-header">
+                                <span className="search-hit-rank" aria-label={`Result ${index + 1}`}>
+                                    {index + 1}
+                                </span>
+                                <div className="search-hit-heading">
+                                    <span className="search-hit-type">
+                                        <Icon name="file" size={14} />
+                                        {hit.documentType.replace(/[-_]+/g, " ") || "Document"}
+                                    </span>
+                                    <h3>{title}</h3>
+                                </div>
+                            </header>
+                            {excerpt ? (
+                                <div className="search-hit-excerpt" role="region" aria-label={`Matching excerpt: ${title}`} tabIndex={0}>
+                                    <MarkdownContent text={excerpt} label="Matching excerpt" className="search-excerpt-markdown" />
+                                </div>
+                            ) : (
+                                <p className="search-hit-empty">No text excerpt available.</p>
+                            )}
+                            <footer className="search-hit-footer">
+                                <span>Matching excerpt</span>
+                                {detail ? (
+                                    <button className="secondary-button search-view-document" type="button" aria-label={`View document: ${title}`} onClick={() => onOpenDetail(detail)}>
+                                        View document <Icon name="chevron" size={15} />
+                                    </button>
+                                ) : (
+                                    <span>Document preview unavailable</span>
+                                )}
+                            </footer>
+                        </article>
+                    );
+                })}
             </div>
         </>
     );

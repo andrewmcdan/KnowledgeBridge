@@ -36,6 +36,7 @@ const { citationDetail } = load("../../features/ask-ai/citations.ts");
 const { AnswerPanel } = load("../../features/ask-ai/AnswerPanel.tsx", {
     "../../components/ui/Icon": { Icon: () => null },
     "../../components/ui/MarkdownContent": { MarkdownContent },
+    "../../components/ui/documentPreview": { parseDocumentMarkdown },
     "./citations": { citationDetail },
 });
 const { DocumentEntitiesPanel } = load("DocumentEntitiesPanel.tsx");
@@ -113,6 +114,57 @@ test("AI answers render Markdown while retaining citations, warnings and query u
     assert.match(render({ aiGenerated: false, extractiveFallback: true }), /Extractive fallback/);
     const unsafe = render({ answer: '<script>alert("x")</script>\n\n[Bad](javascript:alert%281%29)' });
     assert.doesNotMatch(unsafe, /<script|javascript:/);
+});
+
+test("search results render safe Markdown excerpts without front matter and retain engine ranking", () => {
+    const hits = [
+        {
+            itemKey: "21",
+            externalId: "knowledgebridge/21",
+            title: "Budget policy",
+            documentType: "policy",
+            score: 0.8,
+            snippet: "---\nowner: Hidden metadata\n---\n# Budget\n\nA **clear** plan.\n\n| Team | Budget |\n| --- | --- |\n| Finance | $5,000 |\n\n- Review spending\n\n<script>alert(1)</script>\n\n[Unsafe](javascript:alert%281%29)",
+        },
+        { itemKey: "22", externalId: "knowledgebridge/22", title: "Budget meeting", documentType: "video-meeting", score: 0.9, snippet: "A plain text transcript." },
+    ];
+    const props = { mode: "Search", result: { mode: "Search", response: { hits, retrieval: { degraded: false } } }, submitting: false, error: null, onOpenDetail() {} };
+    const html = renderToStaticMarkup(createElement(AnswerPanel, props));
+    assert.match(html, /2 results · Ranked by relevance/);
+    assert.match(html, /<h1>Budget<\/h1>/);
+    assert.match(html, /<strong>clear<\/strong>/);
+    assert.match(html, /<table>/);
+    assert.match(html, /<li>Review spending<\/li>/);
+    assert.match(html, /video meeting/);
+    assert.match(html, /A plain text transcript\./);
+    assert.match(html, /role="region" aria-label="Matching excerpt: Budget policy" tabindex="0"/);
+    assert.doesNotMatch(html, /Hidden metadata|<script|javascript:|\*\*clear\*\*/);
+    assert.ok(html.indexOf("<h3>Budget policy</h3>") < html.indexOf("<h3>Budget meeting</h3>"));
+    const empty = renderToStaticMarkup(createElement(AnswerPanel, { ...props, result: { mode: "Search", response: { hits: [], retrieval: { degraded: true } } } }));
+    assert.match(empty, /No indexed knowledge matched/);
+    assert.match(empty, /Some semantic retrieval signals were unavailable/);
+});
+
+test("View document selects the exact source ID for the full-document modal and handles unavailable sources", () => {
+    const opened = [];
+    const hits = [
+        { itemKey: "21", externalId: "knowledgebridge/21", title: "Budget policy", documentType: "policy", score: 0.8, snippet: "A partial excerpt." },
+        { itemKey: "invalid", externalId: "knowledgebridge/22", title: "Unavailable source", documentType: "", score: 0.7, snippet: "---\nowner: Finance\n---" },
+    ];
+    const props = { mode: "Search", result: { mode: "Search", response: { hits, retrieval: { degraded: false } } }, submitting: false, error: null, onOpenDetail: (detail) => opened.push(detail) };
+    const html = renderToStaticMarkup(createElement(AnswerPanel, props));
+    assert.equal((html.match(/aria-label="View document:/g) ?? []).length, 1);
+    assert.match(html, /No text excerpt available/);
+    assert.match(html, /Document preview unavailable/);
+    const find = (node, predicate) => {
+        if (!node || typeof node !== "object") return null;
+        if (Array.isArray(node)) return node.map((child) => find(child, predicate)).find(Boolean) ?? null;
+        return predicate(node) ? node : find(node.props?.children, predicate);
+    };
+    const results = find(AnswerPanel(props), (node) => node.type?.name === "SearchResults");
+    const tree = results.type(results.props);
+    find(tree, (node) => node.props?.["aria-label"] === "View document: Budget policy").props.onClick();
+    assert.deepEqual(plain(opened), [{ id: 21, title: "Budget policy", text: "" }], "the modal must fetch the source, not display the partial search excerpt");
 });
 
 test("citations select only exact application document IDs", () => {

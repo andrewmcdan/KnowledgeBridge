@@ -2045,23 +2045,120 @@ small {
 }
 .query-results {
     display: grid;
-    gap: 10px;
+    gap: 18px;
+    min-width: 0;
 }
-.query-hit {
-    border: 1px solid var(--border);
-    border-radius: 7px;
-    padding: 12px;
-}
-.query-hit strong,
-.query-hit small {
-    display: block;
-}
-.query-hit small {
-    margin-top: 3px;
+.answer-body > .search-results-summary {
+    margin: 0 0 18px;
     color: var(--muted);
 }
-.query-hit p {
-    margin: 8px 0 0;
+.query-hit {
+    min-width: 0;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    background: #fff;
+    overflow: hidden;
+}
+.search-hit-header {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 18px;
+    background: #f8faff;
+    border-bottom: 1px solid var(--border);
+}
+.search-hit-rank {
+    display: grid;
+    place-items: center;
+    flex: 0 0 30px;
+    height: 30px;
+    border-radius: 8px;
+    color: var(--blue);
+    background: #e9f0ff;
+    font-size: 13px;
+    font-weight: 700;
+}
+.search-hit-heading {
+    min-width: 0;
+}
+.search-hit-type {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    color: var(--muted);
+    font-size: 11px;
+    text-transform: capitalize;
+}
+.search-hit-heading h3 {
+    margin: 5px 0 0;
+    color: #18233f;
+    font-size: 16px;
+    line-height: 1.45;
+    overflow-wrap: anywhere;
+}
+.search-hit-excerpt {
+    max-height: 280px;
+    overflow: auto;
+    padding: 18px;
+    scrollbar-width: thin;
+}
+.search-excerpt-markdown {
+    font-size: 13px;
+    line-height: 1.7;
+}
+.search-excerpt-markdown h1,
+.search-excerpt-markdown h2,
+.search-excerpt-markdown h3 {
+    font-size: 16px;
+}
+.search-excerpt-markdown h4,
+.search-excerpt-markdown h5,
+.search-excerpt-markdown h6 {
+    font-size: 14px;
+}
+.search-excerpt-markdown p,
+.search-excerpt-markdown ul,
+.search-excerpt-markdown ol,
+.search-excerpt-markdown blockquote,
+.search-excerpt-markdown pre,
+.search-excerpt-markdown .markdown-table-scroll {
+    margin: 12px 0;
+}
+.search-excerpt-markdown table {
+    font-size: 12px;
+}
+.search-excerpt-markdown th,
+.search-excerpt-markdown td {
+    padding: 7px 10px;
+}
+.search-hit-empty {
+    margin: 0;
+    padding: 18px;
+    color: var(--muted);
+    font-size: 13px;
+}
+.search-hit-footer {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 12px 18px;
+    border-top: 1px solid var(--border);
+}
+.search-hit-footer > span {
+    color: var(--muted);
+    font-size: 11px;
+}
+.search-view-document {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+}
+.search-view-document:focus-visible,
+.search-hit-excerpt:focus-visible {
+    outline: 2px solid var(--blue);
+    outline-offset: -3px;
 }
 .query-citations {
     display: grid;
