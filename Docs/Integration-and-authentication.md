@@ -111,6 +111,8 @@ The merged tree had two Flyway V8 migrations. Integration preserves `V8__add_vid
 
 Fresh databases apply these versions in order. An integration test upgrades an existing video-V8 database through V10 and verifies that notes, attempt history, and the global knowledge revision are preserved. Existing developer databases that recorded V8 as `create_query_cache` require their migration history and schema to be reconciled against a backup before using this sequence. Do not delete volumes or run Flyway repair blindly. Existing databases whose V8 is video metadata retain that migration's original version and checksum.
 
+For the known history with query cache at V7 and video metadata at V8, use the guarded `scripts/reconcile-query-cache-history.sql` only after a verified backup and with the application stopped. It validates checksums and the cache schema before changing only the V7 history version/filename to V10. The SQL checksum and application/cache data are preserved. See the [launcher guide](../scripts/README.md#legacy-v7-query-cache-history) for execution and verification. Other legacy histories are deliberately rejected.
+
 ## Checks and CI
 
 `.github/workflows/ci.yml` runs frontend install/format/lint/tests/build, Java 21 backend `check` with Docker/Testcontainers, and development Compose/launcher validation. Backend `check` retains the project's 100% line and branch coverage thresholds. Paid live-provider tests are excluded from routine CI.

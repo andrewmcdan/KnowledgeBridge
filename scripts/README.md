@@ -24,6 +24,24 @@ Run `./scripts/test-start-dev.ps1` for dependency-free regression checks of the 
 
 Use `./scripts/start-dev.ps1 -VerifyStartup` for an actual startup check: it waits for both HTTP endpoints, then exits through normal cleanup. It temporarily starts missing infrastructure and may resume pending ingestion, just like a regular launch. Readiness checks use IPv4 loopback to avoid `localhost` IPv6 fallback delays with Vite. A failed child is reported by name with its exit code and log filenames.
 
+The launcher passes `-PdevtoolsRestart=false` to `bootRun`. Disabling the DevTools restart thread before Java main ensures Spring startup failures produce a failing Gradle exit code instead of a misleading exit code 0. Vite still reloads frontend changes; restart the launcher after Java changes. Direct `gradlew bootRun` retains DevTools restart unless the same property is supplied.
+
+### Legacy V7 query-cache history
+
+A database that applied `V7__create_query_cache.sql` before the merge can fail validation because the identical SQL is now named `V10__create_query_cache.sql`. Keep the backend stopped, take a custom-format `pg_dump` backup outside the repository, and verify that backup before reconciling history. Do not delete the volume or run broad Flyway repair.
+
+`reconcile-query-cache-history.sql` supports only the known V7 cache/V8 video checksums and cache table layout. It atomically updates the cache history entry's version and filename to V10, preserving its checksum, application rows, cached answers, and hit counts. It refuses unexpected histories/layouts and is safe to repeat after a successful reconciliation. The checksums are compared against real Flyway migrations in `LegacyCacheHistoryTests`.
+
+After backup verification, run this from the repository root with PostgreSQL running (these names assume the default database/user):
+
+```powershell
+Get-Content -Raw scripts/reconcile-query-cache-history.sql |
+    docker compose exec -T postgres psql -U knowledgebridge -d knowledgebridge -v ON_ERROR_STOP=1
+.\scripts\start-dev.ps1 -VerifyStartup
+```
+
+Normal startup then validates the existing migrations and applies V11. Databases with a different collision, checksum, or schema require separate investigation.
+
 The older Bash launcher starts PostgreSQL and host processes only; it does not yet provide the PowerShell launcher's gbrain/environment/lifecycle behavior:
 
 ```bash
