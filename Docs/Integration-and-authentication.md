@@ -1,12 +1,12 @@
 # Integration and authentication contract
 
-[`openapi.json`](./openapi.json) is the canonical request/response contract for the four knowledge-item endpoints and login, logout, and current-user behavior. Import it into an OpenAPI-compatible client, or use the examples below. Backend contract tests compare its fields and lifecycle enums with application records; frontend tests consume its knowledge-item example.
+[`openapi.json`](./openapi.json) is the canonical request/response contract for the four knowledge-item endpoints and registration, login, logout, and current-user behavior. Import it into an OpenAPI-compatible client, or use the examples below. Backend contract tests compare its fields and lifecycle enums with application records; frontend tests consume its knowledge-item example.
 
 ## Permissions
 
 | Operation | Anonymous | USER | ADMIN |
 |---|---|---|---|
-| Login and health | Allowed | Allowed | Allowed |
+| Registration, login and health | Allowed | Allowed | Allowed |
 | Current user and logout | 401 | Allowed | Allowed |
 | Knowledge-item list | 401 | Completed items only | All ingestion statuses |
 | Completed document content, queries, entity browsing | 401 | Allowed | Allowed |
@@ -33,7 +33,7 @@ Every application API error uses JSON with these two fields:
 | 403 | `FORBIDDEN` | Authenticated caller lacks the required role |
 | 404 | `NOT_FOUND` | Resource does not exist or is not readable through that endpoint |
 | 405 | `METHOD_NOT_ALLOWED` | Unsupported HTTP method |
-| 409 | `CONFLICT` | Item is not in a state that permits the operation |
+| 409 | `CONFLICT`, `EMAIL_ALREADY_REGISTERED` | Item state conflict or an existing normalized email |
 | 413 | `CONTENT_TOO_LARGE` | Upload or normalized text exceeds its limit |
 | 415 | `UNSUPPORTED_MEDIA_TYPE` | Unsupported request content type or file extension |
 | 500 | `INTERNAL_ERROR` | Unexpected server failure; internal details are not returned |
@@ -41,6 +41,21 @@ Every application API error uses JSON with these two fields:
 Query failures retain the existing engine categories such as `TIMEOUT`, `RATE_LIMITED`, and `UNAVAILABLE`, using the same `{code, message}` envelope. Clients must tolerate additional codes. The HTTP status is authoritative. Reverse-proxy/network failures may not carry application JSON; the frontend shows a safe fallback rather than raw HTML.
 
 ## Authentication
+
+Visitors can choose **Create account** below **Sign in**, or open `/register`. Authenticated visitors opening `/register` go to Ask AI.
+
+```http
+POST /api/auth/register
+Content-Type: application/json
+
+{"displayName":"New Reader","email":"reader@example.test","password":"sample password"}
+```
+
+Success is `201` with the same `{token, expiresAt, user}` response as login. The backend exclusively assigns `USER` and `enabled=true`; extra client fields such as `role` or `enabled` are ignored. Registration grants immediate access to completed workspace knowledge, without email verification. The frontend stores the new token in session storage and opens Ask AI; reload restores that session, and logout clears it.
+
+Names and emails are trimmed, emails lowercased, and both must be nonblank and at most 255 characters. Email must be valid. Passwords are preserved exactly, including spaces, and require at least eight Unicode code points with no mandatory character combinations. The installed BCrypt encoder accepts at most 72 UTF-8 bytes; the API rejects longer passwords before encoding. The UI confirms an exact password match; confirmation is not part of the API request.
+
+Invalid fields return `400 VALIDATION_ERROR`. Existing normalized emails return `409 EMAIL_ALREADY_REGISTERED` with a sign-in suggestion, including disabled accounts. Atomic database uniqueness prevents concurrent registrations from creating duplicates or replacing an account.
 
 ```http
 POST /api/auth/login
@@ -59,9 +74,17 @@ Send the token as `Authorization: Bearer <token>`. Tokens expire after eight hou
 
 Unauthorized responses are associated with the bearer token sent on that request. A delayed 401 from a previous session cannot clear a newer login. Logout failures also leave a later login intact.
 
-`POST /api/auth/logout` requires the current bearer token and returns an empty `204`. The frontend calls it and always removes its local token, even if the acknowledgement fails. The backend is stateless: logout does not revoke a captured JWT. That token remains usable until expiry. Server-side revocation and account administration are not added in this change.
+`POST /api/auth/logout` requires the current bearer token and returns an empty `204`. The frontend calls it and always removes its local token, even if the acknowledgement fails. The backend is stateless: logout does not revoke a captured JWT. That token remains usable until expiry. Server-side revocation, account disabling, and demotion are not added in this change.
 
-The `users` package still has no repository. Authentication therefore retains its current JDBC lookup; the conditional repository refactor remains pending Member 2's implementation.
+The `users` package still has no repository. Authentication therefore retains its current JDBC lookup and registration insert; the conditional repository refactor remains pending Member 2's implementation.
+
+## Granting admin access
+
+Existing admins can open **Admin**, search accounts by name or email, select **Grant admin**, and review the named account before choosing **Confirm grant admin**. Cancel or Escape closes the confirmation without changing the account. Disabled accounts cannot be promoted.
+
+`GET /api/admin/users` returns account summaries `{id,email,displayName,role,enabled}`, sorted by lowercase display name then ID. `POST /api/admin/users/{id}/promote` takes no body and returns `200` with the same summary and `role: ADMIN`. Both routes require an existing admin JWT; anonymous callers receive `401` and USER sessions receive `403`, regardless of the UI. The controller also enforces method authorization.
+
+Promotion locks the account row within a transaction, sets only its role and update timestamp, and preserves credentials, enabled status, IDs and knowledge ownership. Repeated/concurrent requests are safe. Missing accounts return `404 NOT_FOUND`; disabled accounts return `409 CONFLICT`. Actual promotions log the acting and target user IDs. The target must sign out and sign in again to receive an ADMIN JWT; an existing USER token keeps its original permissions until replaced or expired. Account disabling and demotion remain outside this interface.
 
 ## Ingestion requests and responses
 
@@ -109,6 +132,8 @@ At the start of this change, remote `main` and `dylan-auth` pointed at `4d0b7f7`
 
 The merged tree had two Flyway V8 migrations. Integration preserves `V8__add_video_ingestion_metadata.sql` and moves the cache migration to `V10__create_query_cache.sql`. V9 entity tables do not depend on the cache table. The cache SQL itself is unchanged. V11 adds stable content timestamps and durable query usage; existing content timestamps are backfilled from creation time.
 
+V12 adds a unique index on `lower(btrim(email))`, preserving existing account IDs, stored email spelling, hashes, and knowledge ownership. If existing accounts collide after normalization, the migration fails clearly and transactionally without merging or deleting accounts. An administrator must resolve those collisions explicitly before retrying; do not delete accounts or reset migration history automatically. Login uses the same normalized lookup.
+
 Fresh databases apply these versions in order. An integration test upgrades an existing video-V8 database through V10 and verifies that notes, attempt history, and the global knowledge revision are preserved. Existing developer databases that recorded V8 as `create_query_cache` require their migration history and schema to be reconciled against a backup before using this sequence. Do not delete volumes or run Flyway repair blindly. Existing databases whose V8 is video metadata retain that migration's original version and checksum.
 
 For the known history with query cache at V7 and video metadata at V8, use the guarded `scripts/reconcile-query-cache-history.sql` only after a verified backup and with the application stopped. It validates checksums and the cache schema before changing only the V7 history version/filename to V10. The SQL checksum and application/cache data are preserved. See the [launcher guide](../scripts/README.md#legacy-v7-query-cache-history) for execution and verification. Other legacy histories are deliberately rejected.
@@ -117,4 +142,4 @@ For the known history with query cache at V7 and video metadata at V8, use the g
 
 `.github/workflows/ci.yml` runs frontend install/format/lint/tests/build, Java 21 backend `check` with Docker/Testcontainers, and development Compose/launcher validation. Backend `check` retains the project's 100% line and branch coverage thresholds. Paid live-provider tests are excluded from routine CI.
 
-Before review, run the commands in the root README. There is no configured duplication-check command. User management and document deletion remain outside these workflows.
+Before review, run the commands in the root README. There is no configured duplication-check command. Account disabling, demotion, and document deletion remain outside these workflows.

@@ -39,7 +39,7 @@ class IntegrationMigrationTests {
 
 		Flyway upgraded = Flyway.configure()
 				.dataSource(postgres.getJdbcUrl(), postgres.getUsername(), postgres.getPassword()).load();
-		assertThat(upgraded.migrate().migrationsExecuted).isEqualTo(3);
+		assertThat(upgraded.migrate().migrationsExecuted).isEqualTo(4);
 		upgraded.validate();
 
 		assertThat(jdbc.queryForObject("SELECT body_text FROM knowledge_item WHERE id = ?", String.class, id))

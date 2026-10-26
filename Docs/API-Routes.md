@@ -16,6 +16,7 @@ The committed [OpenAPI contract](./openapi.json) and [integration guide](./Integ
 
 | Method | Route | Role | Description |
 |---|---|---|---|
+| POST | `/api/auth/register` | Public | Creates an enabled USER account and returns 201 with `{token, expiresAt, user}`. Duplicate normalized email returns 409. *(implemented)* |
 | POST | `/api/auth/login` | Public | Returns `{token, expiresAt, user}` after email/password authentication. *(implemented)* |
 | POST | `/api/auth/logout` | User | Returns 204; frontend discards its token. Stateless JWTs are not revoked. *(implemented)* |
 | GET | `/api/auth/me` | User | Returns the signed-in user's id, display name, and role so the UI can show/hide admin navigation. |
@@ -79,7 +80,8 @@ Implemented: `GET /api/usage` returns personal query/token totals for users and 
 
 | Method | Route | Role | Description |
 |---|---|---|---|
-| GET | `/api/admin/users` | Admin | Lists user accounts with role and enabled flag. |
+| GET | `/api/admin/users` | Admin | Lists accounts without password hashes, with role and enabled flag. *(implemented)* |
+| POST | `/api/admin/users/{id}/promote` | Admin | Grants ADMIN to an enabled user after confirmation in the UI. No body; new role takes effect on the next login. *(implemented)* |
 | POST | `/api/admin/users` | Admin | Creates a user account with a role. |
 | PATCH | `/api/admin/users/{id}` | Admin | Changes a user's role or enabled flag. |
 | GET | `/api/admin/cache` | Admin | Lists cache entries with hit counts and knowledge revision for demoing the cache. |

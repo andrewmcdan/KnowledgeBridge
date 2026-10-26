@@ -1431,6 +1431,37 @@ small {
 .login-submit:hover {
     background: #0d4de0;
 }
+.login-create-account {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    min-height: 44px;
+    margin-top: 12px;
+    border: 1px solid var(--blue);
+    border-radius: 7px;
+    color: var(--blue);
+    background: #fff;
+    font-weight: 600;
+    text-decoration: none;
+}
+.login-create-account:hover {
+    background: #eef4ff;
+}
+.login-create-account:focus-visible {
+    outline: 3px solid #b8d0ff;
+    outline-offset: 2px;
+}
+.registration-help {
+    margin: 8px 0 21px;
+    color: var(--muted);
+    font-size: 12px;
+    line-height: 1.5;
+}
+.login-note a {
+    color: var(--blue);
+    font-weight: 600;
+}
 .login-error {
     margin: 0 0 16px;
     border: 1px solid #f2bcc2;
@@ -1627,6 +1658,56 @@ small {
 .status-failed {
     color: #a51d2a;
     background: #fff0f1;
+}
+.admin-users > input {
+    width: 100%;
+    margin: 8px 0 16px;
+    padding: 10px 12px;
+    border: 1px solid var(--border);
+    border-radius: 7px;
+}
+.admin-user-list {
+    list-style: none;
+    margin: 16px 0 0;
+    padding: 0;
+}
+.admin-user-list li {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 16px 0;
+    border-top: 1px solid var(--border);
+}
+.admin-user-identity {
+    min-width: 0;
+    overflow-wrap: anywhere;
+}
+.admin-user-identity h3 {
+    font-size: 14px;
+}
+.admin-user-identity p,
+.admin-user-identity small {
+    color: var(--muted);
+}
+.admin-success {
+    padding: 12px;
+    color: #17623b;
+    background: #edf9f1;
+    border: 1px solid #b9ddc5;
+    border-radius: 7px;
+}
+.promotion-dialog p {
+    margin: 16px 0;
+    line-height: 1.5;
+    overflow-wrap: anywhere;
+}
+.admin-actions {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: 10px;
 }
 .query-error,
 .query-warning {

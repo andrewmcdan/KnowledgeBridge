@@ -2,7 +2,7 @@
     "openapi": "3.0.3",
     "info": {
         "title": "KnowledgeBridge integration and authentication API",
-        "version": "1.1.0",
+        "version": "1.3.0",
         "description": "Canonical contracts for authentication, document ingestion, manual note editing, synthesized answers, and query usage totals. JSON errors use {code,message}. Saved records can have ingestion status FAILED. Other project routes remain outside this specification."
     },
     "servers": [
@@ -455,6 +455,133 @@
                         "$ref": "#/components/responses/ApiError"
                     },
                     "504": {
+                        "$ref": "#/components/responses/ApiError"
+                    },
+                    "500": {
+                        "$ref": "#/components/responses/ApiError"
+                    }
+                }
+            }
+        },
+        "/api/auth/register": {
+            "post": {
+                "summary": "Create an enabled USER account and issue a bearer token",
+                "x-roles": [
+                    "Public"
+                ],
+                "security": [],
+                "description": "Public self-service registration grants immediate access to completed workspace knowledge, without email verification. Role and enabled fields from clients are ignored. Normalized email conflicts, including disabled accounts, return 409 EMAIL_ALREADY_REGISTERED with a sign-in suggestion. Invalid fields return 400 VALIDATION_ERROR.",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/RegistrationRequest"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "Account created; same session contract as login. Frontend stores this session in session storage and opens Ask AI.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/LoginResponse"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "$ref": "#/components/responses/ApiError"
+                    },
+                    "409": {
+                        "$ref": "#/components/responses/ApiError"
+                    },
+                    "415": {
+                        "$ref": "#/components/responses/ApiError"
+                    },
+                    "500": {
+                        "$ref": "#/components/responses/ApiError"
+                    }
+                }
+            }
+        },
+        "/api/admin/users": {
+            "get": {
+                "summary": "List workspace accounts for existing admins",
+                "x-roles": [
+                    "ADMIN"
+                ],
+                "description": "Returns only id, email, displayName, role and enabled. Sorted by lowercase display name then id. Password hashes are never exposed.",
+                "responses": {
+                    "200": {
+                        "description": "Account summaries.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "array",
+                                    "items": {
+                                        "$ref": "#/components/schemas/ManagedUser"
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/ApiError"
+                    },
+                    "403": {
+                        "$ref": "#/components/responses/ApiError"
+                    },
+                    "500": {
+                        "$ref": "#/components/responses/ApiError"
+                    }
+                }
+            }
+        },
+        "/api/admin/users/{id}/promote": {
+            "post": {
+                "summary": "Grant admin access to an enabled user",
+                "x-roles": [
+                    "ADMIN"
+                ],
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer",
+                            "format": "int64"
+                        }
+                    }
+                ],
+                "description": "No request body. The backend assigns ADMIN exclusively; it cannot enable an account, demote anyone or edit credentials. Disabled accounts return 409, missing accounts 404. Repeated and concurrent requests are idempotent. Role changes require the target user to sign out and sign in again for a new JWT. Each actual promotion logs the acting and target user IDs.",
+                "responses": {
+                    "200": {
+                        "description": "The promoted account, or its current summary if already an admin.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ManagedUser"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "$ref": "#/components/responses/ApiError"
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/ApiError"
+                    },
+                    "403": {
+                        "$ref": "#/components/responses/ApiError"
+                    },
+                    "404": {
+                        "$ref": "#/components/responses/ApiError"
+                    },
+                    "409": {
                         "$ref": "#/components/responses/ApiError"
                     },
                     "500": {
@@ -1023,6 +1150,69 @@
                         "type": "string",
                         "minLength": 1,
                         "maxLength": 2000
+                    }
+                }
+            },
+            "RegistrationRequest": {
+                "type": "object",
+                "required": [
+                    "displayName",
+                    "email",
+                    "password"
+                ],
+                "properties": {
+                    "displayName": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 255,
+                        "description": "Trimmed before validation and storage; cannot be whitespace-only."
+                    },
+                    "email": {
+                        "type": "string",
+                        "format": "email",
+                        "minLength": 1,
+                        "maxLength": 255,
+                        "description": "Required valid email; trimmed and lowercased before validation and storage. Uniqueness is enforced on lower(btrim(email)) for every account, including disabled accounts."
+                    },
+                    "password": {
+                        "type": "string",
+                        "format": "password",
+                        "writeOnly": true,
+                        "minLength": 8,
+                        "maxLength": 72,
+                        "description": "Preserved exactly, including spaces. At least eight Unicode code points and at most 72 UTF-8 bytes for BCrypt; no mandatory character combinations. Password confirmation is checked only in the UI and is not sent."
+                    }
+                }
+            },
+            "ManagedUser": {
+                "type": "object",
+                "required": [
+                    "id",
+                    "email",
+                    "displayName",
+                    "role",
+                    "enabled"
+                ],
+                "properties": {
+                    "id": {
+                        "type": "integer",
+                        "format": "int64"
+                    },
+                    "email": {
+                        "type": "string"
+                    },
+                    "displayName": {
+                        "type": "string"
+                    },
+                    "role": {
+                        "type": "string",
+                        "enum": [
+                            "ADMIN",
+                            "USER"
+                        ]
+                    },
+                    "enabled": {
+                        "type": "boolean"
                     }
                 }
             }

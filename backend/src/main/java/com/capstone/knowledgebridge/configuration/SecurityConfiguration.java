@@ -40,6 +40,7 @@ public class SecurityConfiguration {
 						// into 401.
 						.dispatcherTypeMatchers(DispatcherType.ERROR).permitAll()
 						.requestMatchers(HttpMethod.OPTIONS, "/api/**").permitAll()
+						.requestMatchers(HttpMethod.POST, "/api/auth/register").permitAll()
 						.requestMatchers("/api/health", "/api/auth/login").permitAll()
 						// Reject non-admin writes before MVC parses JSON or uploaded content.
 						.requestMatchers(HttpMethod.POST, "/api/knowledge-items/manual", "/api/knowledge-items/upload",
