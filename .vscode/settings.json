@@ -30,5 +30,6 @@
         "editor.insertSpaces": false,
         "editor.tabSize": 4
     },
-    "java.compile.nullAnalysis.mode": "disabled"
+    "java.compile.nullAnalysis.mode": "disabled",
+    "java.configuration.updateBuildConfiguration": "disabled"
 }
