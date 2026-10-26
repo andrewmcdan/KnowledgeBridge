@@ -68,7 +68,7 @@ function Workspace() {
                     <main className="main-content">
                         <PageHeading title={page} />
                         <Routes>
-                            <Route path="/ask-ai" element={<AskAiPage />} />
+                            <Route path="/ask-ai" element={<AskAiPage onOpenDetail={setDetail} />} />
                             <Route path="/knowledge" element={<KnowledgeBasePage search={search} saved={saved} onOpenDetail={setDetail} onToggleSaved={toggleSaved} />} />
                             <Route path="/entities" element={<EntitiesPage onOpenDetail={setDetail} />} />
                             <Route path="/dashboard" element={<PlaceholderPage page="Dashboard" service={service} onAskAi={() => go("/ask-ai")} />} />
