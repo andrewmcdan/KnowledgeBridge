@@ -17,6 +17,8 @@ export function UploadsPage() {
     const [uploadMode, setUploadMode] = useState<"markdown" | "note" | "folder">("markdown");
     const [file, setFile] = useState<File | null>(null);
     const [uploadTitle, setUploadTitle] = useState("");
+    const [titleEdited, setTitleEdited] = useState(false);
+    const [useAiTitle, setUseAiTitle] = useState(false);
     const [uploadType, setUploadType] = useState("Document");
     const [noteTitle, setNoteTitle] = useState("");
     const [noteType, setNoteType] = useState("Note");
@@ -77,8 +79,10 @@ export function UploadsPage() {
 
     const selectFile = (selectedFile: File | null) => {
         setFile(selectedFile);
-        if (!selectedFile || uploadTitle.trim()) return;
-        setUploadTitle(titleFromFilename(selectedFile.name));
+        if (!titleEdited || !uploadTitle.trim()) {
+            setUploadTitle(selectedFile ? titleFromFilename(selectedFile.name) : "");
+            setTitleEdited(false);
+        }
     };
 
     const submitFile = async (event: FormEvent<HTMLFormElement>) => {
@@ -92,7 +96,8 @@ export function UploadsPage() {
             setError(fileError);
             return;
         }
-        const validationError = validateTextFields(uploadTitle, uploadType, "file");
+        const title = uploadTitle.trim() || (useAiTitle ? titleFromFilename(file.name) : "");
+        const validationError = validateTextFields(title, uploadType, "file");
         if (validationError) {
             setError(validationError);
             return;
@@ -102,9 +107,10 @@ export function UploadsPage() {
         setError(null);
         setNotice(null);
         try {
-            addItem(await uploadKnowledgeFile(file, uploadTitle.trim(), uploadType.trim()));
+            addItem(await uploadKnowledgeFile(file, title, uploadType.trim(), useAiTitle));
             setFile(null);
             setUploadTitle("");
+            setTitleEdited(false);
             if (fileInput.current) fileInput.current.value = "";
         } catch (reason: unknown) {
             setError(reason instanceof Error ? reason.message : "We could not upload the file.");
@@ -199,12 +205,32 @@ export function UploadsPage() {
                             charges.
                         </p>
                         <label htmlFor="upload-title">Title</label>
-                        <input id="upload-title" value={uploadTitle} maxLength={255} required onChange={(event) => setUploadTitle(event.target.value)} />
+                        <input
+                            id="upload-title"
+                            value={uploadTitle}
+                            maxLength={255}
+                            required={!useAiTitle}
+                            disabled={submitting}
+                            aria-describedby="upload-title-help"
+                            onChange={(event) => {
+                                setUploadTitle(event.target.value);
+                                setTitleEdited(true);
+                            }}
+                        />
+                        <label className="ai-title-option">
+                            <input type="checkbox" checked={useAiTitle} disabled={submitting} onChange={(event) => setUseAiTitle(event.target.checked)} />
+                            Use AI to name this file
+                        </label>
+                        <p id="upload-title-help">
+                            {useAiTitle
+                                ? "AI will use the file content or video transcript and this title as guidance. For example: Meeting 10/27/2026. The final title appears after processing. AI naming may incur charges."
+                                : "The filename supplies a default title. Edit it to use your own."}
+                        </p>
                         <label htmlFor="upload-type">Document type</label>
-                        <input id="upload-type" value={uploadType} maxLength={255} required onChange={(event) => setUploadType(event.target.value)} />
+                        <input id="upload-type" value={uploadType} maxLength={255} required disabled={submitting} onChange={(event) => setUploadType(event.target.value)} />
                         <label className="file-picker">
                             <span>{file?.name ?? "Choose a Markdown, Word, or video file"}</span>
-                            <input ref={fileInput} type="file" accept={UPLOAD_ACCEPT} onChange={(event) => selectFile(event.target.files?.[0] ?? null)} />
+                            <input ref={fileInput} type="file" accept={UPLOAD_ACCEPT} disabled={submitting} onChange={(event) => selectFile(event.target.files?.[0] ?? null)} />
                         </label>
                         <button className="primary-button" type="submit" disabled={submitting}>
                             {submitting ? "Adding…" : "Add document"}
@@ -265,6 +291,7 @@ export function UploadsPage() {
                                 <p>
                                     {item.type} · {item.characterCount.toLocaleString()} characters
                                 </p>
+                                {item.ingestionStage === "GENERATING_TITLE" && <p role="status">Generating AI title…</p>}
                                 {item.lastErrorMessage && <p className="ingestion-error">{item.lastErrorMessage}</p>}
                             </div>
                             <div className="knowledge-item-actions">

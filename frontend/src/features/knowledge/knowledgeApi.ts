@@ -9,6 +9,7 @@ export interface KnowledgeItem {
     type: string;
     ownerId: number;
     status: IngestionStatus;
+    ingestionStage: string;
     characterCount: number;
     externalEngineId: string | null;
     lastErrorCode: string | null;
@@ -38,6 +39,7 @@ function isKnowledgeItem(value: unknown): value is KnowledgeItem {
         typeof item.ownerId === "number" &&
         (item.sourceKind === "MANUAL" || item.sourceKind === "MARKDOWN" || item.sourceKind === "DOCX" || item.sourceKind === "VIDEO") &&
         isIngestionStatus(item.status) &&
+        typeof item.ingestionStage === "string" &&
         typeof item.characterCount === "number" &&
         (typeof item.externalEngineId === "string" || item.externalEngineId === null) &&
         (typeof item.lastErrorCode === "string" || item.lastErrorCode === null) &&
@@ -78,7 +80,7 @@ export async function createManualKnowledgeItem(title: string, type: string, tex
     return readKnowledgeItem(response);
 }
 
-export async function uploadKnowledgeFile(file: File, title: string, type: string): Promise<KnowledgeItem> {
+export async function uploadKnowledgeFile(file: File, title: string, type: string, useAiTitle = false): Promise<KnowledgeItem> {
     const kind = uploadKind(file.name);
     if (kind === null) throw new Error("This file type is not supported.");
     const headers = getAuthorizationHeader();
@@ -86,6 +88,7 @@ export async function uploadKnowledgeFile(file: File, title: string, type: strin
     formData.append("file", file);
     formData.append("title", title);
     formData.append("type", type);
+    if (useAiTitle) formData.append("useAiTitle", "true");
     const response = await fetch(`/api/knowledge-items/${kind === "video" ? "video" : "upload"}`, {
         method: "POST",
         headers,
