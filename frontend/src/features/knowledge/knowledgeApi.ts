@@ -1,3 +1,5 @@
+import { readApiError } from "../../api/apiError";
+
 export type IngestionStatus = "PENDING" | "PROCESSING" | "COMPLETED" | "FAILED";
 
 export interface KnowledgeItem {
@@ -42,16 +44,8 @@ function isKnowledgeItem(value: unknown): value is KnowledgeItem {
     );
 }
 
-export async function readError(response: Response, fallback: string): Promise<Error> {
-    if (response.status === 401) return new Error("Your sign-in session is no longer valid.");
-    if (response.status === 403) return new Error("You do not have permission to manage knowledge items.");
-    if (response.status === 404) return new Error("This knowledge item no longer exists.");
-    if (response.status === 409) return new Error("Only failed ingestion attempts can be retried.");
-    if (response.status === 413) return new Error("Content is too large: text is limited to 1 MiB and Word files to 10 MiB.");
-    if (response.status === 415) return new Error("Only Markdown (.md) and Word (.docx) files can be uploaded.");
-
-    const message = await response.text();
-    return new Error(message || fallback);
+export async function readError(response: Response, fallback: string, requestAuthorization?: string): Promise<Error> {
+    return readApiError(response, fallback, requestAuthorization);
 }
 
 async function readKnowledgeItem(response: Response): Promise<KnowledgeItem> {
@@ -61,8 +55,9 @@ async function readKnowledgeItem(response: Response): Promise<KnowledgeItem> {
 }
 
 export async function getKnowledgeItems(): Promise<KnowledgeItem[]> {
-    const response = await fetch("/api/knowledge-items", { headers: getAuthorizationHeader() });
-    if (!response.ok) throw await readError(response, "We could not load the knowledge list.");
+    const headers = getAuthorizationHeader();
+    const response = await fetch("/api/knowledge-items", { headers });
+    if (!response.ok) throw await readError(response, "We could not load the knowledge list.", headers.Authorization);
 
     const payload: unknown = await response.json();
     if (!Array.isArray(payload) || !payload.every(isKnowledgeItem)) throw new Error("The server returned an invalid knowledge list.");
@@ -70,34 +65,37 @@ export async function getKnowledgeItems(): Promise<KnowledgeItem[]> {
 }
 
 export async function createManualKnowledgeItem(title: string, type: string, text: string): Promise<KnowledgeItem> {
+    const headers = getAuthorizationHeader();
     const response = await fetch("/api/knowledge-items/manual", {
         method: "POST",
-        headers: { ...getAuthorizationHeader(), "Content-Type": "application/json" },
+        headers: { ...headers, "Content-Type": "application/json" },
         body: JSON.stringify({ title, type, text }),
     });
-    if (!response.ok) throw await readError(response, "We could not save the note.");
+    if (!response.ok) throw await readError(response, "We could not save the note.", headers.Authorization);
     return readKnowledgeItem(response);
 }
 
 export async function uploadMarkdown(file: File, title: string, type: string): Promise<KnowledgeItem> {
+    const headers = getAuthorizationHeader();
     const formData = new FormData();
     formData.append("file", file);
     formData.append("title", title);
     formData.append("type", type);
     const response = await fetch("/api/knowledge-items/upload", {
         method: "POST",
-        headers: getAuthorizationHeader(),
+        headers,
         body: formData,
     });
-    if (!response.ok) throw await readError(response, "We could not upload the file. Word files must be readable .docx documents with text.");
+    if (!response.ok) throw await readError(response, "We could not upload the file. Word files must be readable .docx documents with text.", headers.Authorization);
     return readKnowledgeItem(response);
 }
 
 export async function retryKnowledgeItem(id: number): Promise<KnowledgeItem> {
+    const headers = getAuthorizationHeader();
     const response = await fetch(`/api/knowledge-items/${id}/retry-ingestion`, {
         method: "POST",
-        headers: getAuthorizationHeader(),
+        headers,
     });
-    if (!response.ok) throw await readError(response, "We could not retry ingestion.");
+    if (!response.ok) throw await readError(response, "We could not retry ingestion.", headers.Authorization);
     return readKnowledgeItem(response);
 }

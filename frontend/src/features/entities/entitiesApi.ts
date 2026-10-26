@@ -1,4 +1,5 @@
 import { getAuthorizationHeader } from "../knowledge/knowledgeApi";
+import { readApiError } from "../../api/apiError";
 import { ENTITIES_UPDATED_EVENT } from "./useEntityRefresh";
 
 export type EntityType = "PERSON" | "COMPANY" | "PROJECT" | "TEAM";
@@ -46,12 +47,9 @@ function isDocument(value: unknown): value is RelatedDocument {
 }
 
 async function request(path: string, method = "GET", signal?: AbortSignal): Promise<unknown> {
-    const response = await fetch(path, { method, headers: getAuthorizationHeader(), signal, cache: "no-store" });
-    if (response.status === 401) throw new Error("Your sign-in session has expired. Please sign in again.");
-    if (response.status === 403) throw new Error("Only administrators can run entity extraction.");
-    if (response.status === 404) throw new Error("This entity or indexed document is no longer available.");
-    if (response.status === 409) throw new Error("The document must finish indexing before extraction can run.");
-    if (!response.ok) throw new Error("We could not load entities. Please try again.");
+    const headers = getAuthorizationHeader();
+    const response = await fetch(path, { method, headers, signal, cache: "no-store" });
+    if (!response.ok) throw await readApiError(response, "We could not load entities. Please try again.", headers.Authorization);
     return response.json();
 }
 

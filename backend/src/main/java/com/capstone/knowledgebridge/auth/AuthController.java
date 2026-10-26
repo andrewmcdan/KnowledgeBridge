@@ -3,6 +3,7 @@ package com.capstone.knowledgebridge.auth;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
+import java.util.Locale;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -70,7 +71,7 @@ public class AuthController {
 				"SELECT id, email, password_hash, display_name, role, enabled FROM app_user WHERE email = ?",
 				(rs, rowNum) -> new AppUser(rs.getLong("id"), rs.getString("email"), rs.getString("password_hash"),
 						rs.getString("display_name"), rs.getString("role"), rs.getBoolean("enabled")),
-				request.email().trim().toLowerCase());
+				request.email().trim().toLowerCase(Locale.ROOT));
 
 		// One generic failure path: never reveal whether the email or the password was
 		// wrong.

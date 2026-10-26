@@ -1,0 +1,607 @@
+{
+    "openapi": "3.0.3",
+    "info": {
+        "title": "KnowledgeBridge integration and authentication API",
+        "version": "1.0.0",
+        "description": "Canonical contracts for Member 1 integration. JSON errors use {code,message}. Ingestion errors on a created record are represented by its status and latest error fields. Other project routes are outside this specification."
+    },
+    "servers": [
+        {
+            "url": "/"
+        }
+    ],
+    "security": [
+        {
+            "bearerAuth": []
+        }
+    ],
+    "paths": {
+        "/api/knowledge-items/manual": {
+            "post": {
+                "summary": "Create and synchronously ingest a manual note",
+                "x-roles": [
+                    "ADMIN"
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Application record created. Inspect status: FAILED is still a successful creation with an ingestion error.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/KnowledgeItem"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "$ref": "#/components/responses/ApiError"
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/ApiError"
+                    },
+                    "403": {
+                        "$ref": "#/components/responses/ApiError"
+                    },
+                    "413": {
+                        "$ref": "#/components/responses/ApiError"
+                    },
+                    "415": {
+                        "$ref": "#/components/responses/ApiError"
+                    },
+                    "500": {
+                        "$ref": "#/components/responses/ApiError"
+                    }
+                },
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/ManualKnowledgeItemRequest"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/knowledge-items/upload": {
+            "post": {
+                "summary": "Upload and synchronously ingest one Markdown or Word document",
+                "x-roles": [
+                    "ADMIN"
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Application record created after conversion/ingestion. Inspect status and latest error fields.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/KnowledgeItem"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "$ref": "#/components/responses/ApiError"
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/ApiError"
+                    },
+                    "403": {
+                        "$ref": "#/components/responses/ApiError"
+                    },
+                    "413": {
+                        "$ref": "#/components/responses/ApiError"
+                    },
+                    "415": {
+                        "$ref": "#/components/responses/ApiError"
+                    },
+                    "500": {
+                        "$ref": "#/components/responses/ApiError"
+                    }
+                },
+                "description": "Filename extension is case-insensitive. Markdown is decoded as UTF-8. Empty/unreadable content and blank/overlong title or type are rejected. DOCX filenames must fit 255 characters. The original DOCX is not retained.",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "multipart/form-data": {
+                            "schema": {
+                                "$ref": "#/components/schemas/UploadKnowledgeItemRequest"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/knowledge-items": {
+            "get": {
+                "summary": "List visible knowledge items",
+                "x-roles": [
+                    "ADMIN",
+                    "USER"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Bare JSON array, newest createdAt then id first. Empty list is []. Admins see all statuses; users see COMPLETED items only.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "array",
+                                    "items": {
+                                        "$ref": "#/components/schemas/KnowledgeItem"
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/ApiError"
+                    },
+                    "403": {
+                        "$ref": "#/components/responses/ApiError"
+                    },
+                    "500": {
+                        "$ref": "#/components/responses/ApiError"
+                    }
+                },
+                "description": "No pagination or server-side filters are currently supported. The frontend filters its loaded list. The response does not include document text; use the authenticated completed-document content route."
+            }
+        },
+        "/api/knowledge-items/{id}/retry-ingestion": {
+            "post": {
+                "summary": "Retry a failed item without deleting attempt history",
+                "x-roles": [
+                    "ADMIN"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Updated item. Text/DOCX ingestion is synchronous; video retry can return PENDING while queued.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/KnowledgeItem"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "$ref": "#/components/responses/ApiError"
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/ApiError"
+                    },
+                    "403": {
+                        "$ref": "#/components/responses/ApiError"
+                    },
+                    "404": {
+                        "$ref": "#/components/responses/ApiError"
+                    },
+                    "409": {
+                        "$ref": "#/components/responses/ApiError"
+                    },
+                    "500": {
+                        "$ref": "#/components/responses/ApiError"
+                    }
+                },
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer",
+                            "format": "int64"
+                        }
+                    }
+                ],
+                "description": "No request body. Only FAILED items can be retried. Every completed attempt is recorded separately; successful retry clears lastErrorCode and lastErrorMessage. Missing item: 404. Other statuses: 409."
+            }
+        },
+        "/api/auth/login": {
+            "post": {
+                "summary": "Authenticate and issue a bearer token",
+                "x-roles": [
+                    "Public"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "HS256 JWT, expiry timestamp, and user profile. Default lifetime is eight hours; there is no refresh-token flow.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/LoginResponse"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "$ref": "#/components/responses/ApiError"
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/ApiError"
+                    },
+                    "415": {
+                        "$ref": "#/components/responses/ApiError"
+                    },
+                    "500": {
+                        "$ref": "#/components/responses/ApiError"
+                    }
+                },
+                "security": [],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/LoginRequest"
+                            }
+                        }
+                    }
+                },
+                "description": "Unknown email, wrong password, and disabled account all return the same 401 error. Never return the password hash."
+            }
+        },
+        "/api/auth/logout": {
+            "post": {
+                "summary": "Acknowledge client sign-out",
+                "x-roles": [
+                    "ADMIN",
+                    "USER"
+                ],
+                "responses": {
+                    "204": {
+                        "description": "Empty response. Frontend clears session/local storage even if this acknowledgement fails."
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/ApiError"
+                    },
+                    "500": {
+                        "$ref": "#/components/responses/ApiError"
+                    }
+                },
+                "description": "Requires a valid bearer token. JWTs are stateless and are not revoked by this endpoint. A captured token remains valid until expiration. There is no server-side session to delete."
+            }
+        },
+        "/api/auth/me": {
+            "get": {
+                "summary": "Return the authenticated token identity and role",
+                "x-roles": [
+                    "ADMIN",
+                    "USER"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Profile from the verified JWT claims; database account/role changes are reflected on the next login, not immediately.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/AuthUser"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/ApiError"
+                    },
+                    "500": {
+                        "$ref": "#/components/responses/ApiError"
+                    }
+                },
+                "description": "Used on page load to restore a stored session. Missing, expired, or invalid tokens return 401. Frontend disposes a rejected session and returns to login."
+            }
+        }
+    },
+    "components": {
+        "securitySchemes": {
+            "bearerAuth": {
+                "type": "http",
+                "scheme": "bearer",
+                "bearerFormat": "JWT"
+            }
+        },
+        "schemas": {
+            "KnowledgeItem": {
+                "type": "object",
+                "required": [
+                    "id",
+                    "title",
+                    "type",
+                    "ownerId",
+                    "status",
+                    "ingestionStage",
+                    "sourceKind",
+                    "characterCount",
+                    "originalFilename",
+                    "sourceSha256",
+                    "mediaDurationMs",
+                    "transcriptionModel",
+                    "transcriptionLanguage",
+                    "externalEngineId",
+                    "transcriptionSegmentCount",
+                    "transcribedAt",
+                    "lastErrorCode",
+                    "lastErrorMessage",
+                    "createdAt",
+                    "updatedAt"
+                ],
+                "properties": {
+                    "id": {
+                        "type": "integer",
+                        "format": "int64"
+                    },
+                    "title": {
+                        "type": "string",
+                        "maxLength": 255
+                    },
+                    "type": {
+                        "type": "string",
+                        "maxLength": 255
+                    },
+                    "ownerId": {
+                        "type": "integer",
+                        "format": "int64"
+                    },
+                    "status": {
+                        "type": "string",
+                        "enum": [
+                            "PENDING",
+                            "PROCESSING",
+                            "COMPLETED",
+                            "FAILED"
+                        ]
+                    },
+                    "ingestionStage": {
+                        "type": "string",
+                        "enum": [
+                            "QUEUED",
+                            "EXTRACTING_AUDIO",
+                            "TRANSCRIBING",
+                            "INDEXING",
+                            "COMPLETE",
+                            "FAILED"
+                        ]
+                    },
+                    "sourceKind": {
+                        "type": "string",
+                        "enum": [
+                            "MANUAL",
+                            "MARKDOWN",
+                            "DOCX",
+                            "VIDEO"
+                        ]
+                    },
+                    "characterCount": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "description": "Stored text length in Java UTF-16 code units, not UTF-8 bytes."
+                    },
+                    "originalFilename": {
+                        "type": "string",
+                        "nullable": true
+                    },
+                    "sourceSha256": {
+                        "type": "string",
+                        "nullable": true
+                    },
+                    "mediaDurationMs": {
+                        "type": "integer",
+                        "format": "int64",
+                        "nullable": true
+                    },
+                    "transcriptionModel": {
+                        "type": "string",
+                        "nullable": true
+                    },
+                    "transcriptionLanguage": {
+                        "type": "string",
+                        "nullable": true
+                    },
+                    "externalEngineId": {
+                        "type": "string",
+                        "nullable": true
+                    },
+                    "transcriptionSegmentCount": {
+                        "type": "integer",
+                        "nullable": true
+                    },
+                    "transcribedAt": {
+                        "type": "string",
+                        "format": "date-time",
+                        "nullable": true
+                    },
+                    "lastErrorCode": {
+                        "type": "string",
+                        "nullable": true
+                    },
+                    "lastErrorMessage": {
+                        "type": "string",
+                        "nullable": true
+                    },
+                    "createdAt": {
+                        "type": "string",
+                        "format": "date-time"
+                    },
+                    "updatedAt": {
+                        "type": "string",
+                        "format": "date-time"
+                    }
+                },
+                "example": {
+                    "id": 1,
+                    "title": "Procurement policy",
+                    "type": "Policy",
+                    "ownerId": 1,
+                    "status": "COMPLETED",
+                    "ingestionStage": "COMPLETE",
+                    "sourceKind": "MANUAL",
+                    "characterCount": 24,
+                    "originalFilename": null,
+                    "sourceSha256": null,
+                    "mediaDurationMs": null,
+                    "transcriptionModel": null,
+                    "transcriptionLanguage": null,
+                    "externalEngineId": "knowledgebridge/1",
+                    "transcriptionSegmentCount": null,
+                    "transcribedAt": null,
+                    "lastErrorCode": null,
+                    "lastErrorMessage": null,
+                    "createdAt": "2026-10-25T12:00:00Z",
+                    "updatedAt": "2026-10-25T12:00:01Z"
+                }
+            },
+            "ManualKnowledgeItemRequest": {
+                "type": "object",
+                "required": [
+                    "title",
+                    "type",
+                    "text"
+                ],
+                "properties": {
+                    "title": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 255,
+                        "description": "Required and not whitespace-only; trimmed before storage."
+                    },
+                    "type": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 255,
+                        "description": "Required and not whitespace-only; trimmed before storage."
+                    },
+                    "text": {
+                        "type": "string",
+                        "minLength": 1,
+                        "description": "Required and not whitespace-only. Normalized UTF-8 text plus its final newline must fit 1 MiB (1048576 bytes)."
+                    }
+                }
+            },
+            "UploadKnowledgeItemRequest": {
+                "type": "object",
+                "required": [
+                    "file",
+                    "title",
+                    "type"
+                ],
+                "properties": {
+                    "file": {
+                        "type": "string",
+                        "format": "binary",
+                        "description": "One .md file up to 1 MiB, or one .docx file up to 10 MiB. Converted/normalized text must still fit 1 MiB."
+                    },
+                    "title": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 255
+                    },
+                    "type": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 255
+                    }
+                }
+            },
+            "ApiError": {
+                "type": "object",
+                "required": [
+                    "code",
+                    "message"
+                ],
+                "properties": {
+                    "code": {
+                        "type": "string",
+                        "description": "Stable machine-readable error category; clients must tolerate new codes."
+                    },
+                    "message": {
+                        "type": "string",
+                        "description": "Safe user-facing message. Does not contain stack traces or credentials."
+                    }
+                },
+                "additionalProperties": false,
+                "example": {
+                    "code": "FORBIDDEN",
+                    "message": "You do not have permission to perform this operation."
+                }
+            },
+            "AuthUser": {
+                "type": "object",
+                "required": [
+                    "id",
+                    "email",
+                    "displayName",
+                    "role"
+                ],
+                "properties": {
+                    "id": {
+                        "type": "integer",
+                        "format": "int64"
+                    },
+                    "email": {
+                        "type": "string"
+                    },
+                    "displayName": {
+                        "type": "string"
+                    },
+                    "role": {
+                        "type": "string",
+                        "enum": [
+                            "ADMIN",
+                            "USER"
+                        ]
+                    }
+                }
+            },
+            "LoginRequest": {
+                "type": "object",
+                "required": [
+                    "email",
+                    "password"
+                ],
+                "properties": {
+                    "email": {
+                        "type": "string",
+                        "minLength": 1,
+                        "description": "Email is trimmed and lowercased before lookup."
+                    },
+                    "password": {
+                        "type": "string",
+                        "minLength": 1,
+                        "format": "password"
+                    }
+                }
+            },
+            "LoginResponse": {
+                "type": "object",
+                "required": [
+                    "token",
+                    "expiresAt",
+                    "user"
+                ],
+                "properties": {
+                    "token": {
+                        "type": "string"
+                    },
+                    "expiresAt": {
+                        "type": "string",
+                        "format": "date-time"
+                    },
+                    "user": {
+                        "$ref": "#/components/schemas/AuthUser"
+                    }
+                }
+            }
+        },
+        "responses": {
+            "ApiError": {
+                "description": "Error with a stable code and safe message. HTTP status carries the outcome. Security 401 responses also include WWW-Authenticate: Bearer.",
+                "content": {
+                    "application/json": {
+                        "schema": {
+                            "$ref": "#/components/schemas/ApiError"
+                        }
+                    }
+                }
+            }
+        }
+    }
+}

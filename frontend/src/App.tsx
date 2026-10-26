@@ -55,7 +55,7 @@ function Workspace() {
                         onSearchSubmit={() => go("/knowledge")}
                         onToggleNavigation={toggleNavigation}
                         onLogout={() => {
-                            signOut();
+                            void signOut();
                             navigate("/", { replace: true });
                         }}
                         user={user}

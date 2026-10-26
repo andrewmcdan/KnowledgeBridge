@@ -148,6 +148,10 @@ class KnowledgeBridgeApplicationTests {
 
 		mockMvc.perform(post("/api/auth/logout").header("Authorization", "Bearer " + token))
 				.andExpect(status().isNoContent());
+
+		// The agreed logout contract is client-side token disposal, not server-side JWT revocation.
+		mockMvc.perform(get("/api/auth/me").header("Authorization", "Bearer " + token))
+				.andExpect(status().isOk());
 	}
 
 	@Test
@@ -162,6 +166,66 @@ class KnowledgeBridgeApplicationTests {
 		String adminToken = loginAndGetToken("admin@acme.example", "admin123", "ADMIN");
 		mockMvc.perform(get("/api/admin/missing").header("Authorization", "Bearer " + adminToken))
 				.andExpect(status().isNotFound());
+	}
+
+	@Test
+	void authenticationAndAuthorizationErrorsShareTheApiEnvelope() throws Exception {
+		mockMvc.perform(get("/api/auth/me").header("Origin", "http://localhost:5173"))
+				.andExpect(status().isUnauthorized())
+				.andExpect(header().string("WWW-Authenticate", "Bearer"))
+				.andExpect(header().string("Access-Control-Allow-Origin", "http://localhost:5173"))
+				.andExpect(jsonPath("$.code").value("UNAUTHENTICATED"));
+		mockMvc.perform(get("/api/auth/me").header("Authorization", "Bearer invalid-token"))
+				.andExpect(status().isUnauthorized()).andExpect(jsonPath("$.code").value("UNAUTHENTICATED"));
+		Instant now = Instant.now();
+		String expired = jwtEncoder.encode(JwtEncoderParameters.from(JwsHeader.with(MacAlgorithm.HS256).build(),
+				JwtClaimsSet.builder().issuer("knowledgebridge").subject("1").issuedAt(now.minusSeconds(3600))
+						.expiresAt(now.minusSeconds(300)).claim("role", "ADMIN").build()))
+				.getTokenValue();
+		mockMvc.perform(get("/api/auth/me").header("Authorization", "Bearer " + expired))
+				.andExpect(status().isUnauthorized()).andExpect(jsonPath("$.code").value("UNAUTHENTICATED"));
+		mockMvc.perform(post("/api/auth/login").contentType("application/json")
+				.content("{\"email\":\"unknown@acme.example\",\"password\":\"wrong\"}"))
+				.andExpect(status().isUnauthorized()).andExpect(jsonPath("$.code").value("UNAUTHENTICATED"));
+
+		String user = "Bearer " + loginAndGetToken("user@acme.example", "user123", "USER");
+		mockMvc.perform(post("/api/knowledge-items/manual").header("Authorization", user)
+				.contentType("application/json").content("{"))
+				.andExpect(status().isForbidden()).andExpect(jsonPath("$.code").value("FORBIDDEN"));
+		mockMvc.perform(multipart("/api/knowledge-items/upload").header("Authorization", user))
+				.andExpect(status().isForbidden()).andExpect(jsonPath("$.code").value("FORBIDDEN"));
+		mockMvc.perform(get("/api/admin/cache").header("Authorization", user))
+				.andExpect(status().isForbidden()).andExpect(jsonPath("$.code").value("FORBIDDEN"));
+		for (String path : List.of("/api/knowledge-items/manual", "/api/knowledge-items/1/retry-ingestion",
+				"/api/knowledge-items/1/extract-entities")) {
+			mockMvc.perform(post(path).header("Authorization", user).contentType("application/json")
+					.content("{\"title\":\"x\",\"type\":\"note\",\"text\":\"body\"}"))
+					.andExpect(status().isForbidden()).andExpect(jsonPath("$.code").value("FORBIDDEN"));
+		}
+		for (String path : List.of("/api/knowledge-items/upload", "/api/knowledge-items/video")) {
+			mockMvc.perform(
+					multipart(path).file(new MockMultipartFile("file", "note.md", "text/markdown", new byte[]{1}))
+							.param("title", "Note").param("type", "note").header("Authorization", user))
+					.andExpect(status().isForbidden()).andExpect(jsonPath("$.code").value("FORBIDDEN"));
+		}
+	}
+
+	@Test
+	void ingestionValidationAndMissingResourcesShareTheApiEnvelope() throws Exception {
+		String admin = "Bearer " + loginAndGetToken("admin@acme.example", "admin123", "ADMIN");
+		mockMvc.perform(post("/api/knowledge-items/manual").header("Authorization", admin)
+				.contentType("application/json").content("{\"title\":\"\",\"type\":\"note\",\"text\":\"body\"}"))
+				.andExpect(status().isBadRequest()).andExpect(jsonPath("$.code").value("VALIDATION_ERROR"));
+		mockMvc.perform(multipart("/api/knowledge-items/upload").param("title", "Title").param("type", "note")
+				.header("Authorization", admin))
+				.andExpect(status().isBadRequest()).andExpect(jsonPath("$.code").value("VALIDATION_ERROR"));
+		mockMvc.perform(multipart("/api/knowledge-items/upload")
+				.file(new MockMultipartFile("file", "file.pdf", "application/pdf", new byte[]{1}))
+				.param("title", "Title").param("type", "note").header("Authorization", admin))
+				.andExpect(status().isUnsupportedMediaType())
+				.andExpect(jsonPath("$.code").value("UNSUPPORTED_MEDIA_TYPE"));
+		mockMvc.perform(post("/api/knowledge-items/999999/retry-ingestion").header("Authorization", admin))
+				.andExpect(status().isNotFound()).andExpect(jsonPath("$.code").value("NOT_FOUND"));
 	}
 
 	@Test
@@ -333,7 +397,8 @@ class KnowledgeBridgeApplicationTests {
 
 		String userToken = loginAndGetToken("user@acme.example", "user123", "USER");
 		mockMvc.perform(get("/api/knowledge-items").header("Authorization", "Bearer " + userToken))
-				.andExpect(status().isForbidden());
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$[?(@.id == " + id + ")]").isEmpty());
 		mockMvc.perform(get("/api/knowledge-items/" + id).header("Authorization", "Bearer " + userToken))
 				.andExpect(status().isForbidden());
 

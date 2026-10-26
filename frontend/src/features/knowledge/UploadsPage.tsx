@@ -77,9 +77,11 @@ export function UploadsPage() {
         return () => window.clearInterval(timer);
     }, [items, loadItems]);
 
-    const addItem = (item: KnowledgeItem, action: string) => {
+    const addItem = (item: KnowledgeItem) => {
         setItems((current) => [item, ...(current ?? []).filter((currentItem) => currentItem.id !== item.id)]);
-        setNotice(`“${item.title}” ${action}.`);
+        setNotice(
+            item.status === "FAILED" ? `“${item.title}” was saved, but ingestion failed. Review the error and retry.` : item.status === "COMPLETED" ? `“${item.title}” finished ingestion.` : `“${item.title}” was queued for ingestion.`,
+        );
     };
 
     const selectFile = (selectedFile: File | null) => {
@@ -117,7 +119,7 @@ export function UploadsPage() {
         setError(null);
         setNotice(null);
         try {
-            addItem(await uploadMarkdown(file, uploadTitle.trim(), uploadType.trim()), "was added and queued for ingestion");
+            addItem(await uploadMarkdown(file, uploadTitle.trim(), uploadType.trim()));
             setFile(null);
             setUploadTitle("");
             if (fileInput.current) fileInput.current.value = "";
@@ -140,7 +142,7 @@ export function UploadsPage() {
         setError(null);
         setNotice(null);
         try {
-            addItem(await createManualKnowledgeItem(noteTitle.trim(), noteType.trim(), content), "was added and queued for ingestion");
+            addItem(await createManualKnowledgeItem(noteTitle.trim(), noteType.trim(), content));
             setNoteTitle("");
             setNoteType("Note");
             setContent("");
@@ -156,7 +158,7 @@ export function UploadsPage() {
         setError(null);
         setNotice(null);
         try {
-            addItem(await retryKnowledgeItem(item.id), "was queued for another ingestion attempt");
+            addItem(await retryKnowledgeItem(item.id));
         } catch (reason: unknown) {
             setError(reason instanceof Error ? reason.message : "We could not retry ingestion.");
         } finally {
