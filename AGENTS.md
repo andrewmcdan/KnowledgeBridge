@@ -21,6 +21,7 @@ These instructions apply to the entire repository. Preserve existing architectur
 - When diagnosing issues, check .env and/or .env.local for missing or incorrect environment variables.
 - If .env/.env.example is missing environment variables, add them to both files comments explaining their purpose and usage.
 - Reuse existing code where possible. If a small refactor to existing code results in a smaller and more maintainable codebase, prefer that approach.
+- New work should always be on a new branch (nto main). Compare the current branch with the work being completes and if the new work if materially different than the existing work on the current branch, create a new branch. If the current work is related to the current branch, continue working on the same branch.
 
 ## Project stack
 
