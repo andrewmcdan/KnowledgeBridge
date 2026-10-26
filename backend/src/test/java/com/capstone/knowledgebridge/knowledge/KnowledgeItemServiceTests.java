@@ -58,7 +58,7 @@ class KnowledgeItemServiceTests {
 	void createMarkdownUsesMarkdownSourceKind() {
 		when(knowledgeItemRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
 
-		KnowledgeItem result = knowledgeItemService.createMarkdownAndIngest("Title", "Policy", "body", 7L);
+		KnowledgeItem result = knowledgeItemService.createMarkdownAndIngest("Title", "Policy", "body", 7L, false);
 
 		assertThat(result.getSourceKind()).isEqualTo(KnowledgeSourceKind.MARKDOWN);
 		verify(ingestionService).ingest(result);
@@ -69,7 +69,8 @@ class KnowledgeItemServiceTests {
 		when(knowledgeItemRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
 
 		KnowledgeItem result = knowledgeItemService.createDocxAndIngest(" Guide ", " Policy ", "# Guide\n", 7L,
-				"guide.docx", "application/vnd.openxmlformats-officedocument.wordprocessingml.document", "abc123");
+				"guide.docx", "application/vnd.openxmlformats-officedocument.wordprocessingml.document", "abc123",
+				false);
 
 		assertThat(result.getSourceKind()).isEqualTo(KnowledgeSourceKind.DOCX);
 		assertThat(result.getTitle()).isEqualTo("Guide");
@@ -92,7 +93,7 @@ class KnowledgeItemServiceTests {
 		});
 		StoredVideo video = new StoredVideo("meeting.mp4", "video/mp4", "abc", java.nio.file.Path.of("stored"));
 
-		KnowledgeItem result = knowledgeItemService.createVideoAndIngest(" Title ", " Meeting ", 7L, video);
+		KnowledgeItem result = knowledgeItemService.createVideoAndIngest(" Title ", " Meeting ", 7L, video, false);
 
 		assertThat(result.getSourceKind()).isEqualTo(KnowledgeSourceKind.VIDEO);
 		assertThat(result.getOriginalFilename()).isEqualTo("meeting.mp4");

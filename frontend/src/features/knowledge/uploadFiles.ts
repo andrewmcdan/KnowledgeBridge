@@ -7,10 +7,17 @@ export function uploadKind(name: string): "document" | "video" | null {
 }
 
 export function uploadTitle(name: string): string {
-    return name
-        .replace(/\.(md|docx|mp4|mov|webm)$/i, "")
-        .slice(0, 255)
-        .trim();
+    return (
+        (name.split(/[\\/]/).pop() ?? "")
+            .normalize("NFKC")
+            .replace(/\.(md|docx|mp4|mov|webm)$/i, "")
+            .replace(/_+|\.{2,}|-{2,}/g, " ")
+            .replace(/[^\p{L}\p{M}\p{N}\s.'’()&+-]/gu, " ")
+            .replace(/\s+/g, " ")
+            .replace(/^[\s.-]+|[\s.-]+$/g, "")
+            .slice(0, 255)
+            .trim() || "Untitled"
+    );
 }
 
 export function validateUpload(file: Pick<File, "name" | "size">): string | null {

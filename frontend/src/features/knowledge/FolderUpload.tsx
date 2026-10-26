@@ -7,6 +7,8 @@ export function FolderUpload({ onQueued, onBusyChange }: { onQueued: (item: Know
     const [skipped, setSkipped] = useState(0);
     const [selected, setSelected] = useState(false);
     const [type, setType] = useState("Document");
+    const [useAiTitle, setUseAiTitle] = useState(false);
+    const [titleGuidance, setTitleGuidance] = useState("");
     const [busy, setBusy] = useState(false);
     const [stopping, setStopping] = useState(false);
     const [message, setMessage] = useState<string | null>(null);
@@ -38,7 +40,8 @@ export function FolderUpload({ onQueued, onBusyChange }: { onQueued: (item: Know
         const { queued, failed } = await processFolderEntries(
             entries,
             async (entry) => {
-                const item = await uploadKnowledgeFile(entry.file, uploadTitle(entry.file.name) || "Untitled", type.trim());
+                const title = useAiTitle && titleGuidance.trim() ? titleGuidance.trim() : uploadTitle(entry.file.name);
+                const item = await uploadKnowledgeFile(entry.file, title, type.trim(), useAiTitle);
                 if (mounted.current) onQueued(item);
             },
             update,
@@ -59,6 +62,17 @@ export function FolderUpload({ onQueued, onBusyChange }: { onQueued: (item: Know
             <p>Markdown: up to 1 MiB. Word: up to 10 MiB. Video: MP4, MOV, or WebM; server-configured size and duration limits apply. Videos may incur transcription charges. Only select content you intend to share with the workspace.</p>
             <label htmlFor="folder-document-type">Document type for these files</label>
             <input id="folder-document-type" maxLength={255} required value={type} disabled={busy} onChange={(event) => setType(event.target.value)} />
+            <label className="ai-title-option">
+                <input type="checkbox" checked={useAiTitle} disabled={busy} onChange={(event) => setUseAiTitle(event.target.checked)} />
+                Use AI to name these files
+            </label>
+            {useAiTitle && (
+                <>
+                    <label htmlFor="folder-title-guidance">Title guidance for these files (optional)</label>
+                    <input id="folder-title-guidance" maxLength={255} value={titleGuidance} disabled={busy} onChange={(event) => setTitleGuidance(event.target.value)} />
+                    <p>AI uses each document or video transcript separately. Guidance applies to every file; leave it blank to use each filename. Final titles appear after processing. AI naming may incur charges.</p>
+                </>
+            )}
             <label className="file-picker">
                 <span>Choose a folder</span>
                 <input
@@ -87,7 +101,11 @@ export function FolderUpload({ onQueued, onBusyChange }: { onQueued: (item: Know
                     <ul className="folder-upload-results" aria-label="Folder upload results">
                         {entries.slice(0, 100).map((entry) => (
                             <li key={entry.path}>
-                                <span>{entry.path}</span> <strong>{entry.status}</strong>
+                                <span>
+                                    {entry.path}
+                                    <small>Default title: {uploadTitle(entry.file.name)}</small>
+                                </span>{" "}
+                                <strong>{entry.status}</strong>
                                 {entry.error && <p className="ingestion-error">{entry.error}</p>}
                             </li>
                         ))}

@@ -44,7 +44,7 @@ class RegistrationMigrationTests {
 		jdbc.update(
 				"INSERT INTO knowledge_item (title, type, owner_id, status, character_count, body_text) VALUES ('Owned note', 'Note', ?, 'COMPLETED', 4, 'Body')",
 				id);
-		assertThat(upgraded.migrate().migrationsExecuted).isEqualTo(1);
+		assertThat(upgraded.migrate().migrationsExecuted).isEqualTo(2);
 		upgraded.validate();
 		assertThat(jdbc.queryForMap("SELECT id, email, password_hash FROM app_user WHERE id = ?", id))
 				.containsEntry("id", id).containsEntry("email", " Legacy@Example.Test ")

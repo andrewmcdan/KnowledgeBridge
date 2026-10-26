@@ -108,13 +108,23 @@ curl -X POST http://localhost:8080/api/knowledge-items/upload \
   -F "title=Procurement policy" -F "type=Policy" -F "file=@policy.md"
 ```
 
-Send exactly one `file` with `title` and `type`. Extensions are case-insensitive. Markdown input is limited to 1 MiB; DOCX input to 10 MiB. Converted/normalized document text still must fit 1 MiB. Empty content is rejected. The server chooses the multipart boundary; browser clients must not set a bare multipart Content-Type header themselves.
+Send exactly one `file` with `title` and `type`. Optional `useAiTitle=true` treats `title` as guidance and generates a final title from extracted text before indexing. The default is false. Extensions are case-insensitive. Markdown input is limited to 1 MiB; DOCX input to 10 MiB. Converted/normalized document text still must fit 1 MiB. Empty content is rejected. The server chooses the multipart boundary; browser clients must not set a bare multipart Content-Type header themselves.
 
 Both endpoints perform text ingestion synchronously and return `201` after the application record is created. The same knowledge-item schema is returned by creation, list entries, and retry. It includes status/stage/source, latest error fields, timestamps, and nullable source/transcription metadata. The exact fields and nullability are in OpenAPI. Document text is fetched separately through `/api/knowledge-items/{id}/content` for completed documents.
 
 An engine outage can produce **HTTP 201 with `status: FAILED`**. Creation succeeded, but ingestion failed; inspect `status`, `lastErrorCode`, and `lastErrorMessage`. Do not interpret every 201 as successfully indexed content. On a successful retry, the error fields become null. `COMPLETED` means the engine stored the document; its asynchronous semantic-search projection may still be catching up.
 
 `POST /api/knowledge-items/{id}/retry-ingestion` takes no body. Missing item returns 404; any status other than FAILED returns 409. Successful invocation returns `200` with the updated item and preserves prior attempt history. Text/DOCX retries are synchronous. Existing video retries can return PENDING while the background job runs; the video-upload endpoint itself continues returning 202.
+
+## Upload titles and optional AI naming
+
+Choosing a document or video prefills its title from a cleaned filename. Selecting another file updates an automatic title and preserves manual edits. Folder uploads use the same defaults and offer an AI checkbox with optional guidance shared by the batch.
+
+With **Use AI to name this file**, the entered title is guidance, such as `Meeting 10/27/2026`. The backend generates a title grounded in the document or video transcript, such as `Meeting October 27, 2026 - Budget Review`. Videos keep the guidance while queued/transcribing and update their title before indexing. `GENERATING_TITLE` is a processing stage. AI naming is off by default and does not apply to manual notes.
+
+Naming uses the existing `OPENAI_API_KEY` through a backend-only Chat Completions client with structured JSON output. Defaults: `OPENAI_TITLE_BASE_URL=https://api.openai.com/v1`, `OPENAI_TITLE_MODEL=gpt-4o-mini`, `OPENAI_TITLE_TIMEOUT=PT45S`. The gbrain synthesizer answers from indexed workspace knowledge, so it cannot title unindexed uploads. Naming receives only guidance and at most 24,000 content characters, sampling the beginning, middle and ending of longer files. Generated titles must be nonblank, single-line text within 255 characters. Guidance is context rather than an exact-output guarantee.
+
+V13 stores a pending naming flag, defaulting to false for existing records. A naming failure preserves guidance and text with `FAILED` / `AI_TITLE_FAILED` and a safe message. Use ingestion retry to try again; there are no automatic paid retries or silent filename fallbacks. Successful naming is persisted before indexing, so indexing retries reuse the title. Transcribed videos retry naming without retranscription. These paid calls are excluded from query-only usage totals.
 
 ## Manual note editing and query usage
 

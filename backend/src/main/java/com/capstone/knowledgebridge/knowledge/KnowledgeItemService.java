@@ -41,9 +41,11 @@ public class KnowledgeItemService {
 		this.videoIngestionDispatcher = videoIngestionDispatcher;
 	}
 
-	public KnowledgeItem createVideoAndIngest(String title, String type, Long ownerId, StoredVideo video) {
+	public KnowledgeItem createVideoAndIngest(String title, String type, Long ownerId, StoredVideo video,
+			boolean aiTitle) {
 		KnowledgeItem item = KnowledgeItem.video(title.trim(), type.trim(), ownerId, video.originalFilename(),
 				video.contentType(), video.sha256(), video.path().toString());
+		item.requestAiTitle(aiTitle);
 		item = knowledgeItemRepository.save(item);
 		videoIngestionDispatcher.enqueue(item.getId());
 		return item;
@@ -53,14 +55,20 @@ public class KnowledgeItemService {
 		return createAndIngest(title, type, bodyText, ownerId, KnowledgeSourceKind.MANUAL);
 	}
 
-	public KnowledgeItem createMarkdownAndIngest(String title, String type, String bodyText, Long ownerId) {
-		return createAndIngest(title, type, bodyText, ownerId, KnowledgeSourceKind.MARKDOWN);
+	public KnowledgeItem createMarkdownAndIngest(String title, String type, String bodyText, Long ownerId,
+			boolean aiTitle) {
+		KnowledgeItem item = new KnowledgeItem(title.trim(), type.trim(), ownerId, bodyText,
+				KnowledgeSourceKind.MARKDOWN);
+		item.requestAiTitle(aiTitle);
+		return createAndIngest(item);
 	}
 
 	public KnowledgeItem createDocxAndIngest(String title, String type, String markdown, Long ownerId,
-			String originalFilename, String contentType, String sha256) {
-		return createAndIngest(KnowledgeItem.docx(title.trim(), type.trim(), ownerId, markdown, originalFilename,
-				contentType, sha256));
+			String originalFilename, String contentType, String sha256, boolean aiTitle) {
+		KnowledgeItem item = KnowledgeItem.docx(title.trim(), type.trim(), ownerId, markdown, originalFilename,
+				contentType, sha256);
+		item.requestAiTitle(aiTitle);
+		return createAndIngest(item);
 	}
 
 	private KnowledgeItem createAndIngest(String title, String type, String bodyText, Long ownerId,
