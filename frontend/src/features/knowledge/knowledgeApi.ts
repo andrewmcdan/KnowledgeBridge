@@ -1,4 +1,5 @@
 import { readApiError } from "../../api/apiError";
+import { uploadKind } from "./uploadFiles";
 
 export type IngestionStatus = "PENDING" | "PROCESSING" | "COMPLETED" | "FAILED";
 
@@ -75,13 +76,15 @@ export async function createManualKnowledgeItem(title: string, type: string, tex
     return readKnowledgeItem(response);
 }
 
-export async function uploadMarkdown(file: File, title: string, type: string): Promise<KnowledgeItem> {
+export async function uploadKnowledgeFile(file: File, title: string, type: string): Promise<KnowledgeItem> {
+    const kind = uploadKind(file.name);
+    if (kind === null) throw new Error("This file type is not supported.");
     const headers = getAuthorizationHeader();
     const formData = new FormData();
     formData.append("file", file);
     formData.append("title", title);
     formData.append("type", type);
-    const response = await fetch("/api/knowledge-items/upload", {
+    const response = await fetch(`/api/knowledge-items/${kind === "video" ? "video" : "upload"}`, {
         method: "POST",
         headers,
         body: formData,

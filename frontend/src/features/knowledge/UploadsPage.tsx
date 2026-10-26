@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
 import { Icon } from "../../components/ui/Icon";
-import { createManualKnowledgeItem, getKnowledgeItems, retryKnowledgeItem, uploadMarkdown, type KnowledgeItem } from "./knowledgeApi";
+import { createManualKnowledgeItem, getKnowledgeItems, retryKnowledgeItem, uploadKnowledgeFile, type KnowledgeItem } from "./knowledgeApi";
+import { UPLOAD_ACCEPT, uploadTitle as titleFromFilename, validateUpload } from "./uploadFiles";
+import { FolderUpload } from "./FolderUpload";
 
 const MAX_CONTENT_BYTES = 1024 * 1024;
-// A .docx is a zip that often holds images; the backend still limits its converted text to 1 MiB.
-const MAX_DOCX_BYTES = 10 * 1024 * 1024;
 const POLLING_INTERVAL_MS = 10_000;
 
 function contentSize(value: string): number {
@@ -25,7 +25,7 @@ function validateTextFields(title: string, type: string, text: string): string |
 
 export function UploadsPage() {
     const [items, setItems] = useState<KnowledgeItem[] | null>(null);
-    const [uploadMode, setUploadMode] = useState<"markdown" | "note">("markdown");
+    const [uploadMode, setUploadMode] = useState<"markdown" | "note" | "folder">("markdown");
     const [file, setFile] = useState<File | null>(null);
     const [uploadTitle, setUploadTitle] = useState("");
     const [uploadType, setUploadType] = useState("Document");
@@ -36,6 +36,7 @@ export function UploadsPage() {
     const [notice, setNotice] = useState<string | null>(null);
     const [refreshing, setRefreshing] = useState(false);
     const [submitting, setSubmitting] = useState(false);
+    const [folderBusy, setFolderBusy] = useState(false);
     const [retryingId, setRetryingId] = useState<number | null>(null);
     const fileInput = useRef<HTMLInputElement>(null);
 
@@ -87,26 +88,18 @@ export function UploadsPage() {
     const selectFile = (selectedFile: File | null) => {
         setFile(selectedFile);
         if (!selectedFile || uploadTitle.trim()) return;
-        setUploadTitle(selectedFile.name.replace(/\.(md|docx)$/i, ""));
+        setUploadTitle(titleFromFilename(selectedFile.name));
     };
 
     const submitFile = async (event: FormEvent<HTMLFormElement>) => {
         event.preventDefault();
         if (!file) {
-            setError("Choose a Markdown (.md) or Word (.docx) file to upload.");
+            setError("Choose a Markdown, Word, or video file to upload.");
             return;
         }
-        const isDocx = file.name.toLowerCase().endsWith(".docx");
-        if (!isDocx && !file.name.toLowerCase().endsWith(".md")) {
-            setError("Only Markdown (.md) and Word (.docx) files can be uploaded.");
-            return;
-        }
-        if (file.size === 0) {
-            setError("Choose a file with content.");
-            return;
-        }
-        if (file.size > (isDocx ? MAX_DOCX_BYTES : MAX_CONTENT_BYTES)) {
-            setError(isDocx ? "Word files must not exceed 10 MiB." : "Content must not exceed 1 MiB.");
+        const fileError = validateUpload(file);
+        if (fileError) {
+            setError(fileError);
             return;
         }
         const validationError = validateTextFields(uploadTitle, uploadType, "file");
@@ -119,7 +112,7 @@ export function UploadsPage() {
         setError(null);
         setNotice(null);
         try {
-            addItem(await uploadMarkdown(file, uploadTitle.trim(), uploadType.trim()));
+            addItem(await uploadKnowledgeFile(file, uploadTitle.trim(), uploadType.trim()));
             setFile(null);
             setUploadTitle("");
             if (fileInput.current) fileInput.current.value = "";
@@ -168,7 +161,7 @@ export function UploadsPage() {
 
     return (
         <section className="uploads-page">
-            <p className="uploads-intro">Add Markdown or Word documents or notes for everyone in the workspace. Ingestion status refreshes automatically while work is in progress.</p>
+            <p className="uploads-intro">Add Markdown, Word, or video files, folders, or notes for everyone in the workspace. Ingestion status refreshes automatically while work is in progress.</p>
             <section className="panel upload-pane" aria-label="Add knowledge">
                 <div className="upload-tabs" role="tablist" aria-label="Upload type">
                     <button
@@ -177,33 +170,58 @@ export function UploadsPage() {
                         role="tab"
                         aria-selected={uploadMode === "markdown"}
                         aria-controls="markdown-upload-panel"
+                        disabled={submitting || folderBusy}
                         className={uploadMode === "markdown" ? "active" : ""}
                         onClick={() => setUploadMode("markdown")}
                     >
                         <Icon name="upload" size={16} /> Upload file
                     </button>
-                    <button id="manual-note-tab" type="button" role="tab" aria-selected={uploadMode === "note"} aria-controls="manual-note-panel" className={uploadMode === "note" ? "active" : ""} onClick={() => setUploadMode("note")}>
+                    <button
+                        id="manual-note-tab"
+                        type="button"
+                        role="tab"
+                        disabled={submitting || folderBusy}
+                        aria-selected={uploadMode === "note"}
+                        aria-controls="manual-note-panel"
+                        className={uploadMode === "note" ? "active" : ""}
+                        onClick={() => setUploadMode("note")}
+                    >
                         <Icon name="file" size={16} /> Manual note
+                    </button>
+                    <button
+                        id="folder-upload-tab"
+                        type="button"
+                        role="tab"
+                        aria-selected={uploadMode === "folder"}
+                        aria-controls="folder-upload-panel"
+                        disabled={submitting || folderBusy}
+                        className={uploadMode === "folder" ? "active" : ""}
+                        onClick={() => setUploadMode("folder")}
+                    >
+                        <Icon name="upload" size={16} /> Upload folder
                     </button>
                 </div>
                 {uploadMode === "markdown" ? (
                     <form id="markdown-upload-panel" className="upload-form" role="tabpanel" aria-labelledby="markdown-upload-tab" onSubmit={submitFile}>
                         <h2>Upload a document</h2>
                         <p>
-                            Upload one UTF-8 <code>.md</code> file (up to 1 MiB) or one <code>.docx</code> file (up to 10 MiB).
+                            Upload a UTF-8 <code>.md</code> file (up to 1 MiB), a <code>.docx</code> file (up to 10 MiB), or an MP4, MOV, or WebM video. Video size and duration limits are configured on the server; transcription may incur
+                            charges.
                         </p>
                         <label htmlFor="upload-title">Title</label>
                         <input id="upload-title" value={uploadTitle} maxLength={255} required onChange={(event) => setUploadTitle(event.target.value)} />
                         <label htmlFor="upload-type">Document type</label>
                         <input id="upload-type" value={uploadType} maxLength={255} required onChange={(event) => setUploadType(event.target.value)} />
                         <label className="file-picker">
-                            <span>{file?.name ?? "Choose a Markdown or Word file"}</span>
-                            <input ref={fileInput} type="file" accept=".md,text/markdown,.docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document" onChange={(event) => selectFile(event.target.files?.[0] ?? null)} />
+                            <span>{file?.name ?? "Choose a Markdown, Word, or video file"}</span>
+                            <input ref={fileInput} type="file" accept={UPLOAD_ACCEPT} onChange={(event) => selectFile(event.target.files?.[0] ?? null)} />
                         </label>
                         <button className="primary-button" type="submit" disabled={submitting}>
                             {submitting ? "Adding…" : "Add document"}
                         </button>
                     </form>
+                ) : uploadMode === "folder" ? (
+                    <FolderUpload onQueued={addItem} onBusyChange={setFolderBusy} />
                 ) : (
                     <form id="manual-note-panel" className="upload-form" role="tabpanel" aria-labelledby="manual-note-tab" onSubmit={submitNote}>
                         <h2>Create manual note</h2>
