@@ -31,7 +31,13 @@ function load(name, overrides = {}) {
 }
 
 const { parseDocumentMarkdown, groupDocumentEntities } = load("documentPreview.ts");
-const { MarkdownDocument } = load("MarkdownDocument.tsx");
+const { MarkdownContent } = load("MarkdownContent.tsx");
+const { citationDetail } = load("../../features/ask-ai/citations.ts");
+const { AnswerPanel } = load("../../features/ask-ai/AnswerPanel.tsx", {
+    "../../components/ui/Icon": { Icon: () => null },
+    "../../components/ui/MarkdownContent": { MarkdownContent },
+    "./citations": { citationDetail },
+});
 const { DocumentEntitiesPanel } = load("DocumentEntitiesPanel.tsx");
 const plain = (value) => JSON.parse(JSON.stringify(value));
 
@@ -60,7 +66,7 @@ test("malformed, aliased and oversized metadata is retained without hiding the d
 
 test("Markdown renders headings, emphasis, tables, task lists, quotes, code and safe links", () => {
     const html = renderToStaticMarkup(
-        createElement(MarkdownDocument, {
+        createElement(MarkdownContent, {
             text: "# Budget review\n\nA **clear** and *readable* plan.\n\n| Team | Budget |\n| --- | --- |\n| Finance | $5,000 |\n\n- [x] Approved\n- [ ] Pending\n\n> Keep the context.\n\n```js\nconst approved = true;\n```\n\n[Policy](https://example.test/policy)",
         }),
     );
@@ -71,10 +77,94 @@ test("Markdown renders headings, emphasis, tables, task lists, quotes, code and 
 });
 
 test("unsafe HTML and links are blocked, and remote images are represented as links", () => {
-    const html = renderToStaticMarkup(createElement(MarkdownDocument, { text: '<script>alert("private")</script>\n\n[Unsafe](javascript:alert%281%29)\n\n![Chart](https://example.test/tracker.png)\n\n<img src=x onerror=alert(1)>' }));
+    const html = renderToStaticMarkup(createElement(MarkdownContent, { text: '<script>alert("private")</script>\n\n[Unsafe](javascript:alert%281%29)\n\n![Chart](https://example.test/tracker.png)\n\n<img src=x onerror=alert(1)>' }));
     assert.doesNotMatch(html, /<script|javascript:|<img|onerror=/);
     assert.match(html, /Image: Chart/);
     assert.match(html, /href="https:\/\/example.test\/tracker.png"/);
+});
+
+test("AI answers render Markdown while retaining citations, warnings and query usage", () => {
+    const response = {
+        answer: "## Budget review\n\nA **clear** plan with citation [1].\n\n| Owner | Decision |\n| --- | --- |\n| Finance | Approve |\n\n- Share the forecast\n\n```sql\nSELECT budget FROM plan;\n```",
+        aiGenerated: true,
+        extractiveFallback: false,
+        cacheHit: false,
+        citations: [{ externalId: "test-1", itemKey: "test-1", title: "Budget policy", documentType: "Policy" }],
+        gaps: ["Final approval pending."],
+        warnings: ["Verify dates."],
+        usage: { inputTokens: 120, outputTokens: 80, estimated: true },
+    };
+    const render = (overrides = {}) => renderToStaticMarkup(createElement(AnswerPanel, { mode: "Synthesis", result: { mode: "Synthesis", response: { ...response, ...overrides } }, submitting: false, error: null, onOpenDetail() {} }));
+    const html = render();
+    assert.match(html, /class="markdown-content synthesis-answer" aria-label="AI answer"/);
+    assert.match(html, /<h2>Budget review<\/h2>/);
+    assert.match(html, /<strong>clear<\/strong>/);
+    assert.match(html, /<table>/);
+    assert.match(html, /<li>Share the forecast<\/li>/);
+    assert.match(html, /<pre><code class="language-sql">/);
+    assert.match(html, /citation \[1\]/);
+    assert.match(html, /Budget policy/);
+    assert.match(html, /Citations \(1\)/);
+    assert.match(html, /Final approval pending\./);
+    assert.match(html, /Verify dates\./);
+    assert.match(html, /Estimated.*120 input \+ 80 output = 200 total/s);
+    assert.doesNotMatch(html, /## Budget review|\*\*clear\*\*/);
+    assert.match(render({ cacheHit: true }), /Cached answer · 0 new synthesis tokens/);
+    assert.match(render({ aiGenerated: false, extractiveFallback: true }), /Extractive fallback/);
+    const unsafe = render({ answer: '<script>alert("x")</script>\n\n[Bad](javascript:alert%281%29)' });
+    assert.doesNotMatch(unsafe, /<script|javascript:/);
+});
+
+test("citations select only exact application document IDs", () => {
+    const citation = { itemKey: "21", externalId: "knowledgebridge/21", title: "Budget policy", documentType: "Policy" };
+    assert.deepEqual(plain(citationDetail(citation)), { id: 21, title: "Budget policy", text: "" });
+    assert.equal(citationDetail({ ...citation, title: null }).title, "Document 21");
+    for (const itemKey of ["", "0", "-1", "1.5", "01", " 21", "21x", "knowledgebridge/21", "9007199254740992"]) {
+        assert.equal(citationDetail({ ...citation, itemKey }), null, itemKey);
+    }
+});
+
+test("inline citation markers open the same source as the citation list, without changing code or unrelated links", () => {
+    const opened = [];
+    const citation = { itemKey: "21", externalId: "knowledgebridge/21", title: "Budget policy", documentType: "Policy" };
+    const response = {
+        answer: "A decision [1] from [knowledgebridge/21]. Unknown [9] and [knowledgebridge/999].\n\n`[1]`\n\n```text\n[knowledgebridge/21]\n```\n\n[Source](knowledgebridge/21) and [Example](https://example.test/policy)",
+        aiGenerated: true,
+        extractiveFallback: false,
+        cacheHit: true,
+        citations: [citation],
+        gaps: [],
+        warnings: [],
+        usage: null,
+    };
+    const props = { mode: "Synthesis", result: { mode: "Synthesis", response }, submitting: false, error: null, onOpenDetail: (detail) => opened.push(detail) };
+    const html = renderToStaticMarkup(createElement(AnswerPanel, props));
+    assert.equal((html.match(/aria-label="Open citation 1: Budget policy"/g) ?? []).length, 3);
+    assert.match(html, /aria-label="Open document: Budget policy"/);
+    assert.match(html, /Unknown \[9\] and \[knowledgebridge\/999\]/);
+    assert.match(html, /<code>\[1\]<\/code>/);
+    assert.match(html, /<code class="language-text">\[knowledgebridge\/21\]/);
+    assert.match(html, /href="https:\/\/example.test\/policy" target="_blank"/);
+    assert.doesNotMatch(html, /<a[^>]+href="knowledgebridge\/21"/);
+    const find = (node, predicate) => {
+        if (!node || typeof node !== "object") return null;
+        if (Array.isArray(node)) return node.map((child) => find(child, predicate)).find(Boolean) ?? null;
+        return predicate(node) ? node : find(node.props?.children, predicate);
+    };
+    const synthesis = find(AnswerPanel(props), (node) => node.type?.name === "SynthesisAnswer");
+    const tree = synthesis.type(synthesis.props);
+    find(tree, (node) => node.props?.className === "citation-document-link").props.onClick();
+    const markdown = find(tree, (node) => node.type === MarkdownContent);
+    const rendered = MarkdownContent(markdown.props);
+    const inline = rendered.props.children.props.components.a({ href: "#citation-1", children: "[1]" });
+    inline.props.onClick();
+    assert.deepEqual(plain(opened), [
+        { id: 21, title: "Budget policy", text: "" },
+        { id: 21, title: "Budget policy", text: "" },
+    ]);
+    const missing = renderToStaticMarkup(createElement(AnswerPanel, { ...props, result: { mode: "Synthesis", response: { ...response, citations: [{ ...citation, itemKey: "missing" }] } } }));
+    assert.doesNotMatch(missing, /class="inline-citation"|class="citation-document-link"/);
+    assert.match(missing, /Document preview unavailable/);
 });
 
 const entities = [
@@ -133,7 +223,7 @@ function dialogHarness({
     let modalClosed = 0;
     let opened = 0;
     const navigated = [];
-    function MarkdownDocument() {}
+    function MarkdownContent() {}
     function DocumentEntitiesPanel() {}
     const component = load("DetailDialog.tsx", {
         react: {
@@ -156,7 +246,7 @@ function dialogHarness({
         "react-router-dom": { useNavigate: () => (path) => navigated.push(path) },
         "../../features/auth/useAuth": { useAuth: () => ({ user: { role: "ADMIN" } }) },
         "../../features/entities/entitiesApi": { getDocumentContent: content, getDocumentEntities: detected },
-        "./MarkdownDocument": { MarkdownDocument },
+        "./MarkdownContent": { MarkdownContent },
         "./DocumentEntitiesPanel": { DocumentEntitiesPanel },
     }).DetailDialog;
     const render = () => {
@@ -187,7 +277,7 @@ test("entity lookup errors do not hide document content, metadata starts closed,
     const tree = preview.render();
     assert.match(tree.props.className, /document-dialog/);
     assert.equal(preview.find(tree, (node) => node.type === "h2").props.children, "Current title");
-    assert.equal(preview.find(tree, (node) => node.type?.name === "MarkdownDocument").props.text, "# Readable document");
+    assert.equal(preview.find(tree, (node) => node.type?.name === "MarkdownContent").props.text, "# Readable document");
     assert.equal(preview.find(tree, (node) => node.type === "details").props.open, undefined);
     assert.equal(preview.find(tree, (node) => node.type?.name === "DocumentEntitiesPanel").props.error, "Entity service unavailable");
     preview.find(tree, (node) => node.props?.["aria-label"] === "Close document").props.onClick();
@@ -209,7 +299,7 @@ test("document errors remain explicit, entity links navigate, and late responses
     let tree = failed.render();
     assert.equal(failed.find(tree, (node) => node.props?.role === "alert").props.children, "Document unavailable");
     assert.equal(
-        failed.find(tree, (node) => node.type?.name === "MarkdownDocument"),
+        failed.find(tree, (node) => node.type?.name === "MarkdownContent"),
         null,
     );
     failed.find(tree, (node) => node.type?.name === "DocumentEntitiesPanel").props.onOpenEntity(3);

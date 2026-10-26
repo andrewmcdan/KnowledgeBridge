@@ -3,8 +3,9 @@ import { AnswerPanel } from "./AnswerPanel";
 import { QuestionForm } from "./QuestionForm";
 import { submitQuestion, type AskAiMode, type QueryResult } from "./askAiApi";
 import { UsageTotalsPanel } from "../usage/UsagePage";
+import type { Detail } from "../../types/models";
 
-export function AskAiPage() {
+export function AskAiPage({ onOpenDetail }: { onOpenDetail: (detail: Detail) => void }) {
     const [mode, setMode] = useState<AskAiMode>("Synthesis");
     const [question, setQuestion] = useState("");
     const [result, setResult] = useState<QueryResult | null>(null);
@@ -30,7 +31,7 @@ export function AskAiPage() {
     return (
         <>
             <QuestionForm question={question} mode={mode} submitting={submitting} onQuestionChange={setQuestion} onModeChange={setMode} onSubmit={submit} />
-            <AnswerPanel mode={mode} result={result} submitting={submitting} error={error} />
+            <AnswerPanel mode={mode} result={result} submitting={submitting} error={error} onOpenDetail={onOpenDetail} />
             <UsageTotalsPanel refreshKey={completedQueries} />
         </>
     );
