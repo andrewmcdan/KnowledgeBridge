@@ -18,7 +18,9 @@ The Upload folder tab uses the browser's directory picker to enumerate nested fi
 
 Authentication, ingestion, and error responses follow [the committed OpenAPI contract](../Docs/openapi.json). The landing page links to `/register`, where visitors create an enabled USER account and are signed in automatically with a session-storage token. Passwords require eight Unicode characters and fit within BCrypt's 72-byte UTF-8 limit; confirmation is checked before submission. Existing emails receive a sign-in suggestion. Authenticated visits to `/register` redirect to Ask AI. Stored sessions are restored through `/api/auth/me`; rejected sessions return to login. Logout calls the API and clears local credentials even when acknowledgement fails. JWTs are not revoked server-side.
 
-Use Ctrl/Cmd+K to focus global search and Enter to view matching knowledge items. Escape closes document previews. No new frontend dependencies are required.
+Document previews use a nearly full-screen dialog with a persistent top-left close button; Escape also closes the preview. Markdown is rendered with `react-markdown` and `remark-gfm`, including tables, task lists, and code blocks. YAML front matter is parsed with `yaml` and shown in the metadata disclosure. Metadata and detected entities start collapsed; entities are grouped into people, companies, projects, and teams with summaries and verification labels. Raw HTML is skipped and images appear as links. Entity lookup failures leave document content readable.
+
+Use Ctrl/Cmd+K to focus global search and Enter to view matching knowledge items.
 
 ## Development
 
