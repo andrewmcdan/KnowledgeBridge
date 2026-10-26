@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
 import { Icon } from "../../components/ui/Icon";
 import { createManualKnowledgeItem, getKnowledgeItems, retryKnowledgeItem, uploadKnowledgeFile, type KnowledgeItem } from "./knowledgeApi";
-import { UPLOAD_ACCEPT, uploadTitle as titleFromFilename, validateUpload } from "./uploadFiles";
+import { UPLOAD_ACCEPT, uploadDocumentType, uploadTitle as titleFromFilename, validateUpload } from "./uploadFiles";
 import { FolderUpload } from "./FolderUpload";
 import { NoteEditor } from "./NoteEditor";
 import { MAX_CONTENT_BYTES, validateManualNote as validateTextFields } from "./manualNotes";
@@ -19,7 +19,6 @@ export function UploadsPage() {
     const [uploadTitle, setUploadTitle] = useState("");
     const [titleEdited, setTitleEdited] = useState(false);
     const [useAiTitle, setUseAiTitle] = useState(false);
-    const [uploadType, setUploadType] = useState("Document");
     const [noteTitle, setNoteTitle] = useState("");
     const [noteType, setNoteType] = useState("Note");
     const [content, setContent] = useState("");
@@ -97,7 +96,12 @@ export function UploadsPage() {
             return;
         }
         const title = uploadTitle.trim() || (useAiTitle ? titleFromFilename(file.name) : "");
-        const validationError = validateTextFields(title, uploadType, "file");
+        const type = uploadDocumentType(file.name);
+        if (type === null) {
+            setError("Choose a Markdown, Word, or video file to upload.");
+            return;
+        }
+        const validationError = validateTextFields(title, type, "file");
         if (validationError) {
             setError(validationError);
             return;
@@ -107,7 +111,7 @@ export function UploadsPage() {
         setError(null);
         setNotice(null);
         try {
-            addItem(await uploadKnowledgeFile(file, title, uploadType.trim(), useAiTitle));
+            addItem(await uploadKnowledgeFile(file, title, type, useAiTitle));
             setFile(null);
             setUploadTitle("");
             setTitleEdited(false);
@@ -204,37 +208,47 @@ export function UploadsPage() {
                             Upload a UTF-8 <code>.md</code> file (up to 1 MiB), a <code>.docx</code> file (up to 10 MiB), or an MP4, MOV, or WebM video. Video size and duration limits are configured on the server; transcription may incur
                             charges.
                         </p>
-                        <label htmlFor="upload-title">Title</label>
-                        <input
-                            id="upload-title"
-                            value={uploadTitle}
-                            maxLength={255}
-                            required={!useAiTitle}
-                            disabled={submitting}
-                            aria-describedby="upload-title-help"
-                            onChange={(event) => {
-                                setUploadTitle(event.target.value);
-                                setTitleEdited(true);
-                            }}
-                        />
-                        <label className="ai-title-option">
-                            <input type="checkbox" checked={useAiTitle} disabled={submitting} onChange={(event) => setUseAiTitle(event.target.checked)} />
-                            Use AI to name this file
-                        </label>
-                        <p id="upload-title-help">
-                            {useAiTitle
-                                ? "AI will use the file content or video transcript and this title as guidance. For example: Meeting 10/27/2026. The final title appears after processing. AI naming may incur charges."
-                                : "The filename supplies a default title. Edit it to use your own."}
-                        </p>
-                        <label htmlFor="upload-type">Document type</label>
-                        <input id="upload-type" value={uploadType} maxLength={255} required disabled={submitting} onChange={(event) => setUploadType(event.target.value)} />
-                        <label className="file-picker">
-                            <span>{file?.name ?? "Choose a Markdown, Word, or video file"}</span>
+                        <label className="file-picker upload-file-picker">
+                            <span className="upload-file-picker-action">
+                                <Icon name="upload" size={20} /> {file ? "Choose another file" : "Choose a file"}
+                            </span>
+                            <span className="upload-file-picker-details">
+                                {file ? (
+                                    <>
+                                        <strong>{file.name}</strong>
+                                        <small>{uploadDocumentType(file.name)} detected</small>
+                                    </>
+                                ) : null}
+                            </span>
                             <input ref={fileInput} type="file" accept={UPLOAD_ACCEPT} disabled={submitting} onChange={(event) => selectFile(event.target.files?.[0] ?? null)} />
                         </label>
-                        <button className="primary-button" type="submit" disabled={submitting}>
-                            {submitting ? "Adding…" : "Add document"}
-                        </button>
+                        <div className="upload-title-field">
+                            <label htmlFor="upload-title">Title</label>
+                            <input
+                                id="upload-title"
+                                value={uploadTitle}
+                                maxLength={255}
+                                required={!useAiTitle}
+                                disabled={submitting}
+                                aria-describedby="upload-title-help"
+                                onChange={(event) => {
+                                    setUploadTitle(event.target.value);
+                                    setTitleEdited(true);
+                                }}
+                            />
+                        </div>
+                        <div className="upload-form-footer">
+                            <div>
+                                <label className="ai-title-option">
+                                    <input type="checkbox" checked={useAiTitle} disabled={submitting} onChange={(event) => setUseAiTitle(event.target.checked)} />
+                                    Use AI to name this file
+                                </label>
+                                <p id="upload-title-help">{useAiTitle ? "AI will generate the final title after processing; usage may incur charges." : "The filename provides the initial title."}</p>
+                            </div>
+                            <button className="secondary-button upload-submit-button" type="submit" disabled={submitting}>
+                                {submitting ? "Ingesting…" : "Ingest"}
+                            </button>
+                        </div>
                     </form>
                 ) : uploadMode === "folder" ? (
                     <FolderUpload onQueued={addItem} onBusyChange={setFolderBusy} />

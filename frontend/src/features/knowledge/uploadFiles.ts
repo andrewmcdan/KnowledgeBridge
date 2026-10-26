@@ -6,6 +6,13 @@ export function uploadKind(name: string): "document" | "video" | null {
     return null;
 }
 
+export function uploadDocumentType(name: string): "Markdown" | "Word document" | "Video" | null {
+    if (/\.md$/i.test(name)) return "Markdown";
+    if (/\.docx$/i.test(name)) return "Word document";
+    if (/\.(mp4|mov|webm)$/i.test(name)) return "Video";
+    return null;
+}
+
 export function uploadTitle(name: string): string {
     return (
         (name.split(/[\\/]/).pop() ?? "")

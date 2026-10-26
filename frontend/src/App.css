@@ -915,6 +915,69 @@ small {
     opacity: 0;
     cursor: pointer;
 }
+.upload-file-picker {
+    min-height: 92px;
+    justify-content: center;
+    gap: 12px;
+    border-color: #91a9d7;
+    background: #f3f7ff;
+}
+.upload-file-picker-action {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    border-radius: 6px;
+    padding: 9px 11px;
+    color: #2e62b8;
+    background: #e7effe;
+    font-weight: 600;
+}
+.upload-file-picker-details {
+    display: grid;
+    gap: 3px;
+    color: #475875;
+}
+.upload-file-picker-details strong {
+    color: #24314a;
+    font-weight: 600;
+}
+.upload-file-picker-details small {
+    color: #64738c;
+}
+.upload-title-field {
+    display: grid;
+    gap: 7px;
+}
+.upload-form-footer {
+    display: flex;
+    align-items: end;
+    justify-content: space-between;
+    gap: 16px;
+    padding-top: 5px;
+}
+.ai-title-option {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    cursor: pointer;
+    color: #31415d !important;
+    font-weight: 500;
+}
+.ai-title-option input {
+    accent-color: var(--blue);
+}
+.upload-form-footer > div > p {
+    max-width: 470px;
+    margin-top: 4px;
+    color: #68758c;
+    font-size: 11px;
+}
+.upload-submit-button {
+    flex-shrink: 0;
+    padding: 8px 14px;
+    color: #315994;
+    font-size: 12px;
+}
 
 .folder-upload-results {
     max-height: 320px;
