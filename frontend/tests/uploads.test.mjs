@@ -262,7 +262,7 @@ test("file selection refreshes automatic titles, preserves manual guidance, and 
     await field("markdown-upload-panel").onSubmit({ preventDefault() {} });
     assert.equal(form.calls.length, 1);
     assert.equal(form.calls[0][0].name, "recording__raw.mp4");
-    assert.deepEqual(form.calls[0].slice(1), ["Meeting 10/27/2026", "Document", true]);
+    assert.deepEqual(form.calls[0].slice(1), ["Meeting 10/27/2026", "Video", true]);
     assert.equal(field("upload-title").value, "");
 });
 

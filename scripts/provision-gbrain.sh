@@ -50,9 +50,13 @@ set_env_value() {
 
 existing_client_id="$(sed -n "s/^${credential_prefix}_CLIENT_ID=//p" "$ENV_FILE" | tail -n 1 | tr -d '[:space:]')"
 
-if ! gbrain_cli sources list 2>/dev/null | grep -qw "$SOURCE_ID"; then
+if ! gbrain_cli sources list --json 2>/dev/null | grep -q "\"id\"[[:space:]]*:[[:space:]]*\"$SOURCE_ID\""; then
   echo "Creating gbrain source '$SOURCE_ID'..."
-  gbrain_cli sources add "$SOURCE_ID" --name KnowledgeBridge --no-federated >/dev/null
+  gbrain_cli sources add "$SOURCE_ID" \
+    --path /data/knowledgebridge/knowledgebridge \
+    --name KnowledgeBridge \
+    --no-federated \
+    --force >/dev/null
 fi
 
 if ! output="$(gbrain_cli auth register-client "$client_name" \

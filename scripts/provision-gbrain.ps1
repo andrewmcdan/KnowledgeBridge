@@ -56,6 +56,31 @@ try {
         }
     }
 
+    $ErrorActionPreference = 'Continue'
+    try {
+        $sourceOutput = & docker compose run --rm --no-deps --entrypoint bun gbrain run src/cli.ts sources list --json 2>&1 | Out-String
+        $sourceListExitCode = $LASTEXITCODE
+    } finally {
+        $ErrorActionPreference = 'Stop'
+    }
+    if ($sourceListExitCode -ne 0) {
+        throw 'gbrain source lookup failed.'
+    }
+    if ($sourceOutput -notmatch '"id"\s*:\s*"knowledgebridge"') {
+        Write-Host "Creating gbrain source 'knowledgebridge'..."
+        $ErrorActionPreference = 'Continue'
+        try {
+            $null = & docker compose run --rm --no-deps --entrypoint bun gbrain run src/cli.ts sources add knowledgebridge `
+                --path /data/knowledgebridge/knowledgebridge --name KnowledgeBridge --no-federated --force 2>&1
+            $sourceCreationExitCode = $LASTEXITCODE
+        } finally {
+            $ErrorActionPreference = 'Stop'
+        }
+        if ($sourceCreationExitCode -ne 0) {
+            throw "gbrain source 'knowledgebridge' creation failed."
+        }
+    }
+
     # Extraction creates people/ and companies/ pages in this source. The document
     # credential retains its slug fence; only the extraction credential omits it.
     $registrationArguments = @('run', 'src/cli.ts', 'auth', 'register-client', $clientName,
