@@ -45,7 +45,7 @@ public class DocxMarkdownConverter {
 		try (XWPFDocument document = new XWPFDocument(docx)) {
 			return toMarkdown(document);
 		} catch (IOException | RuntimeException ex) {
-			throw new ExtractionException("Could not read the file as a .docx document", ex);
+			throw new ExtractionException(ExtractionException.Reason.UNREADABLE, ex);
 		}
 	}
 
