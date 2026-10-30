@@ -58,8 +58,11 @@ export function FolderUpload({ onQueued, onBusyChange }: { onQueued: (item: Know
     return (
         <form id="folder-upload-panel" className="upload-form" role="tabpanel" aria-labelledby="folder-upload-tab" onSubmit={(event) => void submit(event)}>
             <h2>Upload a folder</h2>
-            <p>Choose a folder to find Markdown, Word, and video files in all its subfolders. Other files are skipped. Files are uploaded one at a time through the existing ingestion pipeline.</p>
-            <p>Markdown: up to 1 MiB. Word: up to 10 MiB. Video: MP4, MOV, or WebM; server-configured size and duration limits apply. Videos may incur transcription charges. Only select content you intend to share with the workspace.</p>
+            <p>Choose a folder to find Markdown, Word, PDF, and video files in all its subfolders. Other files are skipped. Files are uploaded one at a time through the existing ingestion pipeline.</p>
+            <p>
+                Markdown: up to 1 MiB. Word and PDF: up to 10 MiB. Video: MP4, MOV, or WebM; server-configured size and duration limits apply. Videos may incur transcription charges. Only select content you intend to share with the
+                workspace.
+            </p>
             <label htmlFor="folder-document-type">Document type for these files</label>
             <input id="folder-document-type" maxLength={255} required value={type} disabled={busy} onChange={(event) => setType(event.target.value)} />
             <label className="ai-title-option">
