@@ -307,9 +307,9 @@ class DocxMarkdownConverterTests {
 	void bytesThatAreNotAZipAreRejected() {
 		byte[] notDocx = "# Just Markdown".getBytes(StandardCharsets.UTF_8);
 
-		assertThatThrownBy(() -> convert(notDocx)).isInstanceOf(ExtractionException.class)
-				.hasMessageContaining(".docx")
-				.hasCauseInstanceOf(Exception.class);
+		assertThatThrownBy(() -> convert(notDocx)).hasCauseInstanceOf(Exception.class)
+				.isInstanceOfSatisfying(ExtractionException.class,
+						ex -> assertThat(ex.reason()).isEqualTo(ExtractionException.Reason.UNREADABLE));
 	}
 
 	@Test

@@ -100,7 +100,7 @@
                         "$ref": "#/components/responses/ApiError"
                     }
                 },
-                "description": "Filename extension is case-insensitive. Markdown is decoded as UTF-8. Empty/unreadable content and blank/overlong title or type are rejected. DOCX filenames must fit 255 characters. The original DOCX is not retained. Optional useAiTitle generates a content-based title before indexing; failures remain retryable without losing the supplied title or content.",
+                "description": "Filename extension is case-insensitive. Markdown is decoded as UTF-8. Empty/unreadable content and blank/overlong title or type are rejected. DOCX and PDF filenames must fit 255 characters. The original DOCX or PDF is not retained. A file that cannot be ingested returns 400 with a specific code and a user-facing message: FILE_UNREADABLE, FILE_PASSWORD_PROTECTED, FILE_HAS_NO_TEXT, PDF_NO_SELECTABLE_TEXT (scanned or image-only), or PDF_MOSTLY_SCANNED (more scanned pages than text pages). Optional useAiTitle generates a content-based title before indexing; failures remain retryable without losing the supplied title or content.",
                 "requestBody": {
                     "required": true,
                     "content": {
@@ -717,6 +717,7 @@
                             "MANUAL",
                             "MARKDOWN",
                             "DOCX",
+                            "PDF",
                             "VIDEO"
                         ]
                     },
@@ -837,7 +838,7 @@
                     "file": {
                         "type": "string",
                         "format": "binary",
-                        "description": "One .md file up to 1 MiB, or one .docx file up to 10 MiB. Converted/normalized text must still fit 1 MiB."
+                        "description": "One .md file up to 1 MiB, or one .docx or text-based .pdf file up to 10 MiB. Converted/normalized text must still fit 1 MiB."
                     },
                     "title": {
                         "type": "string",
