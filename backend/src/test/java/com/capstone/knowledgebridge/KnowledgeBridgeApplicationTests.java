@@ -43,6 +43,8 @@ import org.testcontainers.postgresql.PostgreSQLContainer;
 import org.testcontainers.utility.DockerImageName;
 
 import com.capstone.knowledgebridge.extraction.DocxFixtures;
+import com.capstone.knowledgebridge.extraction.ExtractionException;
+import com.capstone.knowledgebridge.extraction.pdf.PdfFixtures;
 import com.capstone.knowledgebridge.gbrain.GbrainClient;
 import com.capstone.knowledgebridge.gbrain.GbrainErrorCode;
 import com.capstone.knowledgebridge.gbrain.GbrainException;
@@ -220,10 +222,16 @@ class KnowledgeBridgeApplicationTests {
 				.header("Authorization", admin))
 				.andExpect(status().isBadRequest()).andExpect(jsonPath("$.code").value("VALIDATION_ERROR"));
 		mockMvc.perform(multipart("/api/knowledge-items/upload")
-				.file(new MockMultipartFile("file", "file.pdf", "application/pdf", new byte[]{1}))
+				.file(new MockMultipartFile("file", "file.pptx", "application/octet-stream", new byte[]{1}))
 				.param("title", "Title").param("type", "note").header("Authorization", admin))
 				.andExpect(status().isUnsupportedMediaType())
 				.andExpect(jsonPath("$.code").value("UNSUPPORTED_MEDIA_TYPE"));
+		mockMvc.perform(multipart("/api/knowledge-items/upload")
+				.file(new MockMultipartFile("file", "scan.pdf", "application/pdf",
+						PdfFixtures.pdf(PdfFixtures.imagePage())))
+				.param("title", "Title").param("type", "note").header("Authorization", admin))
+				.andExpect(status().isBadRequest()).andExpect(jsonPath("$.code").value("PDF_NO_SELECTABLE_TEXT"))
+				.andExpect(jsonPath("$.message").value(ExtractionException.Reason.PDF_NO_SELECTABLE_TEXT.message()));
 		mockMvc.perform(post("/api/knowledge-items/999999/retry-ingestion").header("Authorization", admin))
 				.andExpect(status().isNotFound()).andExpect(jsonPath("$.code").value("NOT_FOUND"));
 	}
