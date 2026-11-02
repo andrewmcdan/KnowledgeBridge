@@ -12,7 +12,7 @@ import { EntitiesPage } from "./features/entities/EntitiesPage";
 import { KnowledgeBasePage } from "./features/knowledge/KnowledgeBasePage";
 import { UploadsPage } from "./features/knowledge/UploadsPage";
 import { UsagePage } from "./features/usage/UsagePage";
-import { PlaceholderPage } from "./features/overview/PlaceholderPage";
+import { DashboardPage } from "./features/dashboard/DashboardPage";
 import { LoginPage } from "./features/auth/LoginPage";
 import { RegisterPage } from "./features/auth/RegisterPage";
 import { AuthProvider } from "./features/auth/AuthProvider";
@@ -47,7 +47,7 @@ function Workspace() {
     };
 
     return (
-        <div className={`workspace ${collapsed ? "collapsed" : ""}`}>
+        <div className={`workspace ${collapsed ? "collapsed" : ""} ${location.pathname === "/dashboard" ? "graph-workspace" : ""}`}>
             {mobileOpen && <button className="nav-backdrop" aria-label="Close navigation" onClick={closeMobileNavigation} />}
             <Sidebar collapsed={collapsed} isAdmin={user?.role === "ADMIN"} mobileOpen={mobileOpen} service={service} onNavigate={closeMobileNavigation} onToggleCollapsed={() => setCollapsed((value) => !value)} />
             <div className="main-shell">
@@ -71,14 +71,14 @@ function Workspace() {
                             <Route path="/ask-ai" element={<AskAiPage onOpenDetail={setDetail} />} />
                             <Route path="/knowledge" element={<KnowledgeBasePage search={search} saved={saved} onOpenDetail={setDetail} onToggleSaved={toggleSaved} />} />
                             <Route path="/entities" element={<EntitiesPage onOpenDetail={setDetail} />} />
-                            <Route path="/dashboard" element={<PlaceholderPage page="Dashboard" service={service} onAskAi={() => go("/ask-ai")} />} />
+                            <Route path="/dashboard" element={<DashboardPage onOpenDetail={setDetail} />} />
                             <Route path="/uploads" element={user?.role === "ADMIN" ? <UploadsPage /> : <Navigate to="/ask-ai" replace />} />
                             <Route path="/usage" element={<UsagePage />} />
                             <Route path="/admin" element={user?.role === "ADMIN" ? <AdminPage /> : <Navigate to="/ask-ai" replace />} />
                             <Route path="*" element={<Navigate to="/ask-ai" replace />} />
                         </Routes>
                     </main>
-                    <ContextColumn onNavigate={go} />
+                    {location.pathname !== "/dashboard" && <ContextColumn onNavigate={go} />}
                 </div>
             </div>
             {detail && <DetailDialog key={detail.id ?? detail.title} detail={detail} onClose={() => setDetail(null)} />}
