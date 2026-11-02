@@ -117,17 +117,21 @@ async function readError(response: Response, requestAuthorization: string): Prom
     return readApiError(response, "We could not complete your question. Please try again.", requestAuthorization);
 }
 
-export async function submitQuestion(mode: AskAiMode, question: string): Promise<QueryResult> {
+export async function submitQuestion(mode: AskAiMode, question: string, signal?: AbortSignal): Promise<QueryResult> {
+    signal?.throwIfAborted();
     const endpoint = mode === "Search" ? "/api/query/search" : "/api/query/synthesize";
     const headers = getAuthorizationHeader();
     const response = await fetch(endpoint, {
         method: "POST",
         headers: { ...headers, "Content-Type": "application/json" },
         body: JSON.stringify({ question }),
+        signal,
     });
+    signal?.throwIfAborted();
     if (!response.ok) throw await readError(response, headers.Authorization);
 
     const payload: unknown = await response.json();
+    signal?.throwIfAborted();
     if (mode === "Search" && isSearchResponse(payload)) return { mode, response: payload };
     if (mode === "Synthesis" && isSynthesisResponse(payload)) return { mode, response: payload };
     throw new Error("The server returned an invalid query response.");
