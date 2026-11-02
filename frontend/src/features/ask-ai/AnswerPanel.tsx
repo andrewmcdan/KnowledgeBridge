@@ -15,14 +15,15 @@ interface AnswerPanelProps {
 
 export function AnswerPanel({ mode, result, submitting, error, onOpenDetail }: AnswerPanelProps) {
     const isSynthesis = result?.mode === "Synthesis";
+    const displayedMode = result?.mode ?? mode;
 
     return (
         <section className="answer-panel panel" aria-live="polite">
             <div className="answer-body">
                 <div className="section-heading">
                     <h2>
-                        <Icon name={mode === "Synthesis" ? "spark" : "search"} />
-                        {mode === "Synthesis" ? "AI Answer" : "Search Results"}
+                        <Icon name={displayedMode === "Synthesis" ? "spark" : "search"} />
+                        {displayedMode === "Synthesis" ? "AI Answer" : "Search Results"}
                     </h2>
                     {isSynthesis && (
                         <span className="grounding">

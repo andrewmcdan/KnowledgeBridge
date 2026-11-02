@@ -145,6 +145,61 @@ test("search results render safe Markdown excerpts without front matter and reta
     assert.match(empty, /Some semantic retrieval signals were unavailable/);
 });
 
+test("changing query mode preserves the displayed result's heading, icon, and content in both directions", () => {
+    const results = [
+        {
+            mode: "Synthesis",
+            response: {
+                answer: "A **synthesized** answer [1].",
+                aiGenerated: true,
+                extractiveFallback: false,
+                cacheHit: false,
+                citations: [{ itemKey: "21", externalId: "knowledgebridge/21", title: "Budget policy", documentType: "Policy" }],
+                gaps: [],
+                warnings: [],
+                usage: null,
+            },
+        },
+        {
+            mode: "Search",
+            response: {
+                hits: [{ itemKey: "21", externalId: "knowledgebridge/21", title: "Budget policy", documentType: "Policy", snippet: "A matching **excerpt**.", score: 0.8 }],
+                retrieval: { degraded: false },
+            },
+        },
+    ];
+    for (const result of results) {
+        const props = { mode: result.mode, result, submitting: false, error: null, onOpenDetail() {} };
+        const original = renderToStaticMarkup(createElement(AnswerPanel, props));
+        for (const mode of [result.mode === "Search" ? "Synthesis" : "Search", result.mode]) {
+            const nextProps = { ...props, mode };
+            assert.equal(renderToStaticMarkup(createElement(AnswerPanel, nextProps)), original, "selecting the next request mode must not relabel or remove an existing result");
+            const heading = AnswerPanel(nextProps).props.children.props.children[0].props.children[0];
+            assert.equal(heading.props.children[0].props.name, result.mode === "Synthesis" ? "spark" : "search");
+            assert.equal(heading.props.children[1], result.mode === "Synthesis" ? "AI Answer" : "Search Results");
+        }
+    }
+});
+
+test("initial, loading, and error states use the selected query mode when no result is displayed", () => {
+    for (const mode of ["Search", "Synthesis"]) {
+        for (const state of [
+            { submitting: false, error: null },
+            { submitting: true, error: null },
+            { submitting: false, error: "Engine unavailable" },
+        ]) {
+            const props = { mode, result: null, ...state, onOpenDetail() {} };
+            const html = renderToStaticMarkup(createElement(AnswerPanel, props));
+            assert.match(html, mode === "Synthesis" ? /<h2>AI Answer<\/h2>/ : /<h2>Search Results<\/h2>/);
+            const heading = AnswerPanel(props).props.children.props.children[0].props.children[0];
+            assert.equal(heading.props.children[0].props.name, mode === "Synthesis" ? "spark" : "search");
+            if (state.submitting) assert.match(html, /Searching indexed knowledge/);
+            else if (state.error) assert.match(html, /role="alert">Engine unavailable/);
+            else assert.match(html, /Ask a question to search indexed knowledge/);
+        }
+    }
+});
+
 test("View document selects the exact source ID for the full-document modal and handles unavailable sources", () => {
     const opened = [];
     const hits = [
