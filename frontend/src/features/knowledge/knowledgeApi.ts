@@ -16,7 +16,7 @@ export interface KnowledgeItem {
     lastErrorMessage: string | null;
     createdAt: string;
     updatedAt: string;
-    sourceKind: "MANUAL" | "MARKDOWN" | "DOCX" | "VIDEO";
+    sourceKind: "MANUAL" | "MARKDOWN" | "DOCX" | "PDF" | "VIDEO";
 }
 
 export function getAuthorizationHeader(): Record<string, string> {
@@ -37,7 +37,7 @@ function isKnowledgeItem(value: unknown): value is KnowledgeItem {
         typeof item.title === "string" &&
         typeof item.type === "string" &&
         typeof item.ownerId === "number" &&
-        (item.sourceKind === "MANUAL" || item.sourceKind === "MARKDOWN" || item.sourceKind === "DOCX" || item.sourceKind === "VIDEO") &&
+        (item.sourceKind === "MANUAL" || item.sourceKind === "MARKDOWN" || item.sourceKind === "DOCX" || item.sourceKind === "PDF" || item.sourceKind === "VIDEO") &&
         isIngestionStatus(item.status) &&
         typeof item.ingestionStage === "string" &&
         typeof item.characterCount === "number" &&
@@ -94,7 +94,7 @@ export async function uploadKnowledgeFile(file: File, title: string, type: strin
         headers,
         body: formData,
     });
-    if (!response.ok) throw await readError(response, "We could not upload the file. Word files must be readable .docx documents with text.", headers.Authorization);
+    if (!response.ok) throw await readError(response, "We could not upload the file. Word and PDF files must be readable documents with selectable text; scanned PDFs are not supported.", headers.Authorization);
     return readKnowledgeItem(response);
 }
 

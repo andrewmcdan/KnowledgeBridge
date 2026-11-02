@@ -63,10 +63,11 @@ public class KnowledgeItemService {
 		return createAndIngest(item);
 	}
 
-	public KnowledgeItem createDocxAndIngest(String title, String type, String markdown, Long ownerId,
-			String originalFilename, String contentType, String sha256, boolean aiTitle) {
-		KnowledgeItem item = KnowledgeItem.docx(title.trim(), type.trim(), ownerId, markdown, originalFilename,
-				contentType, sha256);
+	public KnowledgeItem createConvertedAndIngest(String title, String type, String markdown,
+			KnowledgeSourceKind sourceKind, Long ownerId, String originalFilename, String contentType, String sha256,
+			boolean aiTitle) {
+		KnowledgeItem item = KnowledgeItem.converted(title.trim(), type.trim(), ownerId, markdown, sourceKind,
+				originalFilename, contentType, sha256);
 		item.requestAiTitle(aiTitle);
 		return createAndIngest(item);
 	}

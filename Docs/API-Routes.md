@@ -37,7 +37,7 @@ The committed [OpenAPI contract](./openapi.json) and [integration guide](./Integ
 | GET | `/api/knowledge-items` | User | Bare array, newest first; users see completed items, admins see all statuses. No server-side filters or paging. *(implemented)* |
 | GET | `/api/knowledge-items/{id}` | Admin | Returns one item's management metadata; completed document text is available separately at `/content`. *(implemented)* |
 | POST | `/api/knowledge-items/manual` | Admin | Required title, type, and text; creates and synchronously ingests an item, returning 201 with its status. *(implemented)* |
-| POST | `/api/knowledge-items/upload` | Admin | Multipart file, title, and type; accepts one Markdown or DOCX file and returns 201 with ingestion status. *(implemented)* |
+| POST | `/api/knowledge-items/upload` | Admin | Multipart file, title, and type; accepts one Markdown, DOCX, or PDF file and returns 201 with ingestion status. *(implemented)* |
 | POST | `/api/knowledge-items/video` | Admin | Multipart MP4, MOV, or WebM upload; returns `202` and transcribes/indexes in the background. Size and duration limits are configurable. |
 | PUT | `/api/knowledge-items/{id}` | Admin | Updates title or content; re-ingests and bumps the knowledge revision to invalidate cache. |
 | DELETE | `/api/knowledge-items/{id}` | Admin | Soft-deletes the item so it is hidden from search but recoverable. |

@@ -87,7 +87,7 @@ export function UploadsPage() {
     const submitFile = async (event: FormEvent<HTMLFormElement>) => {
         event.preventDefault();
         if (!file) {
-            setError("Choose a Markdown, Word, or video file to upload.");
+            setError("Choose a Markdown, Word, PDF, or video file to upload.");
             return;
         }
         const fileError = validateUpload(file);
@@ -98,7 +98,7 @@ export function UploadsPage() {
         const title = uploadTitle.trim() || (useAiTitle ? titleFromFilename(file.name) : "");
         const type = uploadDocumentType(file.name);
         if (type === null) {
-            setError("Choose a Markdown, Word, or video file to upload.");
+            setError("Choose a Markdown, Word, PDF, or video file to upload.");
             return;
         }
         const validationError = validateTextFields(title, type, "file");
@@ -161,7 +161,7 @@ export function UploadsPage() {
 
     return (
         <section className="uploads-page">
-            <p className="uploads-intro">Add Markdown, Word, or video files, folders, or notes for everyone in the workspace. Ingestion status refreshes automatically while work is in progress.</p>
+            <p className="uploads-intro">Add Markdown, Word, PDF, or video files, folders, or notes for everyone in the workspace. Ingestion status refreshes automatically while work is in progress.</p>
             <section className="panel upload-pane" aria-label="Add knowledge">
                 <div className="upload-tabs" role="tablist" aria-label="Upload type">
                     <button
@@ -205,8 +205,8 @@ export function UploadsPage() {
                     <form id="markdown-upload-panel" className="upload-form" role="tabpanel" aria-labelledby="markdown-upload-tab" onSubmit={submitFile}>
                         <h2>Upload a document</h2>
                         <p>
-                            Upload a UTF-8 <code>.md</code> file (up to 1 MiB), a <code>.docx</code> file (up to 10 MiB), or an MP4, MOV, or WebM video. Video size and duration limits are configured on the server; transcription may incur
-                            charges.
+                            Upload a UTF-8 <code>.md</code> file (up to 1 MiB), a <code>.docx</code> or text-based <code>.pdf</code> file (up to 10 MiB), or an MP4, MOV, or WebM video. Scanned PDFs are not supported. Video size and duration
+                            limits are configured on the server; transcription may incur charges.
                         </p>
                         <label className="file-picker upload-file-picker">
                             <span className="upload-file-picker-action">

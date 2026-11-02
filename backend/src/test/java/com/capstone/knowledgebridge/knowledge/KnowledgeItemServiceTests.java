@@ -68,8 +68,9 @@ class KnowledgeItemServiceTests {
 	void createDocxStoresMarkdownAndSourceMetadataWithoutAFilePath() {
 		when(knowledgeItemRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
 
-		KnowledgeItem result = knowledgeItemService.createDocxAndIngest(" Guide ", " Policy ", "# Guide\n", 7L,
-				"guide.docx", "application/vnd.openxmlformats-officedocument.wordprocessingml.document", "abc123",
+		KnowledgeItem result = knowledgeItemService.createConvertedAndIngest(" Guide ", " Policy ", "# Guide\n",
+				KnowledgeSourceKind.DOCX, 7L, "guide.docx",
+				"application/vnd.openxmlformats-officedocument.wordprocessingml.document", "abc123",
 				false);
 
 		assertThat(result.getSourceKind()).isEqualTo(KnowledgeSourceKind.DOCX);

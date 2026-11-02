@@ -19,6 +19,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Random;
 
+import org.assertj.core.api.ThrowableAssert.ThrowingCallable;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -29,6 +30,10 @@ import org.springframework.web.multipart.MultipartFile;
 
 import com.capstone.knowledgebridge.extraction.DocxFixtures;
 import com.capstone.knowledgebridge.extraction.DocxMarkdownConverter;
+import com.capstone.knowledgebridge.extraction.ExtractionException;
+import com.capstone.knowledgebridge.extraction.pdf.PdfFixtures;
+import com.capstone.knowledgebridge.extraction.pdf.PdfMarkdownConverter;
+import com.capstone.knowledgebridge.extraction.pdf.PdfTextExtractor;
 import com.capstone.knowledgebridge.gbrain.model.GbrainDocument;
 import com.capstone.knowledgebridge.ingestion.IngestionAttempt;
 import com.capstone.knowledgebridge.video.VideoStorageService;
@@ -45,11 +50,19 @@ class KnowledgeItemControllerTests {
 	private final ManualNoteEditor manualNoteEditor = mock(ManualNoteEditor.class);
 
 	private final KnowledgeItemController controller = new KnowledgeItemController(knowledgeItemService,
-			videoStorageService, new DocxMarkdownConverter(), manualNoteEditor);
+			videoStorageService, new DocxMarkdownConverter(), new PdfMarkdownConverter(new PdfTextExtractor()),
+			manualNoteEditor);
+
+	private static final String PDF_TYPE = "application/pdf";
 
 	private static final String DOCX_TYPE = "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
 
 	private static final String OVER_GBRAIN_LIMIT = "a".repeat(GbrainDocument.MAX_BODY_BYTES);
+
+	private static void assertRejected(ThrowingCallable upload, ExtractionException.Reason reason) {
+		assertThatThrownBy(upload).isInstanceOfSatisfying(ExtractionException.class,
+				ex -> assertThat(ex.reason()).isEqualTo(reason));
+	}
 
 	private static Jwt jwtFor(String subject) {
 		Jwt jwt = mock(Jwt.class);
@@ -187,7 +200,8 @@ class KnowledgeItemControllerTests {
 
 	@Test
 	void uploadRejectsNonMarkdownExtension() {
-		MultipartFile file = new MockMultipartFile("file", "doc.pdf", "application/pdf",
+		MultipartFile file = new MockMultipartFile("file", "slides.pptx",
+				"application/vnd.openxmlformats-officedocument.presentationml.presentation",
 				"content".getBytes(StandardCharsets.UTF_8));
 
 		ResponseEntity<KnowledgeItemResponse> response = controller.uploadDocument(file, "Title", "Policy", false,
@@ -214,10 +228,8 @@ class KnowledgeItemControllerTests {
 		MultipartFile file = new MockMultipartFile("file", "doc.md", "text/markdown",
 				"   \n  ".getBytes(StandardCharsets.UTF_8));
 
-		ResponseEntity<KnowledgeItemResponse> response = controller.uploadDocument(file, "Title", "Policy", false,
-				jwtFor("7"));
-
-		assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+		assertRejected(() -> controller.uploadDocument(file, "Title", "Policy", false, jwtFor("7")),
+				ExtractionException.Reason.NO_TEXT);
 	}
 
 	@Test
@@ -241,10 +253,8 @@ class KnowledgeItemControllerTests {
 		when(file.getOriginalFilename()).thenReturn("doc.md");
 		when(file.getBytes()).thenThrow(new IOException("disk exploded"));
 
-		ResponseEntity<KnowledgeItemResponse> response = controller.uploadDocument(file, "Title", "Policy", false,
-				jwtFor("7"));
-
-		assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+		assertRejected(() -> controller.uploadDocument(file, "Title", "Policy", false, jwtFor("7")),
+				ExtractionException.Reason.NO_TEXT);
 	}
 
 	@Test
@@ -272,12 +282,12 @@ class KnowledgeItemControllerTests {
 		});
 		MultipartFile file = new MockMultipartFile("file", "Equipment Guide.DOCX", DOCX_TYPE, docx);
 		String sha256 = KnowledgeItemController.hexDigest("SHA-256", docx);
-		KnowledgeItem item = KnowledgeItem.docx("Title", "Guide", 7L, "markdown", "Equipment Guide.DOCX", DOCX_TYPE,
-				sha256);
+		KnowledgeItem item = KnowledgeItem.converted("Title", "Guide", 7L, "markdown", KnowledgeSourceKind.DOCX,
+				"Equipment Guide.DOCX", DOCX_TYPE, sha256);
 		ReflectionTestUtils.setField(item, "id", 1L);
-		when(knowledgeItemService.createDocxAndIngest("Title", "Guide",
-				"# Equipment\n\nMonitors are replaced every 5 years.\n", 7L, "Equipment Guide.DOCX", DOCX_TYPE,
-				sha256, false)).thenReturn(item);
+		when(knowledgeItemService.createConvertedAndIngest("Title", "Guide",
+				"# Equipment\n\nMonitors are replaced every 5 years.\n", KnowledgeSourceKind.DOCX, 7L,
+				"Equipment Guide.DOCX", DOCX_TYPE, sha256, false)).thenReturn(item);
 
 		ResponseEntity<KnowledgeItemResponse> response = controller.uploadDocument(file, "Title", "Guide", false,
 				jwtFor("7"));
@@ -289,16 +299,54 @@ class KnowledgeItemControllerTests {
 	}
 
 	@Test
-	void docxUploadRejectsAFileThatIsNotAWordDocument() {
-		MultipartFile file = new MockMultipartFile("file", "renamed.docx", DOCX_TYPE,
-				"# Markdown in disguise".getBytes(StandardCharsets.UTF_8));
+	void pdfUploadIsConvertedToMarkdownAndSavedWithItsSourceMetadata() {
+		byte[] pdf = PdfFixtures.pdf(PdfFixtures.page(PdfFixtures.text("Equipment", 20, true, 72),
+				PdfFixtures.text("Monitors are replaced every 5 years.", 11, false, 110)));
+		MultipartFile file = new MockMultipartFile("file", "Equipment Guide.PDF", PDF_TYPE, pdf);
+		String sha256 = KnowledgeItemController.hexDigest("SHA-256", pdf);
+		KnowledgeItem item = KnowledgeItem.converted("Title", "Guide", 7L, "markdown", KnowledgeSourceKind.PDF,
+				"Equipment Guide.PDF", PDF_TYPE, sha256);
+		ReflectionTestUtils.setField(item, "id", 1L);
+		when(knowledgeItemService.createConvertedAndIngest("Title", "Guide",
+				"# Equipment\n\nMonitors are replaced every 5 years.\n", KnowledgeSourceKind.PDF, 7L,
+				"Equipment Guide.PDF", PDF_TYPE, sha256, false)).thenReturn(item);
 
 		ResponseEntity<KnowledgeItemResponse> response = controller.uploadDocument(file, "Title", "Guide", false,
 				jwtFor("7"));
 
-		assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
-		verify(knowledgeItemService, never()).createDocxAndIngest(any(), any(), any(), any(), any(), any(), any(),
-				org.mockito.ArgumentMatchers.eq(false));
+		assertThat(response.getStatusCode()).isEqualTo(HttpStatus.CREATED);
+		assertThat(response.getBody().sourceKind()).isEqualTo("PDF");
+	}
+
+	@Test
+	void pdfUploadRejectsAFileThatIsNotAPdf() {
+		MultipartFile file = new MockMultipartFile("file", "renamed.pdf", PDF_TYPE,
+				"# Markdown in disguise".getBytes(StandardCharsets.UTF_8));
+
+		assertRejected(() -> controller.uploadDocument(file, "Title", "Guide", false, jwtFor("7")),
+				ExtractionException.Reason.UNREADABLE);
+	}
+
+	@Test
+	void pdfUploadRejectsAScannedPdfWithoutText() {
+		MultipartFile file = new MockMultipartFile("file", "scan.pdf", PDF_TYPE,
+				PdfFixtures.pdf(PdfFixtures.imagePage()));
+
+		assertRejected(() -> controller.uploadDocument(file, "Title", "Guide", false, jwtFor("7")),
+				ExtractionException.Reason.PDF_NO_SELECTABLE_TEXT);
+		verify(knowledgeItemService, never()).createConvertedAndIngest(any(), any(), any(), any(), any(), any(), any(),
+				any(), org.mockito.ArgumentMatchers.eq(false));
+	}
+
+	@Test
+	void docxUploadRejectsAFileThatIsNotAWordDocument() {
+		MultipartFile file = new MockMultipartFile("file", "renamed.docx", DOCX_TYPE,
+				"# Markdown in disguise".getBytes(StandardCharsets.UTF_8));
+
+		assertRejected(() -> controller.uploadDocument(file, "Title", "Guide", false, jwtFor("7")),
+				ExtractionException.Reason.UNREADABLE);
+		verify(knowledgeItemService, never()).createConvertedAndIngest(any(), any(), any(), any(), any(), any(), any(),
+				any(), org.mockito.ArgumentMatchers.eq(false));
 	}
 
 	@Test
@@ -306,10 +354,8 @@ class KnowledgeItemControllerTests {
 		MultipartFile file = new MockMultipartFile("file", "blank.docx", DOCX_TYPE,
 				DocxFixtures.docx(document -> document.createParagraph()));
 
-		ResponseEntity<KnowledgeItemResponse> response = controller.uploadDocument(file, "Title", "Guide", false,
-				jwtFor("7"));
-
-		assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+		assertRejected(() -> controller.uploadDocument(file, "Title", "Guide", false, jwtFor("7")),
+				ExtractionException.Reason.NO_TEXT);
 	}
 
 	@Test
@@ -336,7 +382,7 @@ class KnowledgeItemControllerTests {
 		MultipartFile file = mock(MultipartFile.class);
 		when(file.isEmpty()).thenReturn(false);
 		when(file.getOriginalFilename()).thenReturn("big.docx");
-		when(file.getSize()).thenReturn(KnowledgeItemController.MAX_DOCX_BYTES + 1);
+		when(file.getSize()).thenReturn(KnowledgeItemController.MAX_CONVERTED_BYTES + 1);
 
 		ResponseEntity<KnowledgeItemResponse> response = controller.uploadDocument(file, "Title", "Guide", false,
 				jwtFor("7"));
@@ -347,8 +393,8 @@ class KnowledgeItemControllerTests {
 		// Over the Markdown limit but under the .docx limit: the size check passes and the file is read.
 		when(file.getSize()).thenReturn((long) GbrainDocument.MAX_BODY_BYTES + 1);
 		when(file.getBytes()).thenReturn(new byte[0]);
-		assertThat(controller.uploadDocument(file, "Title", "Guide", false, jwtFor("7")).getStatusCode())
-				.isEqualTo(HttpStatus.BAD_REQUEST);
+		assertRejected(() -> controller.uploadDocument(file, "Title", "Guide", false, jwtFor("7")),
+				ExtractionException.Reason.UNREADABLE);
 		verify(file).getBytes();
 	}
 

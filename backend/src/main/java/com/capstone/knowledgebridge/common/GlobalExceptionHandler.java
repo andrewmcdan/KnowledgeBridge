@@ -12,6 +12,8 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.context.request.WebRequest;
 import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExceptionHandler;
 
+import com.capstone.knowledgebridge.extraction.ExtractionException;
+
 /**
  * Safe JSON errors for validation, malformed requests, multipart limits, and unexpected failures.
  */
@@ -24,6 +26,14 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
 	protected ResponseEntity<Object> handleExceptionInternal(Exception exception, Object body, HttpHeaders headers,
 			HttpStatusCode status, WebRequest request) {
 		return new ResponseEntity<>(ApiError.forStatus(status.value()), headers, status);
+	}
+
+	/** An upload that can't be ingested: the reason tells the user what went wrong and what to do about it. */
+	@ExceptionHandler(ExtractionException.class)
+	public ResponseEntity<ApiError> handleExtraction(ExtractionException exception) {
+		log.info("Rejected upload: {}", exception.reason(), exception.getCause());
+		ExtractionException.Reason reason = exception.reason();
+		return ResponseEntity.badRequest().body(new ApiError(reason.code(), reason.message()));
 	}
 
 	@ExceptionHandler(AccessDeniedException.class)
