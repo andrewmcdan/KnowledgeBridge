@@ -6,12 +6,14 @@ interface QuestionFormProps {
     question: string;
     mode: AskAiMode;
     submitting: boolean;
+    canceled: boolean;
     onQuestionChange: (value: string) => void;
     onModeChange: (value: AskAiMode) => void;
     onSubmit: (event: FormEvent) => void;
+    onCancel: () => void;
 }
 
-export function QuestionForm({ question, mode, submitting, onQuestionChange, onModeChange, onSubmit }: QuestionFormProps) {
+export function QuestionForm({ question, mode, submitting, canceled, onQuestionChange, onModeChange, onSubmit, onCancel }: QuestionFormProps) {
     return (
         <form className="question-panel panel" onSubmit={onSubmit}>
             <label htmlFor="question">Your question</label>
@@ -35,6 +37,16 @@ export function QuestionForm({ question, mode, submitting, onQuestionChange, onM
                     ))}
                 </div>
             </fieldset>
+            {(submitting || canceled) && (
+                <div className="query-request-status">
+                    <p role="status">{submitting ? "Request in progress. Cancel stops waiting; server processing may continue." : "Request canceled. Server processing may continue. You can submit another question."}</p>
+                    {submitting && (
+                        <button className="secondary-button" type="button" onClick={onCancel}>
+                            Cancel request
+                        </button>
+                    )}
+                </div>
+            )}
         </form>
     );
 }

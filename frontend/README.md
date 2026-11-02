@@ -28,6 +28,8 @@ Authentication, ingestion, and error responses follow [the committed OpenAPI con
 
 Document previews use a nearly full-screen dialog with a persistent top-left close button; Escape also closes the preview. Markdown is rendered with `react-markdown` and `remark-gfm`, including tables, task lists, and code blocks. YAML front matter is parsed with `yaml` and shown in the metadata disclosure. Metadata and detected entities start collapsed; entities are grouped into people, companies, projects, and teams with summaries and verification labels. Raw HTML is skipped and images appear as links. Entity lookup failures leave document content readable.
 
+Ask AI accepts one active submission at a time, including rapid repeated form submissions. Cancel request stops waiting and allows a new question; leaving Ask AI also aborts its client request. Canceled or late responses cannot replace a newer result or refresh its usage totals. Cancellation does not guarantee that server/provider processing or billing stops; usage totals are refreshed on the next successful query or a manual refresh.
+
 Use Ctrl/Cmd+K to focus global search and Enter to view matching knowledge items.
 
 ## Development
