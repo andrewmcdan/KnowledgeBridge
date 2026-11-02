@@ -4,6 +4,7 @@ import type { Detail } from "../../types/models";
 import { getDocumentContent, getDocumentEntities, type DocumentEntities } from "../../features/entities/entitiesApi";
 import { useAuth } from "../../features/auth/useAuth";
 import { MarkdownContent } from "./MarkdownContent";
+import { DocumentPassages } from "./DocumentPassages";
 import { DocumentEntitiesPanel } from "./DocumentEntitiesPanel";
 import { parseDocumentMarkdown } from "./documentPreview";
 
@@ -139,7 +140,7 @@ export function DetailDialog({ detail, onClose }: { detail: Detail; onClose: () 
                             {error}
                         </p>
                     )}
-                    {!loading && !error && <MarkdownContent text={parsed.markdown} />}
+                    {!loading && !error && (detail.focus ? <DocumentPassages text={parsed.markdown} focus={detail.focus} /> : <MarkdownContent text={parsed.markdown} />)}
                 </div>
             </div>
         </dialog>

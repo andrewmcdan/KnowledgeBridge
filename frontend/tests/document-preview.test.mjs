@@ -32,12 +32,12 @@ function load(name, overrides = {}) {
 
 const { parseDocumentMarkdown, groupDocumentEntities } = load("documentPreview.ts");
 const { MarkdownContent } = load("MarkdownContent.tsx");
-const { citationDetail } = load("../../features/ask-ai/citations.ts");
+const { citationDetail, citedPassages } = load("../../features/ask-ai/citations.ts");
 const { AnswerPanel } = load("../../features/ask-ai/AnswerPanel.tsx", {
     "../../components/ui/Icon": { Icon: () => null },
     "../../components/ui/MarkdownContent": { MarkdownContent },
     "../../components/ui/documentPreview": { parseDocumentMarkdown },
-    "./citations": { citationDetail },
+    "./citations": { citationDetail, citedPassages },
 });
 const { DocumentEntitiesPanel } = load("DocumentEntitiesPanel.tsx");
 const plain = (value) => JSON.parse(JSON.stringify(value));
@@ -219,7 +219,7 @@ test("View document selects the exact source ID for the full-document modal and 
     const results = find(AnswerPanel(props), (node) => node.type?.name === "SearchResults");
     const tree = results.type(results.props);
     find(tree, (node) => node.props?.["aria-label"] === "View document: Budget policy").props.onClick();
-    assert.deepEqual(plain(opened), [{ id: 21, title: "Budget policy", text: "" }], "the modal must fetch the source, not display the partial search excerpt");
+    assert.deepEqual(plain(opened), [{ id: 21, title: "Budget policy", text: "", focus: { kind: "search", passages: ["A partial excerpt."] } }], "the modal must fetch the full source and carry its search excerpt separately");
 });
 
 test("citations select only exact application document IDs", () => {
@@ -265,10 +265,8 @@ test("inline citation markers open the same source as the citation list, without
     const rendered = MarkdownContent(markdown.props);
     const inline = rendered.props.children.props.components.a({ href: "#citation-1", children: "[1]" });
     inline.props.onClick();
-    assert.deepEqual(plain(opened), [
-        { id: 21, title: "Budget policy", text: "" },
-        { id: 21, title: "Budget policy", text: "" },
-    ]);
+    const expected = { id: 21, title: "Budget policy", text: "", focus: { kind: "synthesis", passages: citedPassages(response.answer, 1, citation.externalId) } };
+    assert.deepEqual(plain(opened), plain([expected, expected]));
     const missing = renderToStaticMarkup(createElement(AnswerPanel, { ...props, result: { mode: "Synthesis", response: { ...response, citations: [{ ...citation, itemKey: "missing" }] } } }));
     assert.doesNotMatch(missing, /class="inline-citation"|class="citation-document-link"/);
     assert.match(missing, /Document preview unavailable/);
@@ -317,6 +315,7 @@ test("entities are organized by type, sorted by name and presented in a closed d
 
 function dialogHarness({
     id = 7,
+    focus,
     content = async () => ({ id: 7, title: "Current title", type: "Policy", text: "---\nowner: Finance\n---\n# Readable document" }),
     detected = async () => {
         throw new Error("Entity service unavailable");
@@ -354,11 +353,12 @@ function dialogHarness({
         "../../features/auth/useAuth": { useAuth: () => ({ user: { role: "ADMIN" } }) },
         "../../features/entities/entitiesApi": { getDocumentContent: content, getDocumentEntities: detected },
         "./MarkdownContent": { MarkdownContent },
+        "./DocumentPassages": { DocumentPassages: () => null },
         "./DocumentEntitiesPanel": { DocumentEntitiesPanel },
     }).DetailDialog;
     const render = () => {
         cursor = 0;
-        return component({ detail: { id, title: "Old title", text: "Preview" }, onClose: () => closed++ });
+        return component({ detail: { id, title: "Old title", text: "Preview", focus }, onClose: () => closed++ });
     };
     function find(node, predicate) {
         if (!node || typeof node !== "object") return null;
@@ -392,6 +392,21 @@ test("entity lookup errors do not hide document content, metadata starts closed,
     assert.equal(preview.counts().opened, 1);
     tree.props.onClose();
     assert.equal(preview.counts().closed, 1);
+    preview.cleanup();
+});
+
+test("reference previews match against the fetched current body with front matter removed", async () => {
+    const focus = { kind: "search", passages: ["Current approval procedure"], question: "Who approves software?" };
+    const preview = dialogHarness({ focus });
+    await new Promise((resolve) => setImmediate(resolve));
+    const tree = preview.render();
+    const passages = preview.find(tree, (node) => node.type?.name === "DocumentPassages");
+    assert.equal(passages.props.focus, focus);
+    assert.equal(passages.props.text, "# Readable document");
+    assert.equal(
+        preview.find(tree, (node) => node.type?.name === "MarkdownContent"),
+        null,
+    );
     preview.cleanup();
 });
 

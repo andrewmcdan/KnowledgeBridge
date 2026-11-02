@@ -30,6 +30,8 @@ Document previews use a nearly full-screen dialog with a persistent top-left clo
 
 Ask AI accepts one active submission at a time, including rapid repeated form submissions. Cancel request stops waiting and allows a new question; leaving Ask AI also aborts its client request. Canceled or late responses cannot replace a newer result or refresh its usage totals. Cancellation does not guarantee that server/provider processing or billing stops; usage totals are refreshed on the next successful query or a manual refresh.
 
+Reference links from Search and Synthesis open the current full document with up to six matching passages highlighted and scroll to the best match. Previous/Next passage controls cycle through them. Search uses the clicked excerpt; synthesis compares paragraphs containing that source's citation markers (or an answer without inline markers) with the document's rendered text. Synthesis highlights are related text matches, not engine-provided quote offsets or proof of factual agreement. The submitted question is retained with its result to rank matches even after the input is edited. If the current document has no sufficiently strong match, the preview explicitly says so and remains readable. Regular Knowledge Base and dashboard previews remain unhighlighted.
+
 Use Ctrl/Cmd+K to focus global search and Enter to view matching knowledge items.
 
 ## Development

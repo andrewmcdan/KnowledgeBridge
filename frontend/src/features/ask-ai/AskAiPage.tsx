@@ -46,7 +46,7 @@ export function AskAiPage({ onOpenDetail }: { onOpenDetail: (detail: Detail) => 
         try {
             const response = await submitQuestion(mode, question.trim(), controller.signal);
             if (activeRequest.current !== controller || controller.signal.aborted) return;
-            setResult(response);
+            setResult({ ...response, question: question.trim() });
             setCompletedQueries((value) => value + 1);
         } catch (reason: unknown) {
             if (activeRequest.current === controller && !controller.signal.aborted) setError(reason instanceof Error ? reason.message : "We could not complete your question.");

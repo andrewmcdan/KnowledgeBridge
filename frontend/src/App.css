@@ -1185,6 +1185,57 @@ small {
     margin: 0 auto;
     padding: 28px clamp(16px, 4vw, 48px) 48px;
 }
+.document-highlight-toolbar {
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 12px;
+    padding: 14px 18px;
+    margin-bottom: 20px;
+    border: 1px solid #e0cd83;
+    border-radius: 8px;
+    background: #fff9df;
+    color: #4d411b;
+    box-shadow: 0 2px 6px #17233e12;
+}
+.document-highlight-toolbar strong {
+    font-size: 13px;
+}
+.document-highlight-toolbar p {
+    margin: 5px 0 0;
+    font-size: 12px;
+}
+.document-highlight-toolbar small {
+    display: block;
+    margin-top: 4px;
+    font-size: 11px;
+}
+.document-highlight-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+.markdown-content .document-passage-match {
+    border-radius: 4px;
+    background: #fff2b6;
+    box-shadow: -4px 0 0 #d6a600;
+    scroll-margin-block: 130px 30px;
+}
+.markdown-content .document-passage-active {
+    outline: 2px solid #967100;
+    outline-offset: 3px;
+    background: #ffe18a;
+}
+.markdown-content tr.document-passage-match > td {
+    background: #fff2b6;
+}
+.markdown-content tr.document-passage-active > td {
+    background: #ffe18a;
+}
 .document-disclosure {
     margin-bottom: 16px;
     border: 1px solid var(--border);

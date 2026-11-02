@@ -1,6 +1,8 @@
 import Markdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+import type { DocumentFocus } from "../../types/models";
 import { remarkCitationLinks, type CitationReference } from "./markdownCitations";
+import { rehypeReferencePassages } from "./referencePassages";
 
 export interface MarkdownCitation extends CitationReference {
     title: string;
@@ -12,13 +14,16 @@ interface MarkdownContentProps {
     label?: string;
     className?: string;
     citations?: MarkdownCitation[];
+    referenceFocus?: DocumentFocus;
+    activePassage?: number;
 }
 
-export function MarkdownContent({ text, label = "Document content", className = "document-markdown", citations = [] }: MarkdownContentProps) {
+export function MarkdownContent({ text, label = "Document content", className = "document-markdown", citations = [], referenceFocus, activePassage = 0 }: MarkdownContentProps) {
     return (
         <article className={`markdown-content ${className}`} aria-label={label}>
             <Markdown
                 remarkPlugins={[remarkGfm, [remarkCitationLinks, citations]]}
+                rehypePlugins={referenceFocus ? [[rehypeReferencePassages, { focus: referenceFocus, active: activePassage }]] : []}
                 skipHtml
                 components={{
                     a: ({ href, children }) => {

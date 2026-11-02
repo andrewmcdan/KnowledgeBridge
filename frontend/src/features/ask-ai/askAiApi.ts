@@ -42,7 +42,7 @@ export interface SynthesisResponse {
     } | null;
 }
 
-export type QueryResult = { mode: "Search"; response: SearchResponse } | { mode: "Synthesis"; response: SynthesisResponse };
+export type QueryResult = ({ mode: "Search"; response: SearchResponse } | { mode: "Synthesis"; response: SynthesisResponse }) & { question?: string };
 
 function getAuthorizationHeader(): Record<string, string> {
     const token = sessionStorage.getItem("knowledgebridge.auth.token") ?? localStorage.getItem("knowledgebridge.auth.token");

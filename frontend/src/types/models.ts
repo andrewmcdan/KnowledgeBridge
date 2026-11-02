@@ -14,6 +14,13 @@ export interface Detail {
     id?: number;
     title: string;
     text: string;
+    focus?: DocumentFocus;
+}
+
+export interface DocumentFocus {
+    kind: "search" | "synthesis";
+    passages: string[];
+    question?: string;
 }
 
 export interface NavigationItem {

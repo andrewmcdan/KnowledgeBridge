@@ -94,6 +94,17 @@ function submit(form) {
 
 const answer = (text) => ({ mode: "Synthesis", response: { answer: text } });
 
+test("completed results retain the submitted question after the editable input changes", async () => {
+    const page = pageHarness();
+    const pending = submit(page.render().form);
+    page.render().form.onQuestionChange("A different question for next time");
+    page.requests[0].resolve(answer("Original answer"));
+    await pending;
+    assert.equal(page.render().answer.result.question, "What is the budget?");
+    assert.equal(page.render().form.question, "A different question for next time");
+    page.unmount();
+});
+
 test("rapid direct submissions use a synchronous lock before React renders in both modes", async () => {
     for (const mode of ["Synthesis", "Search"]) {
         const page = pageHarness();

@@ -2,7 +2,7 @@ import { Icon } from "../../components/ui/Icon";
 import { MarkdownContent } from "../../components/ui/MarkdownContent";
 import { parseDocumentMarkdown } from "../../components/ui/documentPreview";
 import type { Detail } from "../../types/models";
-import { citationDetail } from "./citations";
+import { citationDetail, citedPassages } from "./citations";
 import type { AskAiMode, QueryResult, SearchResponse, SynthesisResponse } from "./askAiApi";
 
 interface AnswerPanelProps {
@@ -38,14 +38,14 @@ export function AnswerPanel({ mode, result, submitting, error, onOpenDetail }: A
                     </p>
                 )}
                 {!submitting && !error && !result && <p>Ask a question to search indexed knowledge or generate a cited AI answer.</p>}
-                {!submitting && !error && result?.mode === "Search" && <SearchResults result={result.response} onOpenDetail={onOpenDetail} />}
-                {!submitting && !error && result?.mode === "Synthesis" && <SynthesisAnswer result={result.response} onOpenDetail={onOpenDetail} />}
+                {!submitting && !error && result?.mode === "Search" && <SearchResults result={result.response} question={result.question} onOpenDetail={onOpenDetail} />}
+                {!submitting && !error && result?.mode === "Synthesis" && <SynthesisAnswer result={result.response} question={result.question} onOpenDetail={onOpenDetail} />}
             </div>
         </section>
     );
 }
 
-function SearchResults({ result, onOpenDetail }: { result: SearchResponse; onOpenDetail: (detail: Detail) => void }) {
+function SearchResults({ result, question, onOpenDetail }: { result: SearchResponse; question?: string; onOpenDetail: (detail: Detail) => void }) {
     return (
         <>
             {result.retrieval.degraded && <p className="query-warning">Some semantic retrieval signals were unavailable for this search.</p>}
@@ -79,7 +79,12 @@ function SearchResults({ result, onOpenDetail }: { result: SearchResponse; onOpe
                             <footer className="search-hit-footer">
                                 <span>Matching excerpt</span>
                                 {detail ? (
-                                    <button className="secondary-button search-view-document" type="button" aria-label={`View document: ${title}`} onClick={() => onOpenDetail(detail)}>
+                                    <button
+                                        className="secondary-button search-view-document"
+                                        type="button"
+                                        aria-label={`View document: ${title}`}
+                                        onClick={() => onOpenDetail({ ...detail, focus: { kind: "search", passages: [excerpt], question } })}
+                                    >
                                         View document <Icon name="chevron" size={15} />
                                     </button>
                                 ) : (
@@ -94,8 +99,11 @@ function SearchResults({ result, onOpenDetail }: { result: SearchResponse; onOpe
     );
 }
 
-function SynthesisAnswer({ result, onOpenDetail }: { result: SynthesisResponse; onOpenDetail: (detail: Detail) => void }) {
-    const sources = result.citations.map((citation, index) => ({ citation, detail: citationDetail(citation), number: index + 1 }));
+function SynthesisAnswer({ result, question, onOpenDetail }: { result: SynthesisResponse; question?: string; onOpenDetail: (detail: Detail) => void }) {
+    const sources = result.citations.map((citation, index) => {
+        const detail = citationDetail(citation);
+        return { citation, number: index + 1, detail: detail ? { ...detail, focus: { kind: "synthesis" as const, passages: citedPassages(result.answer, index + 1, citation.externalId), question } } : null };
+    });
     const links = sources.flatMap(({ citation, detail, number }) => (detail ? [{ number, source: citation.externalId, title: detail.title, onOpen: () => onOpenDetail(detail) }] : []));
     return (
         <>
