@@ -369,6 +369,11 @@ legend {
     position: relative;
     margin-top: 9px;
 }
+.question-keyboard-help {
+    margin: 8px 0 0;
+    color: var(--muted);
+    font-size: 11px;
+}
 .query-request-status {
     display: flex;
     align-items: center;

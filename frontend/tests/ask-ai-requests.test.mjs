@@ -207,6 +207,72 @@ test("cancellation UI is a separate native button with honest, accessible status
     assert.doesNotMatch(canceled, /Cancel request|role="alert"/);
 });
 
+test("Enter submits the question through the form in both modes without bypassing the in-flight guard", async () => {
+    const { QuestionForm } = load("QuestionForm.tsx", { "../../components/ui/Icon": { Icon: () => null } });
+    for (const mode of ["Search", "Synthesis"]) {
+        const page = pageHarness();
+        page.render().form.onModeChange(mode);
+        const form = page.render().form;
+        const textarea = QuestionForm(form).props.children[1].props.children[0];
+        const submissions = [];
+        let prevented = 0;
+        const event = {
+            key: "Enter",
+            shiftKey: false,
+            repeat: false,
+            nativeEvent: { isComposing: false, keyCode: 13 },
+            currentTarget: { form: { requestSubmit: () => submissions.push(submit(form)) } },
+            preventDefault() {
+                prevented++;
+            },
+        };
+        textarea.props.onKeyDown(event);
+        textarea.props.onKeyDown(event);
+        assert.equal(prevented, 2, "Enter should not insert a newline");
+        assert.equal(page.requests.length, 1, "rapid key presses cannot start duplicate API calls");
+        assert.equal(page.requests[0].mode, mode);
+        assert.equal(page.requests[0].question, "What is the budget?");
+        page.requests[0].resolve({ mode, response: {} });
+        await Promise.all(submissions);
+        assert.equal(page.render().form.submitting, false);
+        page.unmount();
+    }
+});
+
+test("Shift+Enter stays native while blank, busy, repeating, and composing input cannot submit", () => {
+    const { QuestionForm } = load("QuestionForm.tsx", { "../../components/ui/Icon": { Icon: () => null } });
+    const cases = [
+        { key: "Enter", shiftKey: true, prevented: false },
+        { key: "a", prevented: false },
+        { key: "Enter", isComposing: true, prevented: false },
+        { key: "Enter", keyCode: 229, prevented: false },
+        { key: "Enter", question: " \n\t", prevented: true },
+        { key: "Enter", submitting: true, prevented: true },
+        { key: "Enter", repeat: true, prevented: true },
+    ];
+    for (const mode of ["Search", "Synthesis"]) {
+        for (const scenario of cases) {
+            let submitted = 0;
+            let prevented = false;
+            const props = { question: scenario.question ?? "Question", mode, submitting: scenario.submitting ?? false, canceled: false, onQuestionChange() {}, onModeChange() {}, onSubmit() {}, onCancel() {} };
+            const textarea = QuestionForm(props).props.children[1].props.children[0];
+            textarea.props.onKeyDown({
+                key: scenario.key,
+                shiftKey: scenario.shiftKey ?? false,
+                repeat: scenario.repeat ?? false,
+                nativeEvent: { isComposing: scenario.isComposing ?? false, keyCode: scenario.keyCode ?? 13 },
+                currentTarget: { form: { requestSubmit: () => submitted++ } },
+                preventDefault() {
+                    prevented = true;
+                },
+            });
+            assert.equal(submitted, 0, JSON.stringify(scenario));
+            assert.equal(prevented, scenario.prevented, JSON.stringify(scenario));
+            assert.equal(textarea.props["aria-describedby"], "question-keyboard-help");
+        }
+    }
+});
+
 test("API forwards cancellation, aborts fetch, and does not dispatch a pre-aborted request", async () => {
     const calls = [];
     const { submitQuestion } = load(
