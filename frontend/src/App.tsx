@@ -11,7 +11,6 @@ import { AdminPage } from "./features/admin/AdminPage";
 import { EntitiesPage } from "./features/entities/EntitiesPage";
 import { KnowledgeBasePage } from "./features/knowledge/KnowledgeBasePage";
 import { UploadsPage } from "./features/knowledge/UploadsPage";
-import { UsagePage } from "./features/usage/UsagePage";
 import { DashboardPage } from "./features/dashboard/DashboardPage";
 import { LoginPage } from "./features/auth/LoginPage";
 import { RegisterPage } from "./features/auth/RegisterPage";
@@ -73,7 +72,6 @@ function Workspace() {
                             <Route path="/entities" element={<EntitiesPage onOpenDetail={setDetail} />} />
                             <Route path="/dashboard" element={<DashboardPage onOpenDetail={setDetail} />} />
                             <Route path="/uploads" element={user?.role === "ADMIN" ? <UploadsPage /> : <Navigate to="/ask-ai" replace />} />
-                            <Route path="/usage" element={<UsagePage />} />
                             <Route path="/admin" element={user?.role === "ADMIN" ? <AdminPage /> : <Navigate to="/ask-ai" replace />} />
                             <Route path="*" element={<Navigate to="/ask-ai" replace />} />
                         </Routes>

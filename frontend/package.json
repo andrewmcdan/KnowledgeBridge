@@ -13,6 +13,9 @@
         "preview": "vite preview"
     },
     "dependencies": {
+        "@tiptap/markdown": "^3.32.2",
+        "@tiptap/react": "^3.32.2",
+        "@tiptap/starter-kit": "^3.32.2",
         "react": "^19.2.8",
         "react-dom": "^19.2.8",
         "react-force-graph-3d": "^1.29.2",

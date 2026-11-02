@@ -84,7 +84,7 @@ test("unsafe HTML and links are blocked, and remote images are represented as li
     assert.match(html, /href="https:\/\/example.test\/tracker.png"/);
 });
 
-test("AI answers render Markdown while retaining citations, warnings and query usage", () => {
+test("AI answers render Markdown while retaining citations and warnings", () => {
     const response = {
         answer: "## Budget review\n\nA **clear** plan with citation [1].\n\n| Owner | Decision |\n| --- | --- |\n| Finance | Approve |\n\n- Share the forecast\n\n```sql\nSELECT budget FROM plan;\n```",
         aiGenerated: true,
@@ -108,9 +108,7 @@ test("AI answers render Markdown while retaining citations, warnings and query u
     assert.match(html, /Citations \(1\)/);
     assert.match(html, /Final approval pending\./);
     assert.match(html, /Verify dates\./);
-    assert.match(html, /Estimated.*120 input \+ 80 output = 200 total/s);
     assert.doesNotMatch(html, /## Budget review|\*\*clear\*\*/);
-    assert.match(render({ cacheHit: true }), /Cached answer · 0 new synthesis tokens/);
     assert.match(render({ aiGenerated: false, extractiveFallback: true }), /Extractive fallback/);
     const unsafe = render({ answer: '<script>alert("x")</script>\n\n[Bad](javascript:alert%281%29)' });
     assert.doesNotMatch(unsafe, /<script|javascript:/);
@@ -195,7 +193,7 @@ test("initial, loading, and error states use the selected query mode when no res
             assert.equal(heading.props.children[0].props.name, mode === "Synthesis" ? "spark" : "search");
             if (state.submitting) assert.match(html, /Searching indexed knowledge/);
             else if (state.error) assert.match(html, /role="alert">Engine unavailable/);
-            else assert.match(html, /Ask a question to search indexed knowledge/);
+            else assert.match(html, /How can I help with your knowledge/);
         }
     }
 });
