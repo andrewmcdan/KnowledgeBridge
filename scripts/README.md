@@ -4,9 +4,11 @@ This folder contains repeatable developer utilities for environment setup, synth
 
 Scripts should be non-interactive where practical, document prerequisites and parameters, fail clearly, and avoid embedding credentials or machine-specific paths.
 
-## One-shot synthesis quality evaluation
+## Synthesis quality evaluation
 
-Run `python -B scripts/evaluate_synthesis.py --doc-id ACME-013` to generate a question from an ingested synthetic document, query synthesis once, verify selected-source citations, and have an AI judge assess the answer against the actual references. See [evaluation instructions](../evaluation/README.md) for authentication, multiple-source/seeded selection, pass/fail gates, reports, provider charges, and offline tests. This command is opt-in and is not part of normal test runs or CI.
+Run `python -B scripts/evaluate_synthesis.py --count 5 --queries-per-doc 3 --seed 42` to evaluate 15 questions across five ingested synthetic documents. Each case generates a question, queries synthesis, verifies its source citation, and has an AI judge assess the answer against the actual references. Repeated `--doc-id` selects specific documents; `--combined` retains the original single question across multiple sources. See [evaluation instructions](../evaluation/README.md) for authentication, selection, pass/fail gates, checkpointed reports, provider charges, and offline tests. This command is opt-in and is not part of normal test runs or CI.
+
+The evaluator prefers `OPENROUTER_API_KEY`; if absent or blank, it uses `OPENAI_API_KEY` directly with OpenAI model defaults. The selected provider/models appear in the console and run report.
 
 ## Local development launcher
 
