@@ -34,7 +34,6 @@ function pageHarness() {
     let writesAfterUnmount = 0;
     function QuestionForm() {}
     function AnswerPanel() {}
-    function UsageTotalsPanel() {}
     const { AskAiPage } = load("AskAiPage.tsx", {
         react: {
             useState: (initial) => {
@@ -55,7 +54,6 @@ function pageHarness() {
         },
         "./QuestionForm": { QuestionForm },
         "./AnswerPanel": { AnswerPanel },
-        "../usage/UsagePage": { UsageTotalsPanel },
         "./askAiApi": { submitQuestion: (mode, question, signal) => new Promise((resolve, reject) => requests.push({ mode, question, signal, resolve, reject })) },
     });
     const render = () => {
@@ -65,7 +63,6 @@ function pageHarness() {
         return {
             form: elements.find((node) => node.type === QuestionForm).props,
             answer: elements.find((node) => node.type === AnswerPanel).props,
-            usage: elements.find((node) => node.type === UsageTotalsPanel).props,
         };
     };
     const page = {
@@ -97,6 +94,7 @@ const answer = (text) => ({ mode: "Synthesis", response: { answer: text } });
 test("completed results retain the submitted question after the editable input changes", async () => {
     const page = pageHarness();
     const pending = submit(page.render().form);
+    assert.equal(page.render().form.question, "");
     page.render().form.onQuestionChange("A different question for next time");
     page.requests[0].resolve(answer("Original answer"));
     await pending;
@@ -120,7 +118,6 @@ test("rapid direct submissions use a synchronous lock before React renders in bo
         page.requests[0].resolve({ mode, response: {} });
         await first;
         assert.equal(page.render().form.submitting, false);
-        assert.equal(page.render().usage.refreshKey, 1);
         page.unmount();
     }
 });
@@ -132,17 +129,16 @@ test("cancel aborts the active fetch, allows a retry, and late success cannot st
     assert.equal(page.requests[0].signal.aborted, true);
     assert.equal(page.render().form.canceled, true);
     assert.equal(page.render().form.submitting, false);
+    page.render().form.onQuestionChange("Retry question");
     const second = submit(page.render().form);
     page.requests[0].resolve(answer("Stale answer"));
     await first;
     assert.equal(page.render().answer.result, null);
     assert.equal(page.render().form.submitting, true);
     assert.equal(page.render().form.canceled, false);
-    assert.equal(page.render().usage.refreshKey, 0);
     page.requests[1].resolve(answer("Current answer"));
     await second;
     assert.equal(page.render().answer.result.response.answer, "Current answer");
-    assert.equal(page.render().usage.refreshKey, 1);
     page.unmount();
 });
 
@@ -150,6 +146,7 @@ test("late rejection cannot replace a newer result or display an error after can
     const page = pageHarness();
     const first = submit(page.render().form);
     page.render().form.onCancel();
+    page.render().form.onQuestionChange("Retry question");
     const second = submit(page.render().form);
     page.requests[1].resolve(answer("Current answer"));
     await second;
@@ -158,7 +155,6 @@ test("late rejection cannot replace a newer result or display an error after can
     assert.equal(page.render().answer.result.response.answer, "Current answer");
     assert.equal(page.render().answer.error, null);
     assert.equal(page.render().form.submitting, false);
-    assert.equal(page.render().usage.refreshKey, 1);
     page.render().form.onCancel();
     assert.equal(page.render().form.canceled, false, "cancel is harmless when no request is active");
     page.unmount();
@@ -171,17 +167,18 @@ test("an abort rejection is quiet and ordinary errors release the guard for retr
     page.requests[0].reject(new DOMException("Aborted", "AbortError"));
     await first;
     assert.equal(page.render().answer.error, null);
+    page.render().form.onQuestionChange("Retry question");
     const failed = submit(page.render().form);
     page.requests[1].reject(new Error("Engine unavailable"));
     await failed;
     assert.equal(page.render().answer.error, "Engine unavailable");
     assert.equal(page.render().form.submitting, false);
+    page.render().form.onQuestionChange("Recovered question");
     const retry = submit(page.render().form);
     assert.equal(page.render().answer.error, null);
     page.requests[2].resolve(answer("Recovered"));
     await retry;
     assert.equal(page.render().answer.result.response.answer, "Recovered");
-    assert.equal(page.render().usage.refreshKey, 1);
     page.unmount();
 });
 

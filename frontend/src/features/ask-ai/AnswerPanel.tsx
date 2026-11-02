@@ -10,15 +10,17 @@ interface AnswerPanelProps {
     result: QueryResult | null;
     submitting: boolean;
     error: string | null;
+    pendingQuestion?: string | null;
     onOpenDetail: (detail: Detail) => void;
 }
 
-export function AnswerPanel({ mode, result, submitting, error, onOpenDetail }: AnswerPanelProps) {
+export function AnswerPanel({ mode, result, submitting, error, pendingQuestion, onOpenDetail }: AnswerPanelProps) {
     const isSynthesis = result?.mode === "Synthesis";
     const displayedMode = result?.mode ?? mode;
+    const displayedQuestion = result?.question ?? (submitting || error ? pendingQuestion : null);
 
     return (
-        <section className="answer-panel panel" aria-live="polite">
+        <section className="answer-panel panel chat-answer-panel" aria-live="polite">
             <div className="answer-body">
                 <div className="section-heading">
                     <h2>
@@ -31,13 +33,25 @@ export function AnswerPanel({ mode, result, submitting, error, onOpenDetail }: A
                         </span>
                     )}
                 </div>
+                {displayedQuestion && (
+                    <div className="chat-user-message">
+                        <span>You</span>
+                        <p>{displayedQuestion}</p>
+                    </div>
+                )}
                 {submitting && <p>Searching indexed knowledge…</p>}
                 {!submitting && error && (
                     <p className="query-error" role="alert">
                         {error}
                     </p>
                 )}
-                {!submitting && !error && !result && <p>Ask a question to search indexed knowledge or generate a cited AI answer.</p>}
+                {!submitting && !error && !result && (
+                    <div className="chat-empty-state">
+                        <span aria-hidden="true">✦</span>
+                        <h3>How can I help with your knowledge?</h3>
+                        <p>Ask a question to search indexed documents or generate a cited AI answer.</p>
+                    </div>
+                )}
                 {!submitting && !error && result?.mode === "Search" && <SearchResults result={result.response} question={result.question} onOpenDetail={onOpenDetail} />}
                 {!submitting && !error && result?.mode === "Synthesis" && <SynthesisAnswer result={result.response} question={result.question} onOpenDetail={onOpenDetail} />}
             </div>
@@ -110,18 +124,6 @@ function SynthesisAnswer({ result, question, onOpenDetail }: { result: Synthesis
             <MarkdownContent text={result.answer} label="AI answer" className="synthesis-answer" citations={links} />
             {result.gaps.length > 0 && <p className="query-warning">Knowledge gaps: {result.gaps.join(" ")}</p>}
             {result.warnings.length > 0 && <p className="query-warning">Warnings: {result.warnings.join(" ")}</p>}
-            <div className="query-usage" aria-label="Query token usage">
-                {result.cacheHit ? (
-                    <p>Cached answer · 0 new synthesis tokens</p>
-                ) : result.usage ? (
-                    <p>
-                        {result.usage.estimated ? "Estimated" : "Engine-reported"} synthesis tokens: {(result.usage.inputTokens ?? 0).toLocaleString()} input + {(result.usage.outputTokens ?? 0).toLocaleString()} output ={" "}
-                        {((result.usage.inputTokens ?? 0) + (result.usage.outputTokens ?? 0)).toLocaleString()} total.
-                    </p>
-                ) : (
-                    <p>No synthesis token usage was reported for this response.</p>
-                )}
-            </div>
             <h3 className="citation-heading">Citations ({result.citations.length})</h3>
             {result.citations.length ? (
                 <ol className="query-citations">

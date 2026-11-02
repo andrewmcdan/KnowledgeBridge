@@ -14,16 +14,26 @@ interface QuestionFormProps {
 }
 
 export function QuestionForm({ question, mode, submitting, canceled, onQuestionChange, onModeChange, onSubmit, onCancel }: QuestionFormProps) {
+    const resizeTextarea = (element: HTMLTextAreaElement | null) => {
+        if (!element) return;
+        element.style.height = "auto";
+        element.style.height = `${Math.min(element.scrollHeight, 160)}px`;
+    };
+
     return (
-        <form className="question-panel panel" onSubmit={onSubmit}>
-            <label htmlFor="question">Your question</label>
+        <form className="question-panel panel chat-composer" onSubmit={onSubmit}>
+            <label htmlFor="question">Message KnowledgeBridge</label>
             <div className="question-input">
                 <textarea
                     id="question"
+                    ref={resizeTextarea}
                     value={question}
                     placeholder="Ask about indexed knowledge…"
                     aria-describedby="question-keyboard-help"
-                    onChange={(event) => onQuestionChange(event.target.value)}
+                    onChange={(event) => {
+                        resizeTextarea(event.currentTarget);
+                        onQuestionChange(event.target.value);
+                    }}
                     onKeyDown={(event) => {
                         // Composition confirmation must not send a partially entered question.
                         if (event.key !== "Enter" || event.shiftKey || event.nativeEvent.isComposing || event.nativeEvent.keyCode === 229) return;
@@ -35,9 +45,6 @@ export function QuestionForm({ question, mode, submitting, canceled, onQuestionC
                     <Icon name="send" size={18} />
                 </button>
             </div>
-            <p id="question-keyboard-help" className="question-keyboard-help">
-                Enter to submit · Shift+Enter for a new line
-            </p>
             <fieldset>
                 <legend>
                     Mode <span title="Search and synthesis will use live knowledge when connected.">ⓘ</span>
@@ -52,6 +59,9 @@ export function QuestionForm({ question, mode, submitting, canceled, onQuestionC
                     ))}
                 </div>
             </fieldset>
+            <p id="question-keyboard-help" className="question-keyboard-help">
+                Enter to send · Shift+Enter for a new line
+            </p>
             {(submitting || canceled) && (
                 <div className="query-request-status">
                     <p role="status">{submitting ? "Request in progress. Cancel stops waiting; server processing may continue." : "Request canceled. Server processing may continue. You can submit another question."}</p>

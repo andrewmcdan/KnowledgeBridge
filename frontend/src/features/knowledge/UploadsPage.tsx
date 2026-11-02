@@ -1,12 +1,16 @@
-import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
+import { lazy, Suspense, useCallback, useEffect, useRef, useState, type DragEvent, type FormEvent } from "react";
 import { Icon } from "../../components/ui/Icon";
 import { createManualKnowledgeItem, getKnowledgeItems, retryKnowledgeItem, uploadKnowledgeFile, type KnowledgeItem } from "./knowledgeApi";
 import { UPLOAD_ACCEPT, uploadDocumentType, uploadTitle as titleFromFilename, validateUpload } from "./uploadFiles";
 import { FolderUpload } from "./FolderUpload";
 import { NoteEditor } from "./NoteEditor";
-import { MAX_CONTENT_BYTES, validateManualNote as validateTextFields } from "./manualNotes";
+import { validateManualNote as validateTextFields } from "./manualNotes";
 
 const POLLING_INTERVAL_MS = 10_000;
+const MANUAL_NOTE_TYPE = "Manual note";
+const RichTextEditor = lazy(async () => ({
+    default: (await import("./RichTextEditor")).RichTextEditor,
+}));
 
 function isInProgress(item: KnowledgeItem): boolean {
     return item.status === "PENDING" || item.status === "PROCESSING";
@@ -20,7 +24,6 @@ export function UploadsPage() {
     const [titleEdited, setTitleEdited] = useState(false);
     const [useAiTitle, setUseAiTitle] = useState(false);
     const [noteTitle, setNoteTitle] = useState("");
-    const [noteType, setNoteType] = useState("Note");
     const [content, setContent] = useState("");
     const [error, setError] = useState<string | null>(null);
     const [notice, setNotice] = useState<string | null>(null);
@@ -84,6 +87,11 @@ export function UploadsPage() {
         }
     };
 
+    const dropFile = (event: DragEvent<HTMLLabelElement>) => {
+        event.preventDefault();
+        if (!submitting) selectFile(event.dataTransfer.files?.[0] ?? null);
+    };
+
     const submitFile = async (event: FormEvent<HTMLFormElement>) => {
         event.preventDefault();
         if (!file) {
@@ -125,7 +133,7 @@ export function UploadsPage() {
 
     const submitNote = async (event: FormEvent<HTMLFormElement>) => {
         event.preventDefault();
-        const validationError = validateTextFields(noteTitle, noteType, content);
+        const validationError = validateTextFields(noteTitle, MANUAL_NOTE_TYPE, content);
         if (validationError) {
             setError(validationError);
             return;
@@ -135,9 +143,8 @@ export function UploadsPage() {
         setError(null);
         setNotice(null);
         try {
-            addItem(await createManualKnowledgeItem(noteTitle.trim(), noteType.trim(), content));
+            addItem(await createManualKnowledgeItem(noteTitle.trim(), MANUAL_NOTE_TYPE, content));
             setNoteTitle("");
-            setNoteType("Note");
             setContent("");
         } catch (reason: unknown) {
             setError(reason instanceof Error ? reason.message : "We could not save the note.");
@@ -161,7 +168,12 @@ export function UploadsPage() {
 
     return (
         <section className="uploads-page">
-            <p className="uploads-intro">Add Markdown, Word, PDF, or video files, folders, or notes for everyone in the workspace. Ingestion status refreshes automatically while work is in progress.</p>
+            <header className="knowledge-upload-header">
+                <h1>
+                    <Icon name="upload" size={27} /> Add knowledge
+                </h1>
+                <p>Add Markdown, Word, PDF, or video files, folders, or notes for everyone in the workspace. Ingestion status refreshes automatically while work is in progress.</p>
+            </header>
             <section className="panel upload-pane" aria-label="Add knowledge">
                 <div className="upload-tabs" role="tablist" aria-label="Upload type">
                     <button
@@ -174,19 +186,13 @@ export function UploadsPage() {
                         className={uploadMode === "markdown" ? "active" : ""}
                         onClick={() => setUploadMode("markdown")}
                     >
-                        <Icon name="upload" size={16} /> Upload file
-                    </button>
-                    <button
-                        id="manual-note-tab"
-                        type="button"
-                        role="tab"
-                        disabled={submitting || folderBusy}
-                        aria-selected={uploadMode === "note"}
-                        aria-controls="manual-note-panel"
-                        className={uploadMode === "note" ? "active" : ""}
-                        onClick={() => setUploadMode("note")}
-                    >
-                        <Icon name="file" size={16} /> Manual note
+                        <span className="upload-tab-icon">
+                            <Icon name="file" size={23} />
+                        </span>
+                        <span>
+                            <strong>File upload</strong>
+                            <small>Add a document or video from your device.</small>
+                        </span>
                     </button>
                     <button
                         id="folder-upload-tab"
@@ -198,74 +204,112 @@ export function UploadsPage() {
                         className={uploadMode === "folder" ? "active" : ""}
                         onClick={() => setUploadMode("folder")}
                     >
-                        <Icon name="upload" size={16} /> Upload folder
+                        <span className="upload-tab-icon">
+                            <Icon name="upload" size={23} />
+                        </span>
+                        <span>
+                            <strong>Folder upload</strong>
+                            <small>Import supported files from a folder.</small>
+                        </span>
+                    </button>
+                    <button
+                        id="manual-note-tab"
+                        type="button"
+                        role="tab"
+                        disabled={submitting || folderBusy}
+                        aria-selected={uploadMode === "note"}
+                        aria-controls="manual-note-panel"
+                        className={uploadMode === "note" ? "active" : ""}
+                        onClick={() => setUploadMode("note")}
+                    >
+                        <span className="upload-tab-icon">
+                            <Icon name="file" size={23} />
+                        </span>
+                        <span>
+                            <strong>Manual note</strong>
+                            <small>Create knowledge directly from text.</small>
+                        </span>
                     </button>
                 </div>
-                {uploadMode === "markdown" ? (
-                    <form id="markdown-upload-panel" className="upload-form" role="tabpanel" aria-labelledby="markdown-upload-tab" onSubmit={submitFile}>
-                        <h2>Upload a document</h2>
-                        <p>
-                            Upload a UTF-8 <code>.md</code> file (up to 1 MiB), a <code>.docx</code> or text-based <code>.pdf</code> file (up to 10 MiB), or an MP4, MOV, or WebM video. Scanned PDFs are not supported. Video size and duration
-                            limits are configured on the server; transcription may incur charges.
-                        </p>
-                        <label className="file-picker upload-file-picker">
-                            <span className="upload-file-picker-action">
-                                <Icon name="upload" size={20} /> {file ? "Choose another file" : "Choose a file"}
-                            </span>
-                            <span className="upload-file-picker-details">
-                                {file ? (
-                                    <>
-                                        <strong>{file.name}</strong>
-                                        <small>{uploadDocumentType(file.name)} detected</small>
-                                    </>
-                                ) : null}
-                            </span>
-                            <input ref={fileInput} type="file" accept={UPLOAD_ACCEPT} disabled={submitting} onChange={(event) => selectFile(event.target.files?.[0] ?? null)} />
-                        </label>
-                        <div className="upload-title-field">
-                            <label htmlFor="upload-title">Title</label>
-                            <input
-                                id="upload-title"
-                                value={uploadTitle}
-                                maxLength={255}
-                                required={!useAiTitle}
-                                disabled={submitting}
-                                aria-describedby="upload-title-help"
-                                onChange={(event) => {
-                                    setUploadTitle(event.target.value);
-                                    setTitleEdited(true);
-                                }}
-                            />
-                        </div>
-                        <div className="upload-form-footer">
-                            <div>
-                                <label className="ai-title-option">
-                                    <input type="checkbox" checked={useAiTitle} disabled={submitting} onChange={(event) => setUseAiTitle(event.target.checked)} />
-                                    Use AI to name this file
-                                </label>
-                                <p id="upload-title-help">{useAiTitle ? "AI will generate the final title after processing; usage may incur charges." : "The filename provides the initial title."}</p>
+                <div className={`upload-workspace upload-workspace-${uploadMode}`}>
+                    {uploadMode === "markdown" ? (
+                        <form id="markdown-upload-panel" className="upload-form" role="tabpanel" aria-labelledby="markdown-upload-tab" onSubmit={submitFile}>
+                            <label className="file-picker upload-file-picker" onDragOver={(event) => event.preventDefault()} onDrop={dropFile}>
+                                <span className="upload-file-picker-icon">
+                                    <Icon name="upload" size={26} />
+                                </span>
+                                <span className="upload-file-picker-copy">
+                                    <strong>{file ? "Replace selected file" : "Drop a file here or browse"}</strong>
+                                    <small>Markdown, DOCX, PDF, MP4, MOV, or WebM</small>
+                                </span>
+                                <span className="upload-file-picker-action">{file ? "Choose another file" : "Browse files"}</span>
+                                {file && (
+                                    <span className="upload-file-picker-details">
+                                        <Icon name="file" size={18} />
+                                        <span>
+                                            <strong>{file.name}</strong>
+                                            <small>{uploadDocumentType(file.name)} detected</small>
+                                        </span>
+                                    </span>
+                                )}
+                                <input ref={fileInput} type="file" accept={UPLOAD_ACCEPT} disabled={submitting} onChange={(event) => selectFile(event.target.files?.[0] ?? null)} />
+                            </label>
+                            <p className="upload-file-help">Markdown files support up to 1 MiB; DOCX and text-based PDFs support up to 10 MiB. Scanned PDFs are not supported. Video limits are configured on the server.</p>
+                            <div className="upload-title-field">
+                                <label htmlFor="upload-title">Document title</label>
+                                <input
+                                    id="upload-title"
+                                    value={uploadTitle}
+                                    maxLength={255}
+                                    required={!useAiTitle}
+                                    disabled={submitting}
+                                    aria-describedby="upload-title-help"
+                                    onChange={(event) => {
+                                        setUploadTitle(event.target.value);
+                                        setTitleEdited(true);
+                                    }}
+                                />
                             </div>
-                            <button className="secondary-button upload-submit-button" type="submit" disabled={submitting}>
-                                {submitting ? "Ingesting…" : "Ingest"}
-                            </button>
-                        </div>
-                    </form>
-                ) : uploadMode === "folder" ? (
-                    <FolderUpload onQueued={addItem} onBusyChange={setFolderBusy} />
-                ) : (
-                    <form id="manual-note-panel" className="upload-form" role="tabpanel" aria-labelledby="manual-note-tab" onSubmit={submitNote}>
-                        <h2>Create manual note</h2>
-                        <label htmlFor="note-title">Title</label>
-                        <input id="note-title" value={noteTitle} maxLength={255} required onChange={(event) => setNoteTitle(event.target.value)} />
-                        <label htmlFor="note-type">Document type</label>
-                        <input id="note-type" value={noteType} maxLength={255} required onChange={(event) => setNoteType(event.target.value)} />
-                        <label htmlFor="note-content">Note</label>
-                        <textarea id="note-content" value={content} maxLength={MAX_CONTENT_BYTES} required onChange={(event) => setContent(event.target.value)} />
-                        <button className="primary-button" type="submit" disabled={submitting}>
-                            {submitting ? "Adding…" : "Add note"}
-                        </button>
-                    </form>
-                )}
+                            <div className="upload-form-footer">
+                                <div>
+                                    <label className="ai-title-option">
+                                        <input type="checkbox" checked={useAiTitle} disabled={submitting} onChange={(event) => setUseAiTitle(event.target.checked)} />
+                                        Use AI to name this file
+                                    </label>
+                                    <p id="upload-title-help">{useAiTitle ? "AI will generate the final title after processing; usage may incur charges." : "The filename provides the initial title."}</p>
+                                </div>
+                                <button className="primary-button upload-submit-button" type="submit" disabled={submitting}>
+                                    {submitting ? "Ingesting…" : "Add to knowledge"}
+                                </button>
+                            </div>
+                        </form>
+                    ) : uploadMode === "folder" ? (
+                        <FolderUpload onQueued={addItem} onBusyChange={setFolderBusy} />
+                    ) : (
+                        <form id="manual-note-panel" className="upload-form" role="tabpanel" aria-labelledby="manual-note-tab" onSubmit={submitNote}>
+                            <h2>Create manual note</h2>
+                            <p>Capture knowledge in your own words. Use the formatting controls to organize headings, lists, and emphasis.</p>
+                            <label htmlFor="note-title">Title</label>
+                            <input id="note-title" value={noteTitle} maxLength={255} required onChange={(event) => setNoteTitle(event.target.value)} />
+                            <label htmlFor="note-content">Note</label>
+                            <Suspense
+                                fallback={
+                                    <p className="rich-text-editor-loading" role="status">
+                                        Loading editor…
+                                    </p>
+                                }
+                            >
+                                <RichTextEditor value={content} disabled={submitting} onChange={setContent} />
+                            </Suspense>
+                            <div className="manual-note-footer">
+                                <small>Saved as a manual note. Markdown formatting is preserved.</small>
+                                <button className="primary-button" type="submit" disabled={submitting}>
+                                    {submitting ? "Adding…" : "Add note"}
+                                </button>
+                            </div>
+                        </form>
+                    )}
+                </div>
             </section>
             {error && (
                 <p className="upload-message upload-error" role="alert">

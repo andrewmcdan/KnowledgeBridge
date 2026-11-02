@@ -211,6 +211,8 @@ function uploadForm() {
                     useRef: (current) => ({ current }),
                     useCallback: (callback) => callback,
                     useEffect: () => {},
+                    lazy: () => () => null,
+                    Suspense: ({ children }) => children,
                 };
             if (name === "react/jsx-runtime") return { jsx: (type, props) => ({ type, props }), jsxs: (type, props) => ({ type, props }) };
             if (name === "./uploadFiles") return files;

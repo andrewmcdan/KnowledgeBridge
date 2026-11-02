@@ -259,6 +259,7 @@ function dashboardHarness() {
             },
             "./graphApi": { loadEntityGraph: (limit, signal) => new Promise((resolve, reject) => requests.push({ limit, signal, resolve, reject })) },
             "../entities/useEntityRefresh": { ENTITIES_UPDATED_EVENT: "knowledgebridge:entities-updated" },
+            "./DashboardUsageOverview": { DashboardUsageOverview: () => null },
             "./GraphDetails": { GraphDetails: () => null },
             "./GraphList": { GraphList: () => null },
             "./GraphRenderBoundary": { GraphRenderBoundary: () => null },

@@ -50,6 +50,8 @@ else
 fi
 
 bun run src/cli.ts config set models.think "${GBRAIN_SYNTHESIS_MODEL}"
+# KnowledgeBridge writes pages through the MCP adapter and keeps them in PostgreSQL rather than a Git checkout.
+bun run src/cli.ts config set persistence.unbound_write database_only
 
 # KnowledgeBridge's API-owned pages live in PostgreSQL, not a canonical Git checkout.
 # The pinned engine otherwise refuses writes to the existing unbound source path.

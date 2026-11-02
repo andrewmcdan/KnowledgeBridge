@@ -1,6 +1,7 @@
 import { lazy, Suspense, useEffect, useMemo, useState } from "react";
 import type { Detail } from "../../types/models";
 import { ENTITIES_UPDATED_EVENT } from "../entities/useEntityRefresh";
+import { DashboardUsageOverview } from "./DashboardUsageOverview";
 import { loadEntityGraph, type GraphSnapshot } from "./graphApi";
 import { ENTITY_COLORS, ENTITY_LABELS, filterEntityGraph, graphDocumentCount, type GraphSelection } from "./graphData";
 import { GraphDetails } from "./GraphDetails";
@@ -52,6 +53,7 @@ export function DashboardPage({ onOpenDetail }: { onOpenDetail: (detail: Detail)
 
     return (
         <section className="knowledge-map panel" aria-label="Knowledge relationship dashboard" aria-busy={loading}>
+            <DashboardUsageOverview />
             <header className="knowledge-map-heading">
                 <div>
                     <span className="graph-eyebrow">Workspace intelligence</span>

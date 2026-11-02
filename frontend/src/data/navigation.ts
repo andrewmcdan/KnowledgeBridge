@@ -6,6 +6,5 @@ export const navigation: NavigationItem[] = [
     { label: "Knowledge Base", path: "/knowledge", icon: "book" },
     { label: "Entities", path: "/entities", icon: "users" },
     { label: "Uploads", path: "/uploads", icon: "upload", requiresAdmin: true },
-    { label: "Usage", path: "/usage", icon: "chart" },
     { label: "Admin", path: "/admin", icon: "shield", requiresAdmin: true },
 ];
