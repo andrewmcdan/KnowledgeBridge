@@ -4,6 +4,10 @@ This folder contains repeatable developer utilities for environment setup, synth
 
 Scripts should be non-interactive where practical, document prerequisites and parameters, fail clearly, and avoid embedding credentials or machine-specific paths.
 
+## One-shot synthesis quality evaluation
+
+Run `python -B scripts/evaluate_synthesis.py --doc-id ACME-013` to generate a question from an ingested synthetic document, query synthesis once, verify selected-source citations, and have an AI judge assess the answer against the actual references. See [evaluation instructions](../evaluation/README.md) for authentication, multiple-source/seeded selection, pass/fail gates, reports, provider charges, and offline tests. This command is opt-in and is not part of normal test runs or CI.
+
 ## Local development launcher
 
 The PowerShell launcher starts PostgreSQL/pgvector and gbrain through Docker Compose while running Spring Boot and Vite directly on the host for fast frontend reloads. It reuses already-running infrastructure without recreating it.
