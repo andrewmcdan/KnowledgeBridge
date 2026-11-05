@@ -1,0 +1,106 @@
+{
+    "issues": [
+        {
+            "expand": "renderedFields,names,schema,operations,editmeta,changelog,versionedRepresentations",
+            "id": "10006",
+            "self": "https://example.atlassian.net/rest/api/3/issue/10006",
+            "key": "ACME-1",
+            "fields": {
+                "summary": "Project Cedar: Atlas approval reliability",
+                "updated": "2026-11-05T17:37:52.528-0500"
+            }
+        },
+        {
+            "expand": "renderedFields,names,schema,operations,editmeta,changelog,versionedRepresentations",
+            "id": "10007",
+            "self": "https://example.atlassian.net/rest/api/3/issue/10007",
+            "key": "ACME-2",
+            "fields": {
+                "summary": "Tenant-scoped idempotency key for approval notifications",
+                "updated": "2026-11-05T17:37:54.574-0500"
+            }
+        },
+        {
+            "expand": "renderedFields,names,schema,operations,editmeta,changelog,versionedRepresentations",
+            "id": "10008",
+            "self": "https://example.atlassian.net/rest/api/3/issue/10008",
+            "key": "ACME-3",
+            "fields": {
+                "summary": "Clearer approval-history view",
+                "updated": "2026-11-05T17:37:56.413-0500"
+            }
+        },
+        {
+            "expand": "renderedFields,names,schema,operations,editmeta,changelog,versionedRepresentations",
+            "id": "10009",
+            "self": "https://example.atlassian.net/rest/api/3/issue/10009",
+            "key": "ACME-4",
+            "fields": {
+                "summary": "Retry regression evidence for duplicate notification delivery",
+                "updated": "2026-11-05T17:38:23.298-0500"
+            }
+        },
+        {
+            "expand": "renderedFields,names,schema,operations,editmeta,changelog,versionedRepresentations",
+            "id": "10010",
+            "self": "https://example.atlassian.net/rest/api/3/issue/10010",
+            "key": "ACME-5",
+            "fields": {
+                "summary": "Rollback drill sign-off after restore credential issue",
+                "updated": "2026-11-05T17:38:23.757-0500"
+            }
+        },
+        {
+            "expand": "renderedFields,names,schema,operations,editmeta,changelog,versionedRepresentations",
+            "id": "10011",
+            "self": "https://example.atlassian.net/rest/api/3/issue/10011",
+            "key": "ACME-6",
+            "fields": {
+                "summary": "Joint Engineering and IT Operations readiness decision",
+                "updated": "2026-11-05T17:38:23.737-0500"
+            }
+        },
+        {
+            "expand": "renderedFields,names,schema,operations,editmeta,changelog,versionedRepresentations",
+            "id": "10012",
+            "self": "https://example.atlassian.net/rest/api/3/issue/10012",
+            "key": "ACME-7",
+            "fields": {
+                "summary": "Revised pilot update for Cedar pilot workspaces",
+                "updated": "2026-11-05T17:38:02.748-0500"
+            }
+        },
+        {
+            "expand": "renderedFields,names,schema,operations,editmeta,changelog,versionedRepresentations",
+            "id": "10013",
+            "self": "https://example.atlassian.net/rest/api/3/issue/10013",
+            "key": "ACME-8",
+            "fields": {
+                "summary": "Project Aurora: Beacon regional reporting",
+                "updated": "2026-11-05T17:38:04.187-0500"
+            }
+        },
+        {
+            "expand": "renderedFields,names,schema,operations,editmeta,changelog,versionedRepresentations",
+            "id": "10014",
+            "self": "https://example.atlassian.net/rest/api/3/issue/10014",
+            "key": "ACME-9",
+            "fields": {
+                "summary": "Validate region tags in a non-production dataset",
+                "updated": "2026-11-05T17:38:24.288-0500"
+            }
+        },
+        {
+            "expand": "renderedFields,names,schema,operations,editmeta,changelog,versionedRepresentations",
+            "id": "10015",
+            "self": "https://example.atlassian.net/rest/api/3/issue/10015",
+            "key": "ACME-10",
+            "fields": {
+                "summary": "Compare regional aggregate totals with the existing report",
+                "updated": "2026-11-05T17:38:06.699-0500"
+            }
+        }
+    ],
+    "nextPageToken": "EAoY6f317po0Ih1wcm9qZWN0PUFDTUUgT1JERVIgQlkga2V5IEFTQyoCW10yIFRFTkFOVF9OT1RfRk9VTkRfSU5fVEVOQU5UX1NUT1JF",
+    "isLast": false
+}
