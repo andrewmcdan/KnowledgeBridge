@@ -355,12 +355,17 @@ export function UploadsPage() {
                             <div className="knowledge-item-actions">
                                 <span className={`status-${item.status.toLowerCase()}`}>{item.status.toLowerCase()}</span>
                                 {item.sourceKind === "MANUAL" && !isInProgress(item) && (
-                                    <button className="secondary-button" type="button" disabled={editingId !== null || submitting || folderBusy || retryingId !== null} onClick={() => setEditingId(item.id)}>
+                                    <button
+                                        className="secondary-button"
+                                        type="button"
+                                        disabled={item.lifecycleState !== "ACTIVE" || editingId !== null || submitting || folderBusy || retryingId !== null}
+                                        onClick={() => setEditingId(item.id)}
+                                    >
                                         Edit note
                                     </button>
                                 )}
                                 {item.status === "FAILED" && (
-                                    <button className="secondary-button" type="button" disabled={retryingId === item.id || editingId === item.id} onClick={() => void retry(item)}>
+                                    <button className="secondary-button" type="button" disabled={item.lifecycleState !== "ACTIVE" || retryingId === item.id || editingId === item.id} onClick={() => void retry(item)}>
                                         {retryingId === item.id ? "Retrying…" : "Retry"}
                                     </button>
                                 )}

@@ -27,12 +27,14 @@ public class ManualNoteEditor {
 
 	@Transactional
 	public Optional<KnowledgeItem> prepareUpdate(long id, String title, String type, String text, long revision) {
-		int changed = jdbc.update("""
-				UPDATE knowledge_item SET title = ?, type = ?, body_text = ?, character_count = ?,
-				    revision = revision + 1, status = 'PROCESSING', ingestion_stage = 'INDEXING', updated_at = now(),
-				    content_updated_at = now()
-				WHERE id = ? AND revision = ? AND source_kind = 'MANUAL' AND status IN ('COMPLETED', 'FAILED')
-				""", title.trim(), type.trim(), text, text.length(), id, revision);
+		int changed = jdbc.update(
+				"""
+						UPDATE knowledge_item SET title = ?, type = ?, body_text = ?, character_count = ?,
+						    revision = revision + 1, status = 'PROCESSING', ingestion_stage = 'INDEXING', updated_at = now(),
+						    content_updated_at = now()
+						WHERE id = ? AND revision = ? AND source_kind = 'MANUAL' AND status IN ('COMPLETED', 'FAILED') AND lifecycle_state = 'ACTIVE'
+						""",
+				title.trim(), type.trim(), text, text.length(), id, revision);
 		if (changed == 0) {
 			return Optional.empty();
 		}
@@ -47,7 +49,7 @@ public class ManualNoteEditor {
 	public Optional<KnowledgeItem> prepareRetry(long id, long revision) {
 		int changed = jdbc.update("""
 				UPDATE knowledge_item SET status = 'PROCESSING', ingestion_stage = 'INDEXING', updated_at = now()
-				WHERE id = ? AND revision = ? AND source_kind = 'MANUAL' AND status = 'FAILED'
+				WHERE id = ? AND revision = ? AND status = 'FAILED' AND lifecycle_state = 'ACTIVE'
 				""", id, revision);
 		if (changed == 0) {
 			return Optional.empty();

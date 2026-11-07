@@ -526,6 +526,7 @@ class KnowledgeItemControllerTests {
 		ReflectionTestUtils.setField(upload, "id", 2L);
 		upload.markFailed();
 		when(knowledgeItemService.findById(2L)).thenReturn(Optional.of(upload));
+		when(manualNoteEditor.prepareRetry(2L, upload.getRevision())).thenReturn(Optional.of(upload));
 		when(knowledgeItemService.retry(upload)).thenReturn(upload);
 		assertThat(controller.retryIngestion(2L).getStatusCode()).isEqualTo(HttpStatus.OK);
 	}

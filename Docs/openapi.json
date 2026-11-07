@@ -638,6 +638,231 @@
                 },
                 "description": "MP4, MOV and WebM accepted under configured size/duration limits. Transcription and optional title generation may incur provider charges. Naming failures report AI_TITLE_FAILED in ingestion status."
             }
+        },
+        "/api/knowledge-items/{id}/deactivate": {
+            "post": {
+                "tags": [
+                    "Knowledge items"
+                ],
+                "summary": "Deactivate document: retain content but exclude it from retrieval and answers.",
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ],
+                "description": "Administrators only. In-flight ingestion and invalid state transitions return 409.",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer",
+                            "format": "int64"
+                        }
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "Completed"
+                    },
+                    "401": {
+                        "description": "Authentication required"
+                    },
+                    "403": {
+                        "description": "Administrator role required"
+                    },
+                    "404": {
+                        "description": "Document not found"
+                    },
+                    "409": {
+                        "description": "Document state changed or ingestion in progress"
+                    },
+                    "503": {
+                        "description": "Knowledge engine unavailable; no completed lifecycle transition"
+                    }
+                }
+            }
+        },
+        "/api/knowledge-items/{id}/activate": {
+            "post": {
+                "tags": [
+                    "Knowledge items"
+                ],
+                "summary": "Activate document and reindex completed content.",
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ],
+                "description": "Administrators only. In-flight ingestion and invalid state transitions return 409.",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer",
+                            "format": "int64"
+                        }
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "Completed"
+                    },
+                    "401": {
+                        "description": "Authentication required"
+                    },
+                    "403": {
+                        "description": "Administrator role required"
+                    },
+                    "404": {
+                        "description": "Document not found"
+                    },
+                    "409": {
+                        "description": "Document state changed or ingestion in progress"
+                    },
+                    "503": {
+                        "description": "Knowledge engine unavailable; no completed lifecycle transition"
+                    }
+                }
+            }
+        },
+        "/api/knowledge-items/{id}": {
+            "delete": {
+                "tags": [
+                    "Knowledge items"
+                ],
+                "summary": "Move document to Trash; retain content for restoration.",
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ],
+                "description": "Administrators only. In-flight ingestion and invalid state transitions return 409.",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer",
+                            "format": "int64"
+                        }
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "Completed"
+                    },
+                    "401": {
+                        "description": "Authentication required"
+                    },
+                    "403": {
+                        "description": "Administrator role required"
+                    },
+                    "404": {
+                        "description": "Document not found"
+                    },
+                    "409": {
+                        "description": "Document state changed or ingestion in progress"
+                    },
+                    "503": {
+                        "description": "Knowledge engine unavailable; no completed lifecycle transition"
+                    }
+                }
+            }
+        },
+        "/api/knowledge-items/{id}/restore": {
+            "post": {
+                "tags": [
+                    "Knowledge items"
+                ],
+                "summary": "Restore from Trash to its previous active or inactive state.",
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ],
+                "description": "Administrators only. In-flight ingestion and invalid state transitions return 409.",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer",
+                            "format": "int64"
+                        }
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "Completed"
+                    },
+                    "401": {
+                        "description": "Authentication required"
+                    },
+                    "403": {
+                        "description": "Administrator role required"
+                    },
+                    "404": {
+                        "description": "Document not found"
+                    },
+                    "409": {
+                        "description": "Document state changed or ingestion in progress"
+                    },
+                    "503": {
+                        "description": "Knowledge engine unavailable; no completed lifecycle transition"
+                    }
+                }
+            }
+        },
+        "/api/knowledge-items/{id}/permanent": {
+            "delete": {
+                "tags": [
+                    "Knowledge items"
+                ],
+                "summary": "Permanently remove a trashed document from application storage and clear cached answers. Engine physical cleanup follows its retention process.",
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ],
+                "description": "Administrators only. In-flight ingestion and invalid state transitions return 409.",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer",
+                            "format": "int64"
+                        }
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "Completed"
+                    },
+                    "401": {
+                        "description": "Authentication required"
+                    },
+                    "403": {
+                        "description": "Administrator role required"
+                    },
+                    "404": {
+                        "description": "Document not found"
+                    },
+                    "409": {
+                        "description": "Document state changed or ingestion in progress"
+                    },
+                    "503": {
+                        "description": "Knowledge engine unavailable; no completed lifecycle transition"
+                    }
+                }
+            }
         }
     },
     "components": {
@@ -671,7 +896,10 @@
                     "lastErrorCode",
                     "lastErrorMessage",
                     "createdAt",
-                    "updatedAt"
+                    "updatedAt",
+                    "lifecycleState",
+                    "trashedFrom",
+                    "softDeletedAt"
                 ],
                 "properties": {
                     "id": {
@@ -775,6 +1003,32 @@
                     "updatedAt": {
                         "type": "string",
                         "format": "date-time"
+                    },
+                    "lifecycleState": {
+                        "type": "string",
+                        "enum": [
+                            "ACTIVE",
+                            "INACTIVE",
+                            "TRASH"
+                        ]
+                    },
+                    "trashedFrom": {
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "enum": [
+                            "ACTIVE",
+                            "INACTIVE",
+                            null
+                        ]
+                    },
+                    "softDeletedAt": {
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "format": "date-time"
                     }
                 },
                 "example": {
@@ -797,7 +1051,10 @@
                     "lastErrorCode": null,
                     "lastErrorMessage": null,
                     "createdAt": "2026-10-25T12:00:00Z",
-                    "updatedAt": "2026-10-25T12:00:01Z"
+                    "updatedAt": "2026-10-25T12:00:01Z",
+                    "lifecycleState": "ACTIVE",
+                    "trashedFrom": null,
+                    "softDeletedAt": null
                 }
             },
             "ManualKnowledgeItemRequest": {

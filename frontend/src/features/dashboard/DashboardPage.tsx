@@ -88,7 +88,7 @@ export function DashboardPage({ onOpenDetail }: { onOpenDetail: (detail: Detail)
             <div className="graph-filter-bar">
                 <label htmlFor="graph-filter-name">
                     Filter entities
-                    <input id="graph-filter-name" type="search" maxLength={255} placeholder="Name…" value={query} onChange={(event) => setQuery(event.target.value)} />
+                    <input id="graph-filter-name" type="search" maxLength={255} placeholder="Name and connections…" value={query} onChange={(event) => setQuery(event.target.value)} />
                 </label>
                 <label htmlFor="graph-filter-type">
                     Entity type

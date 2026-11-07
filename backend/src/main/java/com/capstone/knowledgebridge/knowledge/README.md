@@ -73,5 +73,5 @@ video items are recovered at application startup.
 - **gbrain timeouts.** A `TIMEOUT` marks the item `FAILED`, but the write may have landed in gbrain. Retrying is safe (gbrain upserts), but reconciling with `GbrainClient.documentState()` before marking `FAILED` would keep the status accurate.
 - **Video polling.** Video clients should poll `GET /{id}` while status is `PENDING` or `PROCESSING`.
 - **No pagination.** `GET /api/knowledge-items` returns every item; fine for the 50-document corpus.
-- **Not built yet:** update, soft-delete, restore, and permanent delete.
+- **Lifecycle management:** admin-only deactivation, activation, Trash, restoration and application permanent deletion are implemented. See [lifecycle behavior and engine-retention limits](../../../../../../../../Docs/Knowledge-lifecycle.md).
 - **Live gbrain.** Verified against `GBRAIN_MODE=in-memory`; not yet run end to end against a real gbrain.

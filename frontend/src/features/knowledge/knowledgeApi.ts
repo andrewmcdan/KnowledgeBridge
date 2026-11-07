@@ -2,6 +2,16 @@ import { readApiError } from "../../api/apiError";
 import { uploadKind } from "./uploadFiles";
 
 export type IngestionStatus = "PENDING" | "PROCESSING" | "COMPLETED" | "FAILED";
+export type KnowledgeLifecycle = "ACTIVE" | "INACTIVE" | "TRASH";
+export type KnowledgeAction = "deactivate" | "activate" | "trash" | "restore" | "permanent";
+
+export const knowledgeActionLabels: Record<KnowledgeAction, string> = {
+    deactivate: "Deactivate",
+    activate: "Activate",
+    trash: "Move to Trash",
+    restore: "Restore",
+    permanent: "Permanently delete",
+};
 
 export interface KnowledgeItem {
     id: number;
@@ -9,6 +19,9 @@ export interface KnowledgeItem {
     type: string;
     ownerId: number;
     status: IngestionStatus;
+    lifecycleState: KnowledgeLifecycle;
+    trashedFrom: "ACTIVE" | "INACTIVE" | null;
+    softDeletedAt: string | null;
     ingestionStage: string;
     characterCount: number;
     externalEngineId: string | null;
@@ -39,6 +52,10 @@ function isKnowledgeItem(value: unknown): value is KnowledgeItem {
         typeof item.ownerId === "number" &&
         (item.sourceKind === "MANUAL" || item.sourceKind === "MARKDOWN" || item.sourceKind === "DOCX" || item.sourceKind === "PDF" || item.sourceKind === "VIDEO") &&
         isIngestionStatus(item.status) &&
+        (item.lifecycleState === "ACTIVE" || item.lifecycleState === "INACTIVE" || item.lifecycleState === "TRASH") &&
+        (item.trashedFrom === "ACTIVE" || item.trashedFrom === "INACTIVE" || item.trashedFrom === null) &&
+        (typeof item.softDeletedAt === "string" || item.softDeletedAt === null) &&
+        (item.lifecycleState === "TRASH" ? item.trashedFrom !== null && item.softDeletedAt !== null : item.trashedFrom === null && item.softDeletedAt === null) &&
         typeof item.ingestionStage === "string" &&
         typeof item.characterCount === "number" &&
         (typeof item.externalEngineId === "string" || item.externalEngineId === null) &&
@@ -106,6 +123,22 @@ export async function retryKnowledgeItem(id: number): Promise<KnowledgeItem> {
     });
     if (!response.ok) throw await readError(response, "We could not retry ingestion.", headers.Authorization);
     return readKnowledgeItem(response);
+}
+
+export async function changeKnowledgeLifecycle(id: number, action: KnowledgeAction): Promise<void> {
+    if (!Number.isSafeInteger(id) || id <= 0) throw new Error("Invalid document identity.");
+    const operations = {
+        deactivate: { method: "POST", suffix: "/deactivate" },
+        activate: { method: "POST", suffix: "/activate" },
+        trash: { method: "DELETE", suffix: "" },
+        restore: { method: "POST", suffix: "/restore" },
+        permanent: { method: "DELETE", suffix: "/permanent" },
+    };
+    if (!Object.hasOwn(operations, action)) throw new Error("Invalid document action.");
+    const operation = operations[action];
+    const headers = getAuthorizationHeader();
+    const response = await fetch(`/api/knowledge-items/${id}${operation.suffix}`, { method: operation.method, headers });
+    if (!response.ok) throw await readError(response, "The document could not be updated. Refresh the list and try again.", headers.Authorization);
 }
 
 export interface ManualNote {

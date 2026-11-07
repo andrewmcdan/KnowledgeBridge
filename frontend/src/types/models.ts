@@ -1,6 +1,7 @@
-export type IconName = "home" | "spark" | "book" | "users" | "upload" | "chart" | "shield" | "search" | "menu" | "send" | "file" | "chevron" | "copy" | "bookmark" | "up" | "down";
+export type IconName = "home" | "spark" | "book" | "users" | "upload" | "chart" | "shield" | "search" | "menu" | "send" | "file" | "chevron" | "copy" | "up" | "down";
 
 export interface DocumentItem {
+    lifecycleState?: "ACTIVE" | "INACTIVE" | "TRASH";
     id?: number;
     title: string;
     type: string;
@@ -11,6 +12,7 @@ export interface DocumentItem {
 }
 
 export interface Detail {
+    lifecycleState?: "ACTIVE" | "INACTIVE" | "TRASH";
     id?: number;
     title: string;
     text: string;

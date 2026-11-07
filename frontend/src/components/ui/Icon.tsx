@@ -14,7 +14,6 @@ const paths: Record<IconName, string> = {
     file: "M5 3h9l5 5v13H5Zm9 0v6h5M8 13h8m-8 4h8",
     chevron: "m9 5 7 7-7 7",
     copy: "M9 9h12v12H9ZM15 9V3H3v12h6",
-    bookmark: "M6 3h12v18l-6-4-6 4Z",
     up: "M7 21H3V10h4Zm0-11 5-7h2v7h6l1 2-3 9H7",
     down: "M7 3H3v11h4Zm0 11 5 7h2v-7h6l1-2-3-9H7",
 };

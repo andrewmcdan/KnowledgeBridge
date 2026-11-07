@@ -7,6 +7,8 @@ import java.util.Set;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -19,7 +21,6 @@ import com.capstone.knowledgebridge.entities.EntityService.EntitySummary;
 import com.capstone.knowledgebridge.entities.EntityService.RelatedDocument;
 import com.capstone.knowledgebridge.knowledge.KnowledgeItem;
 import com.capstone.knowledgebridge.knowledge.KnowledgeItemService;
-import com.capstone.knowledgebridge.knowledge.KnowledgeItemStatus;
 
 @RestController
 public class EntityController {
@@ -57,15 +58,20 @@ public class EntityController {
 	}
 
 	@GetMapping("/api/knowledge-items/{id}/entities")
-	public DocumentEntities forDocument(@PathVariable long id, @RequestParam(defaultValue = "10") int limit) {
-		return entities.forDocument(item(id), limit(limit));
+	public DocumentEntities forDocument(@PathVariable long id, @RequestParam(defaultValue = "10") int limit,
+			@AuthenticationPrincipal Jwt jwt) {
+		KnowledgeItem document = item(id);
+		if (!document.isAvailable() && !"ADMIN".equals(jwt.getClaimAsString("role"))) {
+			throw new ResponseStatusException(HttpStatus.NOT_FOUND);
+		}
+		return entities.forDocument(document, limit(limit));
 	}
 
 	@PostMapping("/api/knowledge-items/{id}/extract-entities")
 	@PreAuthorize("hasRole('ADMIN')")
 	public DocumentEntities extract(@PathVariable long id) {
 		KnowledgeItem item = item(id);
-		if (item.getStatus() != KnowledgeItemStatus.COMPLETED) {
+		if (!item.isAvailable()) {
 			throw new ResponseStatusException(HttpStatus.CONFLICT, "Index the document before extracting entities");
 		}
 		entities.extract(item);
