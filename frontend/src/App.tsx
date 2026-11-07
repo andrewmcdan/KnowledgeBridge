@@ -28,7 +28,6 @@ function Workspace() {
     const [collapsed, setCollapsed] = useState(false);
     const [mobileOpen, setMobileOpen] = useState(false);
     const [search, setSearch] = useState("");
-    const [saved, setSaved] = useState<string[]>([]);
     const [detail, setDetail] = useState<Detail | null>(null);
     const service = useHealthStatus();
     const closeMobileNavigation = useCallback(() => setMobileOpen(false), []);
@@ -39,7 +38,6 @@ function Workspace() {
         navigate(path);
         setMobileOpen(false);
     };
-    const toggleSaved = (title: string) => setSaved((current) => (current.includes(title) ? current.filter((item) => item !== title) : [...current, title]));
     const toggleNavigation = () => {
         if (window.matchMedia("(max-width: 760px)").matches) setMobileOpen((value) => !value);
         else setCollapsed((value) => !value);
@@ -68,7 +66,7 @@ function Workspace() {
                         <PageHeading title={page} />
                         <Routes>
                             <Route path="/ask-ai" element={<AskAiPage onOpenDetail={setDetail} />} />
-                            <Route path="/knowledge" element={<KnowledgeBasePage search={search} saved={saved} onOpenDetail={setDetail} onToggleSaved={toggleSaved} />} />
+                            <Route path="/knowledge" element={<KnowledgeBasePage search={search} onOpenDetail={setDetail} />} />
                             <Route path="/entities" element={<EntitiesPage onOpenDetail={setDetail} />} />
                             <Route path="/dashboard" element={<DashboardPage onOpenDetail={setDetail} />} />
                             <Route path="/uploads" element={user?.role === "ADMIN" ? <UploadsPage /> : <Navigate to="/ask-ai" replace />} />

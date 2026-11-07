@@ -60,9 +60,11 @@ public class KnowledgeItemController {
 
 	/** Completed knowledge is readable by signed-in users without exposing management or upload metadata. */
 	@GetMapping("/{id}/content")
-	public ResponseEntity<DocumentContentResponse> content(@PathVariable Long id) {
+	public ResponseEntity<DocumentContentResponse> content(@PathVariable Long id, @AuthenticationPrincipal Jwt jwt) {
+		boolean admin = "ADMIN".equals(jwt.getClaimAsString("role"));
 		return ResponseEntity.of(knowledgeItemService.findById(id)
 				.filter(item -> item.getStatus() == KnowledgeItemStatus.COMPLETED)
+				.filter(item -> admin || item.getLifecycleState() == KnowledgeLifecycle.ACTIVE)
 				.map(item -> new DocumentContentResponse(item.getId(), item.getTitle(), item.getType(),
 						item.getBodyText())));
 	}
@@ -90,7 +92,7 @@ public class KnowledgeItemController {
 			String ingestionStage, String sourceKind, int characterCount, String originalFilename, String sourceSha256,
 			Long mediaDurationMs, String transcriptionModel, String transcriptionLanguage, String externalEngineId,
 			Integer transcriptionSegmentCount, Instant transcribedAt, String lastErrorCode, String lastErrorMessage,
-			Instant createdAt, Instant updatedAt) {
+			Instant createdAt, Instant updatedAt, String lifecycleState, String trashedFrom, Instant softDeletedAt) {
 	}
 
 	private final KnowledgeItemService knowledgeItemService;
@@ -145,7 +147,7 @@ public class KnowledgeItemController {
 	public List<KnowledgeItemResponse> list(@AuthenticationPrincipal Jwt jwt) {
 		boolean admin = "ADMIN".equals(jwt.getClaimAsString("role"));
 		return toResponses(knowledgeItemService.findAll().stream()
-				.filter(item -> admin || item.getStatus() == KnowledgeItemStatus.COMPLETED).toList());
+				.filter(item -> admin || item.isAvailable()).toList());
 	}
 
 	@GetMapping("/{id}")
@@ -258,13 +260,11 @@ public class KnowledgeItemController {
 		if (item.getStatus() != KnowledgeItemStatus.FAILED) {
 			return ResponseEntity.status(HttpStatus.CONFLICT).build();
 		}
-		if (item.getSourceKind() == KnowledgeSourceKind.MANUAL) {
-			Optional<KnowledgeItem> prepared = manualNoteEditor.prepareRetry(id, item.getRevision());
-			if (prepared.isEmpty()) {
-				return ResponseEntity.status(HttpStatus.CONFLICT).build();
-			}
-			item = prepared.get();
+		Optional<KnowledgeItem> prepared = manualNoteEditor.prepareRetry(id, item.getRevision());
+		if (prepared.isEmpty()) {
+			return ResponseEntity.status(HttpStatus.CONFLICT).build();
 		}
+		item = prepared.get();
 		item = knowledgeItemService.retry(item);
 		return ResponseEntity.ok(toResponse(item));
 	}
@@ -323,7 +323,8 @@ public class KnowledgeItemController {
 				item.getTranscriptionModel(), item.getTranscriptionLanguage(), item.getExternalEngineId(),
 				item.getTranscriptionSegmentCount(), item.getTranscribedAt(), errorCode, errorMessage,
 				item.getCreatedAt(),
-				item.getUpdatedAt());
+				item.getUpdatedAt(), item.getLifecycleState().name(),
+				item.getTrashedFrom() == null ? null : item.getTrashedFrom().name(), item.getSoftDeletedAt());
 	}
 
 }

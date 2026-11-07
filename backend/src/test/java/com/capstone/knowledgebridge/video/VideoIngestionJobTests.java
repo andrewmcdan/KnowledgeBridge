@@ -64,6 +64,10 @@ class VideoIngestionJobTests {
 		job.run(1L);
 		job.run(2L);
 		job.run(3L);
+		KnowledgeItem inactive = video(4L, "source.mp4");
+		inactive.changeLifecycle(com.capstone.knowledgebridge.knowledge.KnowledgeLifecycle.INACTIVE);
+		when(repository.findById(4L)).thenReturn(Optional.of(inactive));
+		job.run(4L);
 
 		verify(mediaService, never()).extract(any());
 		verify(ingestionService, never()).ingest(any());

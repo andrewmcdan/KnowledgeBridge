@@ -48,6 +48,10 @@ class QueryServiceTests {
 
 	@Test
 	void searchUsesTheDefaultLimitAndReturnsRetrievalEvidence() {
+		KnowledgeItem available = new KnowledgeItem("Benefits Policy", "Policy", 1L, "Benefits");
+		ReflectionTestUtils.setField(available, "id", 42L);
+		available.markCompleted("knowledgebridge/42");
+		when(knowledgeItemRepository.findAllById(List.of(42L))).thenReturn(List.of(available));
 		when(gbrainClient.search(any())).thenReturn(new GbrainSearchResult(
 				List.of(new GbrainSearchHit("42", "knowledgebridge/42", "Benefits Policy", "policy", "Benefits", 0.9)),
 				new GbrainRetrieval(true, false, true, List.of())));
@@ -66,12 +70,12 @@ class QueryServiceTests {
 	@Test
 	void synthesisMapsKnownCitationMetadataAndUsage() {
 		KnowledgeItem item = new KnowledgeItem("Travel Policy", "Policy", 7L, "body");
+		item.markCompleted("knowledgebridge/42");
 		ReflectionTestUtils.setField(item, "id", 42L);
 		when(knowledgeItemRepository.findAllById(List.of(42L))).thenReturn(List.of(item));
 		when(gbrainClient.synthesize(any())).thenReturn(new GbrainSynthesisResult("Employees need approval.",
 				GbrainSynthesisResult.Status.SYNTHESIZED, List.of(
-						new GbrainSynthesisResult.GbrainCitation("42", "knowledgebridge/42"),
-						new GbrainSynthesisResult.GbrainCitation("not-a-number", "knowledgebridge/not-a-number")),
+						new GbrainSynthesisResult.GbrainCitation("42", "knowledgebridge/42")),
 				List.of(),
 				new GbrainSynthesisResult.Usage("openrouter:model", 12L, 8L, new BigDecimal("0.001")), List.of()));
 
@@ -80,8 +84,7 @@ class QueryServiceTests {
 		assertThat(response.aiGenerated()).isTrue();
 		assertThat(response.extractiveFallback()).isFalse();
 		assertThat(response.citations()).containsExactly(
-				new QueryService.CitationResponse("42", "knowledgebridge/42", "Travel Policy", "Policy"),
-				new QueryService.CitationResponse("not-a-number", "knowledgebridge/not-a-number", null, null));
+				new QueryService.CitationResponse("42", "knowledgebridge/42", "Travel Policy", "Policy"));
 		assertThat(response.usage()).isEqualTo(new TokenUsage("openrouter:model", 12L, 8L,
 				new BigDecimal("0.001")));
 	}
@@ -97,6 +100,29 @@ class QueryServiceTests {
 		assertThat(response.retrieval()).isEqualTo(new QueryService.RetrievalResponse(true, false, true));
 		verify(gbrainClient).search(new com.capstone.knowledgebridge.gbrain.model.GbrainSearchRequest(
 				"What is unavailable?", 3, null));
+	}
+
+	@Test
+	void staleOrUnknownSourcesCannotBeUsedForAnswersOrSearchResults() {
+		KnowledgeItem inactive = new KnowledgeItem("Inactive", "Note", 1L, "Secret inactive content");
+		ReflectionTestUtils.setField(inactive, "id", 42L);
+		inactive.markCompleted("knowledgebridge/42");
+		inactive.changeLifecycle(com.capstone.knowledgebridge.knowledge.KnowledgeLifecycle.INACTIVE);
+		when(knowledgeItemRepository.findAllById(any())).thenReturn(List.of(inactive));
+		when(gbrainClient.search(any())).thenReturn(new GbrainSearchResult(List.of(
+				new GbrainSearchHit("42", "knowledgebridge/42", "Inactive", "Note", "Secret", 1),
+				new GbrainSearchHit("missing", "knowledgebridge/missing", "Missing", "Note", "Secret", 1)),
+				new GbrainRetrieval(true, false, true, List.of())));
+		assertThat(queryService.search("secret", null).hits()).isEmpty();
+		for (String key : List.of("42", "not-a-number", "99")) {
+			when(gbrainClient.synthesize(any())).thenReturn(new GbrainSynthesisResult("Stale content",
+					GbrainSynthesisResult.Status.SYNTHESIZED,
+					List.of(new GbrainSynthesisResult.GbrainCitation(key, "knowledgebridge/" + key)), List.of(), null,
+					List.of()));
+			assertThatThrownBy(() -> queryService.synthesize("secret"))
+					.isInstanceOf(org.springframework.web.server.ResponseStatusException.class);
+		}
+		verify(queryCache, never()).store(anyString(), any(), anyLong(), any());
 	}
 
 	@Test
@@ -174,6 +200,7 @@ class QueryServiceTests {
 	@Test
 	void estimatesUseTheQuestionAndUniqueCitedDocumentTextWhenUsageIsAbsent() {
 		KnowledgeItem item = new KnowledgeItem("Note", "Note", 1L, "abcdefgh");
+		item.markCompleted("knowledgebridge/42");
 		ReflectionTestUtils.setField(item, "id", 42L);
 		when(knowledgeItemRepository.findAllById(List.of(42L))).thenReturn(List.of(item));
 		var citation = new GbrainSynthesisResult.GbrainCitation("42", "knowledgebridge/42");

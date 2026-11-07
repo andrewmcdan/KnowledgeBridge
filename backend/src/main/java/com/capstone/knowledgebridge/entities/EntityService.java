@@ -37,7 +37,7 @@ public class EntityService {
 			 JOIN knowledge_item_entity m ON m.entity_id = d.id
 			 JOIN knowledge_item k ON k.id = m.knowledge_item_id
 			 JOIN entity_extraction x ON x.knowledge_item_id = k.id AND x.revision = k.revision
-			 WHERE k.status = 'COMPLETED' AND x.status = 'COMPLETED'
+			 WHERE k.status = 'COMPLETED' AND k.lifecycle_state = 'ACTIVE' AND x.status = 'COMPLETED'
 			""";
 
 	private static final String SELECT = "SELECT d.id, d.name, d.type, d.summary, COUNT(*) AS document_count";

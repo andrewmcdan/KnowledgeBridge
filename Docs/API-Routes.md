@@ -34,19 +34,21 @@ The committed [OpenAPI contract](./openapi.json) and [integration guide](./Integ
 
 | Method | Route | Role | Description |
 |---|---|---|---|
-| GET | `/api/knowledge-items` | User | Bare array, newest first; users see completed items, admins see all statuses. No server-side filters or paging. *(implemented)* |
+| GET | `/api/knowledge-items` | User | Bare array, newest first; users see active, completed items, admins see all lifecycle and ingestion states. No server-side filters or paging. *(implemented)* |
 | GET | `/api/knowledge-items/{id}` | Admin | Returns one item's management metadata; completed document text is available separately at `/content`. *(implemented)* |
 | POST | `/api/knowledge-items/manual` | Admin | Required title, type, and text; creates and synchronously ingests an item, returning 201 with its status. *(implemented)* |
 | POST | `/api/knowledge-items/upload` | Admin | Multipart file, title, and type; accepts one Markdown, DOCX, or PDF file and returns 201 with ingestion status. *(implemented)* |
 | POST | `/api/knowledge-items/video` | Admin | Multipart MP4, MOV, or WebM upload; returns `202` and transcribes/indexes in the background. Size and duration limits are configurable. |
 | PUT | `/api/knowledge-items/{id}` | Admin | Updates title or content; re-ingests and bumps the knowledge revision to invalidate cache. |
-| DELETE | `/api/knowledge-items/{id}` | Admin | Soft-deletes the item so it is hidden from search but recoverable. |
-| POST | `/api/knowledge-items/{id}/restore` | Admin | Restores a soft-deleted item. |
-| DELETE | `/api/knowledge-items/{id}/permanent` | Admin | Permanently deletes the item and its embeddings in the knowledge engine. |
-| POST | `/api/knowledge-items/{id}/retry-ingestion` | Admin | No body; returns 200 with the retried item. Text retries are synchronous; video can return queued. Only FAILED items qualify. *(implemented)* |
+| POST | `/api/knowledge-items/{id}/deactivate` | Admin | Retains content and metadata while excluding the item from search and answers. Returns 204. *(implemented)* |
+| POST | `/api/knowledge-items/{id}/activate` | Admin | Reactivates an inactive item; completed content is reindexed from the retained body. Returns 204. *(implemented)* |
+| DELETE | `/api/knowledge-items/{id}` | Admin | Moves the item to Trash; excludes it from retrieval and retains it for restoration. Returns 204. *(implemented)* |
+| POST | `/api/knowledge-items/{id}/restore` | Admin | Restores the previous active/inactive state, reindexing completed active content. Returns 204. *(implemented)* |
+| DELETE | `/api/knowledge-items/{id}/permanent` | Admin | Requires Trash. Removes application content, retained upload and associated metadata, clears cached answers, and excludes the engine page. Physical engine cleanup follows retention. Returns 204. See [lifecycle semantics](./Knowledge-lifecycle.md). *(implemented)* |
+| POST | `/api/knowledge-items/{id}/retry-ingestion` | Admin | No body; returns 200 with the retried item. Text retries are synchronous; video can return queued. Only active FAILED items qualify. *(implemented)* |
 | GET | `/api/knowledge-items/{id}/ingestion-attempts` | Admin | Lists ingestion attempts with status, timestamps, and safe error messages for the Uploads queue. |
 | GET | `/api/knowledge-items/{id}/entities` | User | Returns the top entities detected in this document (entity–document linking). |
-| GET | `/api/knowledge-items/{id}/content` | User | Reads completed document content without exposing admin or upload metadata. |
+| GET | `/api/knowledge-items/{id}/content` | User | Reads active, completed document content without upload metadata. Admins may also preview completed inactive/trashed content. |
 | POST | `/api/knowledge-items/{id}/extract-entities` | Admin | Extracts or retries entities for an indexed document; reports extraction failures separately from ingestion. |
 
 ## Entities

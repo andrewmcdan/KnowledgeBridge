@@ -74,9 +74,21 @@ function compareDocuments(a: RelatedDocument, b: RelatedDocument): number {
 
 export function filterEntityGraph(graph: EntityGraph, query: string, type: string, minimumDocuments: number): EntityGraph {
     const term = query.trim().toLocaleLowerCase();
-    const nodes = graph.nodes.filter((node) => (!type || node.type === type) && (!term || node.name.toLocaleLowerCase().includes(term)));
+    const nodes = graph.nodes.filter((node) => !type || node.type === type);
     const ids = new Set(nodes.map((node) => node.id));
-    return { nodes, links: graph.links.filter((link) => ids.has(link.source) && ids.has(link.target) && link.documents.length >= minimumDocuments) };
+    const links = graph.links.filter((link) => ids.has(link.source) && ids.has(link.target) && link.documents.length >= minimumDocuments);
+    if (!term) return { nodes, links };
+
+    const matches = new Set(nodes.filter((node) => node.name.toLocaleLowerCase().includes(term)).map((node) => node.id));
+    const visible = new Set(matches);
+    // Expand only from original matches, so a name search does not pull in an entire connected component.
+    for (const link of links) {
+        if (matches.has(link.source) || matches.has(link.target)) {
+            visible.add(link.source);
+            visible.add(link.target);
+        }
+    }
+    return { nodes: nodes.filter((node) => visible.has(node.id)), links: links.filter((link) => visible.has(link.source) && visible.has(link.target)) };
 }
 
 export function graphDocumentCount(graph: EntityGraph): number {

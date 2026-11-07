@@ -37,6 +37,19 @@ class VideoStorageServiceTests {
 	}
 
 	@Test
+	void retainedSourceDeletionCannotEscapeStorage() throws Exception {
+		VideoStorageService service = service(temporaryDirectory, 100);
+		Path target = Files.writeString(temporaryDirectory.resolve("one.mp4"), "one");
+		Path neighbor = Files.writeString(temporaryDirectory.resolve("two.mp4"), "two");
+		service.deleteRetainedSource(target);
+		service.deleteRetainedSource(target);
+		assertThat(target).doesNotExist();
+		assertThat(neighbor).exists();
+		assertThatThrownBy(() -> service.deleteRetainedSource(temporaryDirectory.resolve("../outside.mp4")))
+				.isInstanceOf(VideoIngestionException.class);
+	}
+
+	@Test
 	void storesHashesAndDeletesAnUpload() throws Exception {
 		VideoStorageService service = service(temporaryDirectory, 100);
 		MockMultipartFile file = new MockMultipartFile("file", "meeting.mp4", "video/mp4",

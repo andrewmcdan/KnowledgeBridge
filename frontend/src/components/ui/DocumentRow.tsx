@@ -3,15 +3,13 @@ import type { Detail, DocumentItem } from "../../types/models";
 
 interface DocumentRowProps {
     document: DocumentItem;
-    saved: boolean;
     onOpen: (detail: Detail) => void;
-    onToggleSaved: (title: string) => void;
 }
 
-export function DocumentRow({ document, saved, onOpen, onToggleSaved }: DocumentRowProps) {
+export function DocumentRow({ document, onOpen }: DocumentRowProps) {
     return (
         <div className="document-row">
-            <button className="document-open" onClick={() => onOpen({ id: document.ingestionStatus === "COMPLETED" ? document.id : undefined, title: document.title, text: document.text })}>
+            <button className="document-open" onClick={() => onOpen({ id: document.ingestionStatus === "COMPLETED" ? document.id : undefined, title: document.title, text: document.text, lifecycleState: document.lifecycleState })}>
                 <span className={`file-icon ${document.color}`}>
                     <Icon name="file" size={18} />
                 </span>
@@ -22,10 +20,8 @@ export function DocumentRow({ document, saved, onOpen, onToggleSaved }: Document
                     </small>
                 </span>
             </button>
-            {document.ingestionStatus && <span className={`document-status status-${document.ingestionStatus.toLowerCase()}`}>{document.ingestionStatus.toLowerCase()}</span>}
-            <button className={`icon-button bookmark ${saved ? "saved" : ""}`} aria-label={`${saved ? "Unsave" : "Save"} ${document.title}`} aria-pressed={saved} onClick={() => onToggleSaved(document.title)}>
-                <Icon name="bookmark" size={17} />
-            </button>
+            {document.ingestionStatus && <span className={`document-status status-${document.ingestionStatus.toLowerCase()}`}>{document.ingestionStatus === "COMPLETED" ? "Imported" : document.ingestionStatus.toLowerCase()}</span>}
+            {document.lifecycleState && <span className={`document-status lifecycle-${document.lifecycleState.toLowerCase()}`}>{document.lifecycleState === "TRASH" ? "In Trash" : document.lifecycleState.toLowerCase()}</span>}
         </div>
     );
 }

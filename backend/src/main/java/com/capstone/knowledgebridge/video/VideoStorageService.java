@@ -64,6 +64,15 @@ public class VideoStorageService {
 		}
 	}
 
+	/** Stored originals are flat UUID-named files, never arbitrary paths provided by an API caller. */
+	public void deleteRetainedSource(Path path) {
+		Path target = path.toAbsolutePath().normalize();
+		if (!target.getParent().equals(properties.storageDirectory().toAbsolutePath().normalize())) {
+			throw new VideoIngestionException("VIDEO_CLEANUP_FAILED", "The retained source is outside upload storage.");
+		}
+		delete(target);
+	}
+
 	public void cleanupDerivedAudio() {
 		try {
 			Files.createDirectories(properties.storageDirectory());
