@@ -2938,6 +2938,12 @@ small {
     }
 }
 
+.knowledge-management-item {
+    border-bottom: 1px solid var(--border);
+}
+.collection .knowledge-management-item .document-row {
+    border-bottom: 0;
+}
 .knowledge-management-toolbar,
 .knowledge-lifecycle-actions,
 .knowledge-action-buttons {
