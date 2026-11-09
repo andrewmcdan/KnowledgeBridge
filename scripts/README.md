@@ -10,6 +10,50 @@ Run `python -B scripts/evaluate_synthesis.py --count 5 --queries-per-doc 3 --see
 
 The evaluator prefers `OPENROUTER_API_KEY`; if absent or blank, it uses `OPENAI_API_KEY` directly with OpenAI model defaults. The selected provider/models appear in the console and run report.
 
+### Entire corpus with a PDF report
+
+`evaluate_synthetic_corpus.py` calls the existing evaluator for every document in the synthetic catalog, including draft, incomplete and historical records. It then builds a PDF in Python using ReportLab. Install the reporting dependency once:
+
+```powershell
+python -m pip install -r scripts/requirements-evaluation.txt
+```
+
+With the canonical Markdown documents already ingested and the usual evaluator/application credentials configured, run from the repository root:
+
+```powershell
+python -B scripts/evaluate_synthetic_corpus.py --queries-per-doc 3
+```
+
+This plans 150 queries across all 50 documents. `--queries-per-doc` accepts 1-10 and defaults to 1. The script inherits the evaluator's sequential execution, source/citation checks, per-case checkpoints, model/provider selection and pass/fail gates. It never uploads documents, clears caches or retries paid requests. Each completed case normally makes two evaluator AI calls and one application synthesis request, so the example can make 300 evaluator calls plus 150 synthesis requests and incur provider charges.
+
+The default output directory is ignored `evaluation/runs/corpus-<timestamp>-<unique-id>/`, containing `results.json` and `report.pdf`. Use `--output-dir <directory>` to choose another location; existing artifacts are never overwritten. Custom destinations should also stay outside version control. The PDF contains overall results, methodology, per-document totals and average scores, every planned query's accuracy/grounding/completeness scores, and questions, judge reasoning, criterion verdicts, consistency adjustments, citation failures and errors. Complete answers, evidence and provider usage remain in the JSON audit report.
+
+Preview the entire plan and produce a clearly labeled PDF with no network calls:
+
+```powershell
+python -B scripts/evaluate_synthetic_corpus.py --queries-per-doc 3 --dry-run
+```
+
+Once the evaluator starts, failures, configuration/authentication errors and handled Ctrl+C still produce a PDF from the saved JSON. Missing reporting dependencies, invalid corpus checksums or unwritable output paths stop preflight before evaluation. If PDF generation is interrupted, the process is forcibly terminated, or you want a new rendering of an existing version-2 report, use report-only mode without repeating any AI calls:
+
+```powershell
+python -B scripts/evaluate_synthetic_corpus.py --from-json evaluation/runs/corpus-<run-id>/results.json
+python -B scripts/evaluate_synthetic_corpus.py --from-json evaluation/runs/corpus-<run-id>/results.json --pdf-output evaluation/runs/review.pdf
+```
+
+Report-only mode defaults to a `.pdf` beside the input JSON (`results.pdf` in this example). It preserves the JSON, uses its original thresholds/models/results, and does not resume unfinished queries. Errors, unrun cases and unresolved running cases stay inconclusive and have no scores. Pass rate is passed/planned; averages include only validated pass/fail judgments. A dry run has no quality results.
+
+Other evaluation options are `--api-url`, `--env-file`, `--generator-model`, `--judge-model`, `--min-score`, `--require-fresh` and `--max-context-chars`. Credentials still come from the shell or `.env`, never command arguments. No new environment variables are needed. Exit codes remain 0 (all passed or dry run), 1 (quality failures), and 2 (evaluation/report errors or interruption). In report-only mode, 0 means the PDF was created, regardless of the saved evaluation outcome.
+
+Offline checks:
+
+```powershell
+python -B -m unittest discover -s scripts/tests -p "test_evaluate_synth*.py" -v
+python -B synthetic-data/tools/validate.py
+```
+
+PDF tests require ReportLab; the optional PDF text-extraction test also uses `pypdf` when installed. Tests never contact the application or an AI provider.
+
 ## Local development launcher
 
 The PowerShell launcher starts PostgreSQL/pgvector and gbrain through Docker Compose while running Spring Boot and Vite directly on the host for fast frontend reloads. It reuses already-running infrastructure without recreating it.

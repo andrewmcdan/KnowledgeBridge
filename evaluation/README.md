@@ -98,3 +98,11 @@ python synthetic-data/tools/validate.py
 
 `--dry-run` selects and validates local files only. It does not authenticate, check ingestion, call synthesis or use AI; its report is marked `dry_run`, not `pass`. `--api-url`, `--env-file`, and `--output` support other local deployments and report locations. Run `--help` for all options.
 
+### Full-corpus PDF reporting
+
+Use `python -B scripts/evaluate_synthetic_corpus.py --queries-per-doc 3` to run the existing evaluator against all 50 cataloged documents and generate both checkpointed JSON and a PDF report. This explicitly includes noncurrent documents that random `--count` selection excludes. The wrapper builds the PDF itself with ReportLab; install it using `python -m pip install -r scripts/requirements-evaluation.txt`.
+
+The PDF includes the overview, per-document totals/averages, all planned query scores, judge reasoning, criterion verdicts and failure/error details. Scores are effective, validated scores; incomplete or erroneous cases stay unscored. The existing evaluator's pass-rate denominator, score consistency caps and AI-judging limitations remain in force. Full answers and evidence remain in the JSON audit file.
+
+Use `--dry-run` for an offline plan/PDF, or `--from-json <saved-report.json>` to generate a PDF without making or repeating requests. Default new-run artifacts are ignored `evaluation/runs/corpus-<run-id>/results.json` and `report.pdf`. See [script usage](../scripts/README.md#entire-corpus-with-a-pdf-report) for examples, options, dependency installation, recovery and exit codes.
+

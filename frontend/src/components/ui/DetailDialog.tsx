@@ -121,7 +121,7 @@ export function DetailDialog({ detail, onClose }: { detail: Detail; onClose: () 
                         loading={entitiesLoading}
                         error={entitiesError}
                         busy={busy}
-                        canExtract={user?.role === "ADMIN"}
+                        canExtract={user?.role === "ADMIN" && (detail.lifecycleState ?? "ACTIVE") === "ACTIVE"}
                         hasDocument={detail.id !== undefined}
                         onReload={() => void loadEntities(false)}
                         onExtract={() => void loadEntities(true)}

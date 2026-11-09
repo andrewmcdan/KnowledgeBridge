@@ -10,6 +10,8 @@ import java.util.stream.Collectors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
+import org.springframework.http.HttpStatus;
+import org.springframework.web.server.ResponseStatusException;
 
 import com.capstone.knowledgebridge.cache.QueryCacheService;
 import com.capstone.knowledgebridge.cache.QueryMode;
@@ -82,7 +84,14 @@ public class QueryService {
 	public SearchResponse search(String question, Integer limit) {
 		int requestedLimit = limit == null ? DEFAULT_SEARCH_LIMIT : limit;
 		GbrainSearchResult result = gbrainClient.search(new GbrainSearchRequest(question, requestedLimit, null));
-		List<SearchHitResponse> hits = result.hits().stream().map(QueryService::toSearchHit).toList();
+		Map<String, KnowledgeItem> available = knowledgeItemRepository.findAllById(result.hits().stream()
+				.map(GbrainSearchHit::itemKey).map(QueryService::parseItemId).flatMap(Optional::stream).distinct()
+				.toList())
+				.stream().collect(Collectors.toMap(item -> Long.toString(item.getId()), Function.identity()));
+		List<SearchHitResponse> hits = result.hits().stream()
+				.filter(hit -> Optional.ofNullable(available.get(hit.itemKey())).map(KnowledgeItem::isAvailable)
+						.orElse(false))
+				.map(QueryService::toSearchHit).toList();
 		return new SearchResponse(hits, new RetrievalResponse(result.retrieval().vectorEnabled(),
 				result.retrieval().projectionReady(), !result.retrieval().healthy()));
 	}
@@ -114,6 +123,11 @@ public class QueryService {
 		Map<String, KnowledgeItem> itemsById = knowledgeItemRepository.findAllById(itemIds(result.citations()))
 				.stream()
 				.collect(Collectors.toMap(item -> Long.toString(item.getId()), Function.identity()));
+		if (result.citations().stream().anyMatch(citation -> !Optional.ofNullable(itemsById.get(citation.itemKey()))
+				.map(KnowledgeItem::isAvailable).orElse(false))) {
+			throw new ResponseStatusException(HttpStatus.CONFLICT,
+					"A referenced document is no longer available. Retry the question.");
+		}
 		List<CitationResponse> citations = result.citations().stream()
 				.map(citation -> toCitation(citation, itemsById.get(citation.itemKey())))
 				.toList();
@@ -157,8 +171,7 @@ public class QueryService {
 	}
 
 	private static CitationResponse toCitation(GbrainSynthesisResult.GbrainCitation citation, KnowledgeItem item) {
-		return new CitationResponse(citation.itemKey(), citation.externalId(), item == null ? null : item.getTitle(),
-				item == null ? null : item.getType());
+		return new CitationResponse(citation.itemKey(), citation.externalId(), item.getTitle(), item.getType());
 	}
 
 }

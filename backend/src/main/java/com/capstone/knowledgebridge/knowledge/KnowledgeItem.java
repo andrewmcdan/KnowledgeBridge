@@ -31,6 +31,17 @@ public class KnowledgeItem {
 	@Column(nullable = false)
 	private KnowledgeItemStatus status;
 
+	@Enumerated(EnumType.STRING)
+	@Column(name = "lifecycle_state", nullable = false)
+	private KnowledgeLifecycle lifecycleState = KnowledgeLifecycle.ACTIVE;
+
+	@Enumerated(EnumType.STRING)
+	@Column(name = "trashed_from")
+	private KnowledgeLifecycle trashedFrom;
+
+	@Column(name = "soft_deleted_at")
+	private Instant softDeletedAt;
+
 	@Column(name = "character_count", nullable = false)
 	private int characterCount;
 
@@ -201,6 +212,29 @@ public class KnowledgeItem {
 	}
 
 	/*--- GETTERS ---*/
+	public KnowledgeLifecycle getLifecycleState() {
+		return lifecycleState;
+	}
+
+	public KnowledgeLifecycle getTrashedFrom() {
+		return trashedFrom;
+	}
+
+	public Instant getSoftDeletedAt() {
+		return softDeletedAt;
+	}
+
+	public boolean isAvailable() {
+		return lifecycleState == KnowledgeLifecycle.ACTIVE && status == KnowledgeItemStatus.COMPLETED;
+	}
+
+	public void changeLifecycle(KnowledgeLifecycle next) {
+		trashedFrom = next == KnowledgeLifecycle.TRASH ? lifecycleState : null;
+		softDeletedAt = next == KnowledgeLifecycle.TRASH ? Instant.now() : null;
+		lifecycleState = next;
+		updatedAt = Instant.now();
+	}
+
 	public Long getId() {
 		return id;
 	}

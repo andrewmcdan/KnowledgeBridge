@@ -24,6 +24,9 @@ function demoItem(id: number, title: string, sourceKind: KnowledgeItem["sourceKi
         createdAt: updatedAt,
         updatedAt,
         sourceKind,
+        lifecycleState: "ACTIVE",
+        trashedFrom: null,
+        softDeletedAt: null,
     };
 }
 

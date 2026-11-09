@@ -1,0 +1,2 @@
+# Optional PDF reporting for evaluate_synthetic_corpus.py; the core evaluator stays stdlib-only.
+reportlab>=4.0,<5

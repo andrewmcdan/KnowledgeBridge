@@ -96,11 +96,66 @@ test("filters remove dangling edges, retain isolated nodes and never mutate the 
     const named = filterEntityGraph(graph, "  ALEX  ", "PERSON", 1);
     assert.deepEqual(
         Array.from(named.nodes, (node) => node.id),
-        [1],
+        [1, 2],
     );
-    assert.equal(named.links.length, 0);
+    assert.deepEqual(
+        Array.from(named.links, (link) => link.id),
+        ["1:2"],
+    );
     assert.equal(filterEntityGraph(graph, "missing", "", 1).nodes.length, 0);
     assert.equal(filterEntityGraph(graph, "", "PROJECT", 1).nodes.length, 1);
+    assert.deepEqual(plain(graph), original);
+});
+
+test("name searches include immediate neighbors of every match without expanding through neighbors", () => {
+    const shared = document(20, "Alpha and Beta");
+    const repeated = document(21, "Alpha and Beta again");
+    const distant = document(22, "Beta and Gamma");
+    const secondMatch = document(23, "Alphonse and Delta");
+    const graph = buildEntityGraph([
+        { entity: entity(1, "Alpha"), documents: [shared, repeated] },
+        { entity: entity(2, "Beta", "TEAM"), documents: [shared, repeated, distant] },
+        { entity: entity(3, "Gamma", "PROJECT"), documents: [distant] },
+        { entity: entity(4, "Alphonse", "COMPANY"), documents: [secondMatch] },
+        { entity: entity(5, "Delta"), documents: [secondMatch] },
+        { entity: entity(6, "Unrelated"), documents: [] },
+    ]);
+    const original = plain(graph);
+    const named = filterEntityGraph(graph, "  ALP  ", "", 1);
+    assert.deepEqual(
+        Array.from(named.nodes, (node) => node.id),
+        [1, 4, 2, 5],
+    );
+    assert.deepEqual(
+        Array.from(named.links, (link) => link.id),
+        ["1:2", "4:5"],
+    );
+    assert.equal(named.links[0].documents.length, 2, "all source documents on a connection remain available");
+    assert.deepEqual(
+        Array.from(filterEntityGraph(graph, "Gamma", "", 1).nodes, (node) => node.id),
+        [2, 3],
+        "connections expand from either endpoint",
+    );
+    assert.deepEqual(
+        Array.from(filterEntityGraph(graph, "alp", "PERSON", 1).nodes, (node) => node.id),
+        [1],
+        "neighbors respect the type filter",
+    );
+    const stronger = filterEntityGraph(graph, "alp", "", 2);
+    assert.deepEqual(
+        Array.from(stronger.nodes, (node) => node.id),
+        [1, 4, 2],
+        "matches remain visible when no connection passes the threshold",
+    );
+    assert.deepEqual(
+        Array.from(stronger.links, (link) => link.id),
+        ["1:2"],
+    );
+    assert.deepEqual(
+        Array.from(filterEntityGraph(graph, "Unrelated", "", 1).nodes, (node) => node.id),
+        [6],
+    );
+    assert.deepEqual(plain(filterEntityGraph(graph, "   ", "", 1)), original, "clearing the name restores the complete snapshot");
     assert.deepEqual(plain(graph), original);
 });
 
@@ -205,7 +260,7 @@ test("entity inspection exposes neighbors, clears selection and ignores selectio
     assert.deepEqual(plain(selections[0]), { kind: "link", id: "1:2" });
     find(tree, (node) => node.props?.className === "text-button").props.onClick();
     assert.equal(selections[1], null);
-    const html = renderToStaticMarkup(createElement(GraphDetails, { ...props, graph: filterEntityGraph(graph, "Cedar", "", 1) }));
+    const html = renderToStaticMarkup(createElement(GraphDetails, { ...props, graph: filterEntityGraph(graph, "Isolated", "", 1) }));
     assert.match(html, /Follow the evidence/);
     assert.doesNotMatch(html, /Alex summary/);
 });
@@ -279,6 +334,35 @@ function dashboardHarness() {
 }
 
 const flush = () => new Promise((resolve) => setImmediate(resolve));
+
+test("dashboard name filtering passes the same neighborhood to 3D and list views and clears without reloading", async () => {
+    const page = dashboardHarness();
+    page.requests[0].resolve({ graph: buildEntityGraph(entries), entityLimitReached: false, documentLimitReached: false });
+    await flush();
+    let tree = page.render();
+    find(tree, (node) => node.props?.id === "graph-filter-name").props.onChange({ target: { value: "alex" } });
+    tree = page.render();
+    const filtered = find(tree, (node) => node.props?.settings && "paused" in node.props).props.graph;
+    assert.deepEqual(
+        Array.from(filtered.nodes, (node) => node.id),
+        [1, 3, 2],
+    );
+    assert.equal(filtered.links.length, 3);
+    find(tree, (node) => node.type === "button" && node.props.children === "List view").props.onClick();
+    tree = page.render();
+    assert.deepEqual(plain(find(tree, (node) => node.type?.name === "GraphList").props.graph), plain(filtered));
+    find(tree, (node) => node.props?.id === "graph-filter-documents").props.onChange({ target: { value: "2" } });
+    tree = page.render();
+    assert.deepEqual(
+        Array.from(find(tree, (node) => node.type?.name === "GraphList").props.graph.nodes, (node) => node.id),
+        [1, 2],
+    );
+    find(tree, (node) => node.type === "button" && node.props.children === "Clear filters").props.onClick();
+    tree = page.render();
+    assert.equal(find(tree, (node) => node.type?.name === "GraphList").props.graph.nodes.length, 4);
+    assert.equal(page.requests.length, 1);
+    page.cleanup();
+});
 
 test("view settings expose accessible ranges, preserve unrelated preferences, and reset defaults", () => {
     const changes = [];

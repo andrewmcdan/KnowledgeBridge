@@ -12,6 +12,7 @@ import com.capstone.knowledgebridge.knowledge.IngestionStage;
 import com.capstone.knowledgebridge.knowledge.KnowledgeItem;
 import com.capstone.knowledgebridge.knowledge.KnowledgeItemRepository;
 import com.capstone.knowledgebridge.knowledge.KnowledgeItemStatus;
+import com.capstone.knowledgebridge.knowledge.KnowledgeLifecycle;
 import com.capstone.knowledgebridge.knowledge.KnowledgeSourceKind;
 
 @Service
@@ -39,7 +40,8 @@ public class VideoIngestionJob {
 
 	public void run(Long itemId) {
 		KnowledgeItem item = knowledgeItemRepository.findById(itemId).orElse(null);
-		if (item == null || item.getSourceKind() != KnowledgeSourceKind.VIDEO
+		if (item == null || item.getLifecycleState() != KnowledgeLifecycle.ACTIVE
+				|| item.getSourceKind() != KnowledgeSourceKind.VIDEO
 				|| item.getStatus() == KnowledgeItemStatus.COMPLETED) {
 			return;
 		}
