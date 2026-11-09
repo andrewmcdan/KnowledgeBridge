@@ -129,9 +129,11 @@ Link: https://example.atlassian.net/browse/KB-42
 - The `Projects:` line lets `EntityHints` create PROJECT entities.
 - Named assignees and reporters give gbrain's person extractor material for PERSON entities.
 - The knowledge item `title` is `KB-42: <summary>`, and `type` is the Jira work item type, slugified as usual (`story`, `bug`).
-- Bodies stay under `GbrainDocument.MAX_BODY_BYTES` (1 MB). Oldest comments are dropped first when a body would exceed it.
+- All comments are included. Bodies stay under `GbrainDocument.MAX_BODY_BYTES` (1 MB); oldest comments are dropped first when a body would exceed it.
 
 ## Sync behavior
+
+Syncs are manual; there is no scheduled sync.
 
 1. An admin starts a sync for one project. The API creates a `jira_sync_run` and returns `202` with its id.
 2. A background worker pages through `project = <KEY>`, ordered by `updated`.
@@ -286,10 +288,6 @@ Verified against a live Jira Cloud site on 2026-11-09.
 
 | Decision | Options | Needed by |
 |---|---|---|
-| Comments | All, latest N, or none | Stage 3 |
-| Deleted work items | Reconcile by comparing full key lists, or document the gap | Stage 4 |
-| Sync trigger | Manual only, or also a scheduled incremental sync | Stage 4 |
-| Jira View access | All signed-in users, or admins only | Stage 5 |
 | Knowledge Base treatment | Filter, badge, or hide Jira items | Stage 6 |
 | Navigation placement | New nav item, Uploads tab, or Admin | Stage 6 |
 | Dashboard card | "Last synced / N items" card, coordinated with the dashboard owner | Stage 6 |
@@ -299,6 +297,7 @@ Verified against a live Jira Cloud site on 2026-11-09.
 - Every signed-in user can read synced work items, regardless of their Jira permissions.
 - Answers reflect the last sync, not live Jira state.
 - Synced items are read-only in KnowledgeBridge.
+- Work items deleted in Jira remain in KnowledgeBridge and gbrain, because a sync can't detect them.
 
 ## Future work
 
