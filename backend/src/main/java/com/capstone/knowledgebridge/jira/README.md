@@ -20,7 +20,7 @@ Set `JIRA_ENABLED=true` and the other `JIRA_*` variables described in `.env.exam
 - Search must pass `view: "full"`; otherwise Atlassian silently omits descriptions, parents, comments, and links.
 - `initialize` and `tools/list` succeed for under-scoped tokens, so `status()` calls a real tool.
 - Comments embedded in a work item can be incomplete. Compare `commentTotal` with `comments` and call `listComments` when they differ.
-- There are no automatic retries yet; a rate limit or outage surfaces as a `JiraException`.
+- Rate limits and outages are retried with backoff, honoring `Retry-After`. If Jira asks for a wait longer than `JIRA_RETRY_MAX_BACKOFF`, the call fails instead of blocking. Timeouts are not retried.
 
 See `Docs/Jira-Integration-Design.md` for the protocol findings.
 

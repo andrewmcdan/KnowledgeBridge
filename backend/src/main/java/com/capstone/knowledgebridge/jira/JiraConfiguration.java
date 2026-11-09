@@ -21,7 +21,7 @@ public class JiraConfiguration {
 			log.warn("Jira mode is IN_MEMORY: serving fixed sample work items");
 			return new InMemoryJiraClient();
 		}
-		return new McpJiraClient(new JiraMcpTransport(properties, jsonMapper), properties);
+		return new McpJiraClient(new JiraMcpTransport(properties, jsonMapper, Thread::sleep), properties);
 	}
 
 }

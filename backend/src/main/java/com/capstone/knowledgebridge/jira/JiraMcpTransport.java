@@ -5,12 +5,15 @@ import java.io.InputStream;
 import java.net.http.HttpClient;
 import java.net.http.HttpTimeoutException;
 import java.nio.charset.StandardCharsets;
+import java.time.Duration;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicLong;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.client.JdkClientHttpRequestFactory;
 import org.springframework.web.client.ResourceAccessException;
@@ -22,11 +25,18 @@ import tools.jackson.databind.json.JsonMapper;
 
 /**
  * MCP over HTTP to Atlassian's server: Basic auth, a session opened on first use and reopened if the server drops it,
- * and classification of HTTP, JSON-RPC, and tool-level failures. Every tool this adapter calls is read-only.
+ * classification of HTTP, JSON-RPC, and tool-level failures, and retries for rate limits and outages. Every tool this
+ * adapter calls is read-only, so a retry can't repeat a side effect.
  */
 final class JiraMcpTransport {
 
 	private static final Logger log = LoggerFactory.getLogger(JiraMcpTransport.class);
+
+	/** Timeouts are left out: at a full read timeout per attempt, a retry would hold a request for minutes. */
+	private static final Set<JiraErrorCode> TRANSIENT_FAILURES = Set.of(JiraErrorCode.RATE_LIMITED,
+			JiraErrorCode.UNAVAILABLE);
+
+	private static final Duration INITIAL_BACKOFF = Duration.ofMillis(500);
 
 	private static final String SESSION_HEADER = "Mcp-Session-Id";
 
@@ -41,13 +51,16 @@ final class JiraMcpTransport {
 
 	private final RestClient restClient;
 
+	private final Sleeper sleeper;
+
 	private final AtomicLong requestIds = new AtomicLong();
 
 	private String session;
 
-	JiraMcpTransport(JiraProperties properties, JsonMapper jsonMapper) {
+	JiraMcpTransport(JiraProperties properties, JsonMapper jsonMapper, Sleeper sleeper) {
 		this.properties = properties;
 		this.jsonMapper = jsonMapper;
+		this.sleeper = sleeper;
 		// The JDK client never re-sends a POST on its own; refusing redirects keeps credentials on this origin.
 		HttpClient httpClient = HttpClient.newBuilder()
 				.connectTimeout(properties.connectTimeout())
@@ -65,6 +78,40 @@ final class JiraMcpTransport {
 			throw new JiraException(JiraErrorCode.NOT_CONFIGURED, "Jira integration is not configured");
 		}
 		Map<String, Object> params = Map.of("name", tool, "arguments", arguments);
+		for (int attempt = 1;; attempt++) {
+			try {
+				return callOnce(tool, params);
+			} catch (JiraException failure) {
+				Duration delay = retryDelay(failure, attempt);
+				if (delay == null) {
+					throw failure;
+				}
+				log.info("Jira tool {} attempt {} failed with {}; retrying in {}", tool, attempt, failure.code(),
+						delay);
+				pause(delay);
+			}
+		}
+	}
+
+	/** Returns null when the failure should surface, including when Jira asks for a longer wait than we allow. */
+	private Duration retryDelay(JiraException failure, int attempt) {
+		if (!TRANSIENT_FAILURES.contains(failure.code()) || attempt >= properties.retryMaxAttempts()) {
+			return null;
+		}
+		Duration delay = failure.retryAfter().orElse(INITIAL_BACKOFF.multipliedBy(1L << (attempt - 1)));
+		return delay.compareTo(properties.retryMaxBackoff()) > 0 ? null : delay;
+	}
+
+	private void pause(Duration delay) {
+		try {
+			sleeper.sleep(delay);
+		} catch (InterruptedException exception) {
+			Thread.currentThread().interrupt();
+			throw new JiraException(JiraErrorCode.UNAVAILABLE, "Jira retry was interrupted", exception);
+		}
+	}
+
+	private JsonNode callOnce(String tool, Map<String, Object> params) {
 		for (int attempt = 0; attempt < 2; attempt++) {
 			try {
 				return data(tool, exchange("tools/call", params, session()).result());
@@ -116,7 +163,8 @@ final class JiraMcpTransport {
 							throw new SessionRejectedException();
 						}
 						if (!response.getStatusCode().is2xxSuccessful()) {
-							throw new JiraException(classify(status), "Jira MCP returned HTTP " + status);
+							throw new JiraException(classify(status), "Jira MCP returned HTTP " + status,
+									retryAfter(response.getHeaders()));
 						}
 						byte[] body = readBounded(response.getBody());
 						return new Reply(response.getHeaders().getFirst(SESSION_HEADER),
@@ -191,6 +239,14 @@ final class JiraMcpTransport {
 		}
 	}
 
+	/** Supports the delta-seconds form only; an HTTP date falls back to the client's own backoff. */
+	private static Duration retryAfter(HttpHeaders headers) {
+		String value = headers.getFirst(HttpHeaders.RETRY_AFTER);
+		return value == null || !value.trim().matches("\\d{1,6}")
+				? null
+				: Duration.ofSeconds(Long.parseLong(value.trim()));
+	}
+
 	private static JiraErrorCode classify(int status) {
 		return switch (status) {
 			case 400 -> JiraErrorCode.VALIDATION;
@@ -203,6 +259,13 @@ final class JiraMcpTransport {
 
 	private static JiraException protocol(String message) {
 		return new JiraException(JiraErrorCode.PROTOCOL, message);
+	}
+
+	@FunctionalInterface
+	interface Sleeper {
+
+		void sleep(Duration delay) throws InterruptedException;
+
 	}
 
 	private record Reply(String sessionId, JsonNode result) {

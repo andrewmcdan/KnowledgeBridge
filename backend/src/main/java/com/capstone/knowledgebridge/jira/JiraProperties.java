@@ -22,7 +22,9 @@ public record JiraProperties(
 		Duration connectTimeout,
 		Duration readTimeout,
 		DataSize maxResponseSize,
-		int pageSize) {
+		int pageSize,
+		int retryMaxAttempts,
+		Duration retryMaxBackoff) {
 
 	public enum Mode {
 		/** Read Jira through Atlassian's MCP server. */
@@ -32,6 +34,8 @@ public record JiraProperties(
 	}
 
 	static final int MAX_PAGE_SIZE = 100;
+
+	static final int MAX_RETRY_ATTEMPTS = 10;
 
 	public JiraProperties {
 		mode = mode == null ? Mode.MCP : mode;
@@ -49,6 +53,10 @@ public record JiraProperties(
 		if (pageSize < 1 || pageSize > MAX_PAGE_SIZE) {
 			throw invalid("page-size must be between 1 and " + MAX_PAGE_SIZE);
 		}
+		if (retryMaxAttempts < 1 || retryMaxAttempts > MAX_RETRY_ATTEMPTS) {
+			throw invalid("retry-max-attempts must be between 1 and " + MAX_RETRY_ATTEMPTS);
+		}
+		requirePositive("retry-max-backoff", retryMaxBackoff);
 	}
 
 	public boolean configured() {
@@ -65,7 +73,8 @@ public record JiraProperties(
 		return "JiraProperties[enabled=" + enabled + ", mode=" + mode + ", mcpUrl=" + mcpUrl + ", siteUrl=" + siteUrl
 				+ ", email=" + email + ", apiToken=" + (isPresent(apiToken) ? "<redacted>" : "<unset>") + ", cloudId="
 				+ cloudId + ", connectTimeout=" + connectTimeout + ", readTimeout=" + readTimeout
-				+ ", maxResponseSize=" + maxResponseSize + ", pageSize=" + pageSize + "]";
+				+ ", maxResponseSize=" + maxResponseSize + ", pageSize=" + pageSize + ", retryMaxAttempts="
+				+ retryMaxAttempts + ", retryMaxBackoff=" + retryMaxBackoff + "]";
 	}
 
 	private static boolean isPresent(String value) {

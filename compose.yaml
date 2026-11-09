@@ -65,6 +65,8 @@ services:
       JIRA_EMAIL: ${JIRA_EMAIL:-}
       JIRA_API_TOKEN: ${JIRA_API_TOKEN:-}
       JIRA_CLOUD_ID: ${JIRA_CLOUD_ID:-}
+      JIRA_RETRY_MAX_ATTEMPTS: ${JIRA_RETRY_MAX_ATTEMPTS:-4}
+      JIRA_RETRY_MAX_BACKOFF: ${JIRA_RETRY_MAX_BACKOFF:-PT30S}
     depends_on:
       postgres:
         condition: service_healthy

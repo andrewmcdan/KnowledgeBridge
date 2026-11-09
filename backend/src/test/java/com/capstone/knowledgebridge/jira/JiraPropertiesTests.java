@@ -36,7 +36,7 @@ class JiraPropertiesTests {
 	void defaultsToMcpModeAndKeepsAnExplicitMode() {
 		assertThat(properties(true, SITE, "e", "t", "c").mode()).isEqualTo(JiraProperties.Mode.MCP);
 		assertThat(new JiraProperties(true, JiraProperties.Mode.IN_MEMORY, MCP, SITE, "e", "t", "c", TIMEOUT, TIMEOUT,
-				SIZE, 10).mode()).isEqualTo(JiraProperties.Mode.IN_MEMORY);
+				SIZE, 10, 3, TIMEOUT).mode()).isEqualTo(JiraProperties.Mode.IN_MEMORY);
 	}
 
 	@Test
@@ -85,15 +85,29 @@ class JiraPropertiesTests {
 		assertInvalid(MCP, SITE, TIMEOUT, TIMEOUT, SIZE, 101, "page-size");
 	}
 
+	@Test
+	void rejectsInvalidRetrySettings() {
+		for (int attempts : new int[]{0, 11}) {
+			assertThatThrownBy(
+					() -> new JiraProperties(true, null, MCP, SITE, "e", "t", "c", TIMEOUT, TIMEOUT, SIZE, 10,
+							attempts, TIMEOUT))
+					.hasMessageContaining("retry-max-attempts");
+		}
+		assertThatThrownBy(() -> new JiraProperties(true, null, MCP, SITE, "e", "t", "c", TIMEOUT, TIMEOUT, SIZE, 10, 3,
+				Duration.ZERO)).hasMessageContaining("retry-max-backoff");
+	}
+
 	private static JiraProperties properties(boolean enabled, String site, String email, String token, String cloud) {
-		return new JiraProperties(enabled, null, MCP, site, email, token, cloud, TIMEOUT, TIMEOUT, SIZE, 10);
+		return new JiraProperties(enabled, null, MCP, site, email, token, cloud, TIMEOUT, TIMEOUT, SIZE, 10, 3,
+				TIMEOUT);
 	}
 
 	private static void assertInvalid(URI mcp, String site, Duration connect, Duration read, DataSize size,
 			int pageSize,
 			String message) {
 		assertThatThrownBy(
-				() -> new JiraProperties(true, null, mcp, site, "e", "t", "c", connect, read, size, pageSize))
+				() -> new JiraProperties(true, null, mcp, site, "e", "t", "c", connect, read, size, pageSize, 3,
+						TIMEOUT))
 				.isInstanceOf(IllegalArgumentException.class)
 				.hasMessageContaining(message);
 	}

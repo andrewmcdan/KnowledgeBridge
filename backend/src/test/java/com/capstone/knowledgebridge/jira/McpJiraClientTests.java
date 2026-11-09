@@ -6,6 +6,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.Base64;
 import java.util.List;
 import java.util.Map;
@@ -33,6 +34,8 @@ class McpJiraClientTests {
 	private final MockJiraMcpServer server = new MockJiraMcpServer();
 
 	private final McpJiraClient client = server.client();
+
+	private final List<Duration> sleeps = new ArrayList<>();
 
 	@AfterEach
 	void stopServer() {
@@ -180,7 +183,8 @@ class McpJiraClientTests {
 		JiraProperties configured = server.properties();
 		JiraProperties disabled = new JiraProperties(false, null, configured.mcpUrl(), configured.siteUrl(),
 				configured.email(), configured.apiToken(), configured.cloudId(), configured.connectTimeout(),
-				configured.readTimeout(), configured.maxResponseSize(), configured.pageSize());
+				configured.readTimeout(), configured.maxResponseSize(), configured.pageSize(), 1,
+				Duration.ofSeconds(1));
 		McpJiraClient unconfigured = MockJiraMcpServer.client(disabled);
 
 		assertFails(unconfigured::listProjects, JiraErrorCode.NOT_CONFIGURED);
@@ -321,6 +325,78 @@ class McpJiraClientTests {
 	}
 
 	@Test
+	void retriesARateLimitAfterTheDelayJiraAskedFor() {
+		server.onTool("listJiraProjects", arguments -> PROJECTS);
+		AtomicInteger calls = new AtomicInteger();
+		server.onMethod("tools/call", request -> calls.incrementAndGet() == 1
+				? new Response(429, "application/json", "{}", null, "7")
+				: Response.sse(MockJiraMcpServer.toolResult(request, PROJECTS, false)));
+
+		assertThat(retrying(3, Duration.ofSeconds(30)).listProjects()).hasSize(2);
+		assertThat(sleeps).containsExactly(Duration.ofSeconds(7));
+	}
+
+	@Test
+	void backsOffExponentiallyWithoutARetryAfterHeader() {
+		server.onTool("listJiraProjects", arguments -> PROJECTS);
+		AtomicInteger calls = new AtomicInteger();
+		server.onMethod("tools/call", request -> calls.incrementAndGet() <= 2
+				? Response.sse(MockJiraMcpServer.toolResult(request, "{\"statusCode\":429}", true))
+				: Response.sse(MockJiraMcpServer.toolResult(request, PROJECTS, false)));
+
+		assertThat(retrying(3, Duration.ofSeconds(30)).listProjects()).hasSize(2);
+		assertThat(sleeps).containsExactly(Duration.ofMillis(500), Duration.ofSeconds(1));
+	}
+
+	@Test
+	void retriesOutagesAndIgnoresAnHttpDateRetryAfter() {
+		AtomicInteger calls = new AtomicInteger();
+		server.onMethod("tools/call", request -> calls.incrementAndGet() == 1
+				? new Response(503, "application/json", "{}", null, "Wed, 21 Oct 2026 07:28:00 GMT")
+				: Response.sse(MockJiraMcpServer.toolResult(request, PROJECTS, false)));
+
+		assertThat(retrying(3, Duration.ofSeconds(30)).listProjects()).hasSize(2);
+		assertThat(sleeps).containsExactly(Duration.ofMillis(500));
+	}
+
+	@Test
+	void givesUpAfterTheConfiguredAttempts() {
+		server.onMethod("tools/call", request -> Response.status(429));
+
+		assertFails(retrying(3, Duration.ofSeconds(30))::listProjects, JiraErrorCode.RATE_LIMITED);
+		assertThat(sleeps).hasSize(2);
+	}
+
+	@Test
+	void failsRatherThanWaitLongerThanAllowed() {
+		server.onMethod("tools/call", request -> new Response(429, "application/json", "{}", null, "120"));
+
+		assertFails(retrying(3, Duration.ofSeconds(30))::listProjects, JiraErrorCode.RATE_LIMITED);
+		assertThat(sleeps).isEmpty();
+	}
+
+	@Test
+	void doesNotRetryPermanentFailures() {
+		server.onMethod("tools/call", request -> Response.status(401));
+
+		assertFails(retrying(3, Duration.ofSeconds(30))::listProjects, JiraErrorCode.UNAUTHORIZED);
+		assertThat(sleeps).isEmpty();
+	}
+
+	@Test
+	void stopsRetryingWhenInterrupted() {
+		server.onMethod("tools/call", request -> Response.status(429));
+		JiraProperties properties = server.retryProperties(3, Duration.ofSeconds(30));
+		McpJiraClient interrupted = new McpJiraClient(
+				new JiraMcpTransport(properties, MockJiraMcpServer.JSON, delay -> {
+					throw new InterruptedException();
+				}), properties);
+
+		assertFails(interrupted::listProjects, JiraErrorCode.UNAVAILABLE);
+		assertThat(Thread.interrupted()).isTrue();
+	}
+
+	@Test
 	void reportsTimeouts() {
 		server.onMethod("initialize", request -> {
 			try {
@@ -341,6 +417,11 @@ class McpJiraClientTests {
 		server.close();
 
 		assertFails(MockJiraMcpServer.client(properties)::listProjects, JiraErrorCode.UNAVAILABLE);
+	}
+
+	private McpJiraClient retrying(int attempts, Duration maxBackoff) {
+		JiraProperties properties = server.retryProperties(attempts, maxBackoff);
+		return new McpJiraClient(new JiraMcpTransport(properties, MockJiraMcpServer.JSON, sleeps::add), properties);
 	}
 
 	private static String comments(int startAt, boolean last) {

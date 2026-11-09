@@ -32,7 +32,11 @@ final class MockJiraMcpServer implements AutoCloseable {
 	record Request(String method, JsonNode body, String authorization, String session) {
 	}
 
-	record Response(int status, String contentType, String body, String session) {
+	record Response(int status, String contentType, String body, String session, String retryAfter) {
+
+		Response(int status, String contentType, String body, String session) {
+			this(status, contentType, body, session, null);
+		}
 
 		static Response sse(String json) {
 			return new Response(200, "text/event-stream", "event: message\ndata: " + json + "\n\n", null);
@@ -75,11 +79,20 @@ final class MockJiraMcpServer implements AutoCloseable {
 		return properties(1024 * 1024, Duration.ofSeconds(2));
 	}
 
+	JiraProperties retryProperties(int retryMaxAttempts, Duration retryMaxBackoff) {
+		return properties(1024 * 1024, Duration.ofSeconds(2), retryMaxAttempts, retryMaxBackoff);
+	}
+
 	JiraProperties properties(long maxResponseBytes, Duration readTimeout) {
+		return properties(maxResponseBytes, readTimeout, 1, Duration.ofSeconds(1));
+	}
+
+	private JiraProperties properties(long maxResponseBytes, Duration readTimeout, int retryMaxAttempts,
+			Duration retryMaxBackoff) {
 		return new JiraProperties(true, null,
 				URI.create("http://127.0.0.1:" + server.getAddress().getPort() + "/v2/mcp"),
 				"https://example.atlassian.net/", "user@example.com", "secret-token", "cloud-1", Duration.ofSeconds(1),
-				readTimeout, DataSize.ofBytes(maxResponseBytes), 10);
+				readTimeout, DataSize.ofBytes(maxResponseBytes), 10, retryMaxAttempts, retryMaxBackoff);
 	}
 
 	McpJiraClient client() {
@@ -87,7 +100,8 @@ final class MockJiraMcpServer implements AutoCloseable {
 	}
 
 	static McpJiraClient client(JiraProperties properties) {
-		return new McpJiraClient(new JiraMcpTransport(properties, JSON), properties);
+		return new McpJiraClient(new JiraMcpTransport(properties, JSON, delay -> {
+		}), properties);
 	}
 
 	void onMethod(String method, Function<Request, Response> handler) {
@@ -147,6 +161,9 @@ final class MockJiraMcpServer implements AutoCloseable {
 		Response response = methods.get(request.method()).apply(request);
 		if (response.contentType() != null) {
 			exchange.getResponseHeaders().set("Content-Type", response.contentType());
+		}
+		if (response.retryAfter() != null) {
+			exchange.getResponseHeaders().set("Retry-After", response.retryAfter());
 		}
 		if (response.session() != null) {
 			exchange.getResponseHeaders().set("Mcp-Session-Id", response.session());

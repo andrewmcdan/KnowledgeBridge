@@ -22,7 +22,8 @@ class JiraConfigurationTests {
 	private static JiraClient client(boolean enabled, JiraProperties.Mode mode) {
 		JiraProperties properties = new JiraProperties(enabled, mode, URI.create("https://mcp.atlassian.com/v2/mcp"),
 				"",
-				"", "", "", Duration.ofSeconds(1), Duration.ofSeconds(1), DataSize.ofMegabytes(1), 10);
+				"", "", "", Duration.ofSeconds(1), Duration.ofSeconds(1), DataSize.ofMegabytes(1), 10, 1,
+				Duration.ofSeconds(1));
 		return new JiraConfiguration().jiraClient(properties, JsonMapper.builder().build());
 	}
 
