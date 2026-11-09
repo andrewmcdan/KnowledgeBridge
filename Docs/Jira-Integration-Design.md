@@ -32,11 +32,7 @@ gbrain's `synthesize` tool accepts only `question`, `since`, and `until`. It gat
 
 KnowledgeBridge therefore copies each work item into gbrain as a Markdown page through the existing ingestion pipeline. Synced rows also back the Jira View, so users browse exactly what the AI knows.
 
-Jira is reached through Atlassian's Rovo MCP server (`https://mcp.atlassian.com/v2/mcp`) using HTTP Basic auth with an account email and API token. Known behavior:
-
-- The tools `searchJiraIssuesUsingJql` and `getJiraIssue` require the site's `cloudId`.
-- Results arrive as a JSON string inside the tool's text content, which must be parsed a second time.
-- `getJiraIssue` ignores its `fields` filter.
+Jira is reached through Atlassian's Rovo MCP server (`https://mcp.atlassian.com/v2/mcp`) using HTTP Basic auth with an account email and a personal scoped API token. See [Stage 0 findings](#stage-0-findings) for its observed behavior.
 
 ## Architecture
 
@@ -68,7 +64,7 @@ Talks to Jira and nothing else. It knows nothing about knowledge items or gbrain
 | Class | Responsibility |
 |---|---|
 | `JiraSyncService` | Pulls work items through `JiraClient`, creates or updates `KnowledgeItem` rows, and hands them to `IngestionService` |
-| `JiraMarkdownConverter` | Converts ADF (Atlassian Document Format) to Markdown and builds the document |
+| `JiraMarkdownConverter` | Builds the document from the Markdown returned by the MCP server |
 | `JiraSyncRun`, `JiraSyncRunRepository` | Sync history and progress |
 | `JiraIntegrationController` | Sync routes and Jira View routes |
 
@@ -199,6 +195,43 @@ Each stage ends in a reviewable pull request and leaves the app working.
 
 **Done when:** the tool list, pagination behavior, and fixtures are recorded in this document.
 
+#### Stage 0 findings
+
+Verified against a live Jira Cloud site on 2026-11-09.
+
+**Access**
+
+- An organization admin must turn on API token authentication under Atlassian Administration → Connectors → Atlassian MCP server → Authentication.
+- The token must be a personal API token with scopes, created at id.atlassian.com. Unscoped tokens fail with a missing-scope error, and a key beginning `ATCTT` was rejected as `invalid_token`.
+- Required scopes: `search:jira:agent-interface` for search, and `read:jira:agent-interface` for work items, comments, and projects.
+- `initialize` and `tools/list` succeed even when tool calls are refused, so a connection check must call a real tool.
+
+**Protocol**
+
+- Responses are SSE-framed. Results are a JSON string inside `content[0].text`, with the payload under `data`.
+- The server issues an `Mcp-Session-Id` on `initialize` and requires it on later calls; without it the request fails with HTTP 400 (`-32600`). The gbrain transport does not send this header, so it must be added for Jira.
+- Authentication failures are HTTP 401 with `{"error":"invalid_token"}`, not SSE. Permission and scope failures are HTTP 200 with `isError: true` and a `statusCode` inside the text.
+
+**Tools used**
+
+| Need | Call | Notes |
+|---|---|---|
+| Search | `searchJiraIssuesUsingJql` | Pages with `nextPageToken` until `isLast` is true; no total |
+| One work item | `getJiraIssue` | `view: "evidence"` reports only the comment count; the tool embeds at most 20 comments |
+| Comments | `listJiraIssueComments` | Pages with `startAt` until `isLast` is true; 100 per page at most |
+| Projects | `executeRead` with `name: listJiraProjects` | Returns `values`, `isLast`, `total`, and `startAt` |
+
+**Content**
+
+- `responseContentFormat: "markdown"` returns descriptions and comments already converted from ADF.
+- `searchJiraIssuesUsingJql` returns only a compact field set by default and silently omits `description`, `parent`, `comment`, and `issuelinks`, even when requested. `view: "full"` returns all of them.
+- `view: "evidence"` returns descriptions and parents, but no comments or links in search.
+- Raw scrubbed payloads are in `backend/src/test/resources/jira/mcp/`. The `rest/` directory holds raw ADF responses for reference.
+
+**Seed data**
+
+`synthetic-data/tools/seed_jira.py` needs an unscoped token with write access to the site's REST API, so it won't run with the read-only token above. The `ACME` project holds 22 seeded work items. Assignees and reporters are the site owner because the Acme people aren't Jira users; their names appear in descriptions and comments.
+
 ### Stage 1: `jira` adapter
 
 - `JiraClient`, `InMemoryJiraClient`, `McpJiraClient`, `JiraProperties`, and typed errors.
@@ -216,7 +249,7 @@ Each stage ends in a reviewable pull request and leaves the app working.
 
 ### Stage 3: Converter
 
-- `JiraMarkdownConverter`: ADF to Markdown (paragraphs, headings, lists, code, links, mentions) and the document header.
+- `JiraMarkdownConverter`: builds the document from the Markdown the MCP server returns, adding the header block. No ADF parsing is needed.
 - Size limiting by dropping the oldest comments.
 
 **Done when:** unit tests pass against the Stage 0 fixtures.
@@ -253,7 +286,6 @@ Each stage ends in a reviewable pull request and leaves the app working.
 
 | Decision | Options | Needed by |
 |---|---|---|
-| Transport for bulk sync | MCP throughout, or REST if MCP search can't paginate | Stage 1 |
 | Comments | All, latest N, or none | Stage 3 |
 | Deleted work items | Reconcile by comparing full key lists, or document the gap | Stage 4 |
 | Sync trigger | Manual only, or also a scheduled incremental sync | Stage 4 |
