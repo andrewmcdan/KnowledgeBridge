@@ -52,7 +52,10 @@ class JiraSyncServiceTests {
 
 	private final IngestionService ingestion = mock(IngestionService.class);
 
-	private final JiraSyncService service = new JiraSyncService(jira, runs, items, ingestion, new SyncTaskExecutor());
+	private final JiraWorkItemRepository workItems = mock(JiraWorkItemRepository.class);
+
+	private final JiraSyncService service = new JiraSyncService(jira, runs, items, workItems, ingestion,
+			new SyncTaskExecutor());
 
 	private final JiraSyncRun run = new JiraSyncRun("ACME", 7L);
 
@@ -91,6 +94,10 @@ class JiraSyncServiceTests {
 		assertThat(item.getType()).isEqualTo("Task");
 		assertThat(item.getOwnerId()).isEqualTo(7L);
 		assertThat(item.getBodyText()).contains("# ACME-1: Summary");
+		ArgumentCaptor<JiraWorkItem> workItem = ArgumentCaptor.forClass(JiraWorkItem.class);
+		verify(workItems).save(workItem.capture());
+		assertThat(workItem.getValue().getKnowledgeItemId()).isEqualTo(5L);
+		assertThat(workItem.getValue().getIssueKey()).isEqualTo("ACME-1");
 		assertCounts(1, 0, 0, 0);
 		assertThat(run.getStatus()).isEqualTo(JiraSyncRunStatus.COMPLETED);
 		assertThat(run.getFinishedAt()).isNotNull();
@@ -116,6 +123,7 @@ class JiraSyncServiceTests {
 		service.start("ACME", 7L);
 
 		verify(ingestion, never()).ingest(any());
+		verify(workItems).save(any());
 		assertCounts(0, 0, 1, 0);
 	}
 

@@ -11,6 +11,9 @@ import java.util.List;
 import org.junit.jupiter.api.Test;
 
 import com.capstone.knowledgebridge.auth.AuthController;
+import com.capstone.knowledgebridge.jira.model.JiraConnectionStatus;
+import com.capstone.knowledgebridge.jira.model.JiraProject;
+import com.capstone.knowledgebridge.jiraintegration.JiraIntegrationController;
 import com.capstone.knowledgebridge.knowledge.IngestionStage;
 import com.capstone.knowledgebridge.knowledge.KnowledgeItemController;
 import com.capstone.knowledgebridge.knowledge.KnowledgeItemStatus;
@@ -35,6 +38,11 @@ class CommittedApiContractTests {
 		assertFields("AuthUser", AuthController.MeResponse.class);
 		assertFields("ManagedUser", UserAdministrationService.ManagedUser.class);
 		assertFields("ApiError", ApiError.class);
+		assertFields("JiraProject", JiraProject.class);
+		assertFields("JiraConnectionStatus", JiraConnectionStatus.class);
+		assertFields("JiraSyncRun", JiraIntegrationController.SyncRunResponse.class);
+		assertFields("JiraWorkItem", JiraIntegrationController.WorkItemResponse.class);
+		assertFields("JiraWorkItemDetail", JiraIntegrationController.WorkItemDetailResponse.class);
 	}
 
 	@Test

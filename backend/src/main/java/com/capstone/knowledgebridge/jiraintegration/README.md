@@ -8,10 +8,11 @@ Connects the `jira` adapter to the rest of KnowledgeBridge. Jira communication s
 - `JiraMarkdownConverter`: builds the Markdown page gbrain stores for one work item.
 - `JiraSyncService`: copies a project's work items into the knowledge base through `IngestionService`.
 - `JiraSyncRun` and its repository: history and progress for each sync.
+- `JiraWorkItem`, its repository, and `JiraWorkItemService`: structured fields for the Jira View, refreshed on every sync.
 
 ## Endpoints
 
-All routes are admin only.
+The Jira View routes are open to every signed-in user; the others are admin only.
 
 | Method | Path | Success |
 | --- | --- | --- |
@@ -20,6 +21,8 @@ All routes are admin only.
 | `POST` | `/api/integrations/jira/projects/{key}/sync` | `202`, the new run; `400` for an invalid key; `409` if the project is already syncing |
 | `GET` | `/api/integrations/jira/sync-runs` | `200`, the 50 most recent runs, newest first |
 | `GET` | `/api/integrations/jira/sync-runs/{id}` | `200`, one run, for polling |
+| `GET` | `/api/integrations/jira/issues` | `200`, synced work items, most recently updated first; optional exact-match `project`, `type`, `status`, `assignee` |
+| `GET` | `/api/integrations/jira/issues/{key}` | `200`, `{ "workItem", "body" }`; `404` if not synced, not yet indexed, or trashed |
 
 Jira failures return `503 JIRA_NOT_CONFIGURED` or `502 JIRA_UNAVAILABLE`. `/status` reports them in its body instead.
 

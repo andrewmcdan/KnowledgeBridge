@@ -43,15 +43,19 @@ public class JiraSyncService {
 
 	private final KnowledgeItemRepository items;
 
+	private final JiraWorkItemRepository workItems;
+
 	private final IngestionService ingestionService;
 
 	private final TaskExecutor executor;
 
 	public JiraSyncService(JiraClient jiraClient, JiraSyncRunRepository runs, KnowledgeItemRepository items,
-			IngestionService ingestionService, @Qualifier("jiraSyncExecutor") TaskExecutor executor) {
+			JiraWorkItemRepository workItems, IngestionService ingestionService,
+			@Qualifier("jiraSyncExecutor") TaskExecutor executor) {
 		this.jiraClient = jiraClient;
 		this.runs = runs;
 		this.items = items;
+		this.workItems = workItems;
 		this.ingestionService = ingestionService;
 		this.executor = executor;
 	}
@@ -119,7 +123,9 @@ public class JiraSyncService {
 	private JiraSyncOutcome sync(JiraIssue issue, long ownerId) {
 		try {
 			Optional<KnowledgeItem> existing = items.findByExternalSourceAndExternalKey(SOURCE, issue.key());
-			if (existing.filter(item -> isUnchanged(item, issue)).isPresent()) {
+			Optional<KnowledgeItem> unchanged = existing.filter(item -> isUnchanged(item, issue));
+			if (unchanged.isPresent()) {
+				workItems.save(JiraWorkItem.from(unchanged.get().getId(), issue));
 				return JiraSyncOutcome.UNCHANGED;
 			}
 			String title = JiraMarkdownConverter.title(issue);
@@ -133,6 +139,7 @@ public class JiraSyncService {
 				item.applyExternalUpdate(title, type, body, issue.browseUrl(), issue.updated());
 			}
 			item = items.save(item);
+			workItems.save(JiraWorkItem.from(item.getId(), issue));
 			ingestionService.ingest(item);
 			item = items.save(item);
 			if (item.getStatus() != KnowledgeItemStatus.COMPLETED) {

@@ -136,6 +136,10 @@ Successful `/api/query/search` and `/api/query/synthesize` requests record usage
 
 `GET /api/usage` returns `{scope,queryCount,inputTokens,outputTokens,totalTokens,cacheHits,estimatedQueryCount}`. Users see their own records; administrators see workspace totals. Scope comes from the verified JWT, never a supplied user id. Tracking starts at V11. Failed/unreported provider calls, ingestion, embedding, and earlier activity are excluded. An accounting database failure is logged without failing an already completed query; totals may then be incomplete.
 
+## Jira integration
+
+The Jira routes under `/api/integrations/jira` are in the [OpenAPI contract](./openapi.json). Status, projects, sync, and sync-run routes are admin only; `/issues` routes are open to any signed-in user and read local synced rows, not live Jira. Jira failures return `503 JIRA_NOT_CONFIGURED` or `502 JIRA_UNAVAILABLE`, never `401`. Setup variables are described in `.env.example`, and the design is in [Jira-Integration-Design.md](./Jira-Integration-Design.md).
+
 ## Integration status and migration history
 
 At the start of this change, remote `main` and `dylan-auth` pointed at `4d0b7f7`. `Adrian-dev` at `5b78f0f` and `frontend/ethan-ui` at `a0c03b4` were already ancestors of `dylan-auth`; neither contained additional commits to merge. No artificial merge commit is needed. Recheck remote tips before a later integration.

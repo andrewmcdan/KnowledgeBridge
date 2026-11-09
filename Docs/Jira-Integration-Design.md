@@ -99,6 +99,10 @@ Column names are source-agnostic so later integrations can reuse them.
 | `error_code`, `error_message` | Safe failure details; never credentials or document bodies |
 | `triggered_by` | User id of the admin who started the run |
 
+### `jira_work_item`
+
+One row per synced knowledge item, holding the structured fields the Jira View filters on: key, summary, project, type, status, priority, assignee, reporter, parent, Jira timestamps, and browse link. Every sync refreshes it, including for items whose page is unchanged. It's removed with its knowledge item.
+
 ## Document format
 
 Each work item becomes one knowledge item and one gbrain page:

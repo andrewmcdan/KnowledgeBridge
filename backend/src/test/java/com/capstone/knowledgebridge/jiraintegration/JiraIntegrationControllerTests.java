@@ -49,6 +49,8 @@ class JiraIntegrationControllerTests {
 
 	private static final String SYNC_RUNS = "/api/integrations/jira/sync-runs";
 
+	private static final String ISSUES = "/api/integrations/jira/issues";
+
 	@Container
 	@ServiceConnection
 	static final PostgreSQLContainer postgres = new PostgreSQLContainer(
@@ -138,6 +140,56 @@ class JiraIntegrationControllerTests {
 	}
 
 	@Test
+	void signedInUsersBrowseAndFilterSyncedWorkItems() throws Exception {
+		Instant older = Instant.parse("2026-11-01T00:00:00Z");
+		Instant newer = Instant.parse("2026-11-02T00:00:00Z");
+		JiraIssue first = view("VIEW-1", "Older item", "Task", "To Do", "Jane Doe", older);
+		JiraIssue second = view("VIEW-2", "Newer item", "Bug", "Done", null, newer);
+		when(jira.status()).thenReturn(new JiraConnectionStatus(true, true, null));
+		when(jira.searchIssues(any(), isNull())).thenReturn(new JiraSearchPage(List.of(first, second), null, true));
+		String admin = admin();
+		awaitCompleted(admin, startSync(admin, "VIEW"));
+		String user = token("user@acme.example", "user123");
+
+		mvc.perform(get(ISSUES).param("project", "VIEW").header("Authorization", user)).andExpect(status().isOk())
+				.andExpect(jsonPath("$.length()").value(2))
+				.andExpect(jsonPath("$[0].key").value("VIEW-2"))
+				.andExpect(jsonPath("$[1].summary").value("Older item"))
+				.andExpect(jsonPath("$[1].projectName").value("View Project"))
+				.andExpect(jsonPath("$[1].type").value("Task"))
+				.andExpect(jsonPath("$[1].priority").value("High"))
+				.andExpect(jsonPath("$[1].reporter").value("R"))
+				.andExpect(jsonPath("$[1].parentKey").value("VIEW-0"))
+				.andExpect(jsonPath("$[1].parentSummary").value("Epic"))
+				.andExpect(jsonPath("$[1].browseUrl").value("https://example.atlassian.net/browse/VIEW-1"));
+		assertKeys(user, "type", "Bug", "VIEW-2");
+		assertKeys(user, "status", "To Do", "VIEW-1");
+		assertKeys(user, "assignee", "Jane Doe", "VIEW-1");
+		mvc.perform(get(ISSUES).param("project", "VIEW").param("status", " ").header("Authorization", user))
+				.andExpect(jsonPath("$.length()").value(2));
+
+		mvc.perform(get(ISSUES + "/VIEW-1").header("Authorization", user)).andExpect(status().isOk())
+				.andExpect(jsonPath("$.workItem.key").value("VIEW-1"))
+				.andExpect(jsonPath("$.body").value(org.hamcrest.Matchers.containsString("# VIEW-1: Older item")));
+
+		jdbc.update("UPDATE knowledge_item SET lifecycle_state = 'INACTIVE' WHERE external_key = 'VIEW-1'");
+		mvc.perform(get(ISSUES + "/VIEW-1").header("Authorization", user)).andExpect(status().isNotFound());
+		mvc.perform(get(ISSUES).param("project", "VIEW").header("Authorization", user))
+				.andExpect(jsonPath("$.length()").value(1));
+	}
+
+	@Test
+	void workItemRoutesRequireSignIn() throws Exception {
+		mvc.perform(get(ISSUES)).andExpect(status().isUnauthorized());
+		mvc.perform(get(ISSUES + "/ACME-1")).andExpect(status().isUnauthorized());
+	}
+
+	@Test
+	void anUnsyncedWorkItemIsNotFound() throws Exception {
+		mvc.perform(get(ISSUES + "/NOPE-1").header("Authorization", admin())).andExpect(status().isNotFound());
+	}
+
+	@Test
 	void aSecondSyncOfAnActiveProjectConflicts() throws Exception {
 		when(jira.status()).thenReturn(new JiraConnectionStatus(true, true, null));
 		jdbc.update("""
@@ -163,10 +215,27 @@ class JiraIntegrationControllerTests {
 		assertFailure(admin, JiraErrorCode.UNAUTHORIZED, 502, "JIRA_UNAVAILABLE");
 	}
 
+	private void assertKeys(String user, String filter, String value, String key) throws Exception {
+		mvc.perform(get(ISSUES).param("project", "VIEW").param(filter, value).header("Authorization", user))
+				.andExpect(jsonPath("$.length()").value(1))
+				.andExpect(jsonPath("$[0].key").value(key));
+	}
+
+	private static JiraIssue view(String key, String summary, String type, String status, String assignee,
+			Instant updated) {
+		return new JiraIssue("1", key, summary, "VIEW", "View Project", type, status, "High", List.of(), assignee, "R",
+				"VIEW-0", "Epic", updated, updated, "Description", List.of(), 0, List.of(),
+				"https://example.atlassian.net/browse/" + key);
+	}
+
 	private long startSync(String admin) throws Exception {
-		String response = mvc.perform(post(PROJECTS + "/SYNC/sync").header("Authorization", admin))
+		return startSync(admin, "SYNC");
+	}
+
+	private long startSync(String admin, String project) throws Exception {
+		String response = mvc.perform(post(PROJECTS + "/" + project + "/sync").header("Authorization", admin))
 				.andExpect(status().isAccepted())
-				.andExpect(jsonPath("$.projectKey").value("SYNC"))
+				.andExpect(jsonPath("$.projectKey").value(project))
 				.andReturn().getResponse().getContentAsString();
 		return json.readTree(response).path("id").asLong();
 	}
