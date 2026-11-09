@@ -237,7 +237,7 @@ Verified against a live Jira Cloud site on 2026-11-09.
 - `responseContentFormat: "markdown"` returns descriptions and comments already converted from ADF.
 - `searchJiraIssuesUsingJql` returns only a compact field set by default and silently omits `description`, `parent`, `comment`, and `issuelinks`, even when requested. `view: "full"` returns all of them.
 - `view: "evidence"` returns descriptions and parents, but no comments or links in search.
-- Raw scrubbed payloads are in `backend/src/test/resources/jira/mcp/`. The `rest/` directory holds raw ADF responses for reference.
+- Raw scrubbed payloads are in `backend/src/test/resources/jira/mcp/`.
 
 **Seed data**
 
