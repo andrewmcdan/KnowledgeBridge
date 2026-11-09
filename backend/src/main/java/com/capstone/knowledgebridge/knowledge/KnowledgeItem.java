@@ -93,6 +93,19 @@ public class KnowledgeItem {
 	@Column(name = "external_engine_id")
 	private String externalEngineId;
 
+	// Identifies the external record this item was synced from; all null for uploads and manual notes.
+	@Column(name = "external_source", length = 32)
+	private String externalSource;
+
+	@Column(name = "external_key", length = 64)
+	private String externalKey;
+
+	@Column(name = "external_url", length = 512)
+	private String externalUrl;
+
+	@Column(name = "external_updated_at")
+	private Instant externalUpdatedAt;
+
 	@Column(name = "created_at", nullable = false)
 	private Instant createdAt;
 
@@ -147,6 +160,17 @@ public class KnowledgeItem {
 		item.originalFilename = originalFilename;
 		item.sourceContentType = sourceContentType;
 		item.sourceSha256 = sourceSha256;
+		return item;
+	}
+
+	/** An item synced from an external system such as Jira, which remains the source of truth for its content. */
+	public static KnowledgeItem external(String title, String type, Long ownerId, String bodyText,
+			KnowledgeSourceKind sourceKind, String externalKey, String externalUrl, Instant externalUpdatedAt) {
+		KnowledgeItem item = new KnowledgeItem(title, type, ownerId, bodyText, sourceKind);
+		item.externalSource = sourceKind.name();
+		item.externalKey = externalKey;
+		item.externalUrl = externalUrl;
+		item.externalUpdatedAt = externalUpdatedAt;
 		return item;
 	}
 
@@ -313,6 +337,22 @@ public class KnowledgeItem {
 
 	public String getExternalEngineId() {
 		return externalEngineId;
+	}
+
+	public String getExternalSource() {
+		return externalSource;
+	}
+
+	public String getExternalKey() {
+		return externalKey;
+	}
+
+	public String getExternalUrl() {
+		return externalUrl;
+	}
+
+	public Instant getExternalUpdatedAt() {
+		return externalUpdatedAt;
 	}
 
 	public Instant getCreatedAt() {

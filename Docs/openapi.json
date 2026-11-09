@@ -946,7 +946,8 @@
                             "MARKDOWN",
                             "DOCX",
                             "PDF",
-                            "VIDEO"
+                            "VIDEO",
+                            "JIRA"
                         ]
                     },
                     "characterCount": {

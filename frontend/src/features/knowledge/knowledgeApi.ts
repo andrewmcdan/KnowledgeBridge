@@ -29,7 +29,7 @@ export interface KnowledgeItem {
     lastErrorMessage: string | null;
     createdAt: string;
     updatedAt: string;
-    sourceKind: "MANUAL" | "MARKDOWN" | "DOCX" | "PDF" | "VIDEO";
+    sourceKind: "MANUAL" | "MARKDOWN" | "DOCX" | "PDF" | "VIDEO" | "JIRA";
 }
 
 export function getAuthorizationHeader(): Record<string, string> {
@@ -50,7 +50,7 @@ function isKnowledgeItem(value: unknown): value is KnowledgeItem {
         typeof item.title === "string" &&
         typeof item.type === "string" &&
         typeof item.ownerId === "number" &&
-        (item.sourceKind === "MANUAL" || item.sourceKind === "MARKDOWN" || item.sourceKind === "DOCX" || item.sourceKind === "PDF" || item.sourceKind === "VIDEO") &&
+        (item.sourceKind === "MANUAL" || item.sourceKind === "MARKDOWN" || item.sourceKind === "DOCX" || item.sourceKind === "PDF" || item.sourceKind === "VIDEO" || item.sourceKind === "JIRA") &&
         isIngestionStatus(item.status) &&
         (item.lifecycleState === "ACTIVE" || item.lifecycleState === "INACTIVE" || item.lifecycleState === "TRASH") &&
         (item.trashedFrom === "ACTIVE" || item.trashedFrom === "INACTIVE" || item.trashedFrom === null) &&
