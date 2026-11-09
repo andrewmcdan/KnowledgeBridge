@@ -137,8 +137,8 @@ def seed(dry_run):
         for link in seed_data['links']:
             jira.call('POST', '/rest/api/3/issueLink', {
                 'type': {'name': link['type']},
-                'inwardIssue': {'key': keys[link['to']]},
-                'outwardIssue': {'key': keys[link['from']]},
+                'inwardIssue': {'key': keys[link['from']]},
+                'outwardIssue': {'key': keys[link['to']]},
             })
         print(f'linked {len(seed_data["links"])} pairs')
     print(f'done: {created} created, {len(seed_data["items"]) - created} skipped or planned')
