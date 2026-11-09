@@ -175,6 +175,20 @@ public class KnowledgeItem {
 	}
 
 	/*--- Transition Methods ---*/
+	/** Replaces content with the external system's latest version and advances the revision gbrain indexes. */
+	public void applyExternalUpdate(String title, String type, String bodyText, String externalUrl,
+			Instant externalUpdatedAt) {
+		this.title = title;
+		this.type = type;
+		this.bodyText = bodyText;
+		this.characterCount = bodyText.length();
+		this.externalUrl = externalUrl;
+		this.externalUpdatedAt = externalUpdatedAt;
+		this.revision++;
+		this.contentUpdatedAt = Instant.now();
+		this.updatedAt = this.contentUpdatedAt;
+	}
+
 	public void requestAiTitle(boolean requested) {
 		this.aiTitleRequested = requested;
 	}

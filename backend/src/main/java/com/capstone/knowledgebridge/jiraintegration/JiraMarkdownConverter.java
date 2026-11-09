@@ -67,10 +67,16 @@ public final class JiraMarkdownConverter {
 		field(page, "Priority", issue.priority());
 		field(page, "Assignee", Objects.requireNonNullElse(issue.assignee(), "Unassigned"));
 		field(page, "Reporter", issue.reporter());
-		field(page, "Labels", String.join(", ", issue.labels()));
+		field(page, "Labels", String.join(", ", visibleLabels(issue)));
 		field(page, "Parent", parent(issue));
 		field(page, "Updated", date(issue.updated()));
 		field(page, "Link", issue.browseUrl());
+	}
+
+	/** The seed script's bookkeeping labels mean nothing to a reader or to the AI. */
+	private static List<String> visibleLabels(JiraIssue issue) {
+		return issue.labels().stream().filter(label -> !label.equals("kb-seed") && !label.startsWith("kbseed-"))
+				.toList();
 	}
 
 	private static String parent(JiraIssue issue) {

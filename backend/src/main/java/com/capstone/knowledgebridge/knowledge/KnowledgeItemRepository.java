@@ -15,6 +15,8 @@ public interface KnowledgeItemRepository extends JpaRepository<KnowledgeItem, Lo
 	@Query("select k from KnowledgeItem k where k.id = :id")
 	Optional<KnowledgeItem> findForLifecycle(long id);
 
+	Optional<KnowledgeItem> findByExternalSourceAndExternalKey(String externalSource, String externalKey);
+
 	List<KnowledgeItem> findBySourceKindAndStatusIn(KnowledgeSourceKind sourceKind,
 			Collection<KnowledgeItemStatus> statuses);
 }

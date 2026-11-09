@@ -67,6 +67,17 @@ class JiraMarkdownConverterTests {
 	}
 
 	@Test
+	void hidesSeedBookkeepingLabels() {
+		JiraIssue issue = new JiraIssue("1", "KB-1", "S", null, null, null, null, null,
+				List.of("kb-seed", "kbseed-cedar-epic", "cedar"), null, null, null, null, TIME, TIME, "", List.of(), 0,
+				List.of(), "https://example.atlassian.net/browse/KB-1");
+
+		assertThat(JiraMarkdownConverter.toMarkdown(issue, List.of())).contains("Labels: cedar  \n").doesNotContain(
+				"kb-seed",
+				"kbseed-");
+	}
+
+	@Test
 	void showsAParentWithoutASummaryByKey() {
 		assertThat(JiraMarkdownConverter.toMarkdown(issue("KB-1", "S", null, "KB-2", null, ""), List.of()))
 				.contains("Parent: KB-2  \n");
