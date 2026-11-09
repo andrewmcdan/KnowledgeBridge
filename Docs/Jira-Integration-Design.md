@@ -1,43 +1,37 @@
-# Jira integration design
+# Jira integration
 
 **Owner:** Adrian Edwards
-**Last updated:** 2026-11-05
+**Last updated:** 2026-11-09
+**Status:** Sync, Ask AI, the Jira View API, and an admin sync panel are implemented. The Jira View page and Knowledge Base source filter are not built yet.
 
 ## Overview
 
-KnowledgeBridge syncs Jira work items into gbrain as knowledge pages so Ask AI can search, synthesize, and cite them like any other document. A Jira View lets users browse synced work items and their details inside the app.
+KnowledgeBridge syncs Jira work items into gbrain as knowledge pages so Ask AI can search, synthesize, and cite them like any other document. Administrators start a sync from the Knowledge Base page. API routes serve synced work items for a future Jira View.
 
 Two backend packages carry the work:
 
 - `jira` talks to Jira.
-- `jiraintegration` syncs work items into the knowledge base and serves the Jira View.
+- `jiraintegration` syncs work items into the knowledge base and serves the API routes.
 
-## Goals
-
-- Ask AI answers questions about Jira work items with citations (for example, "per KB-42…").
-- Admins choose which Jira projects to sync and trigger a sync from the app.
-- Users browse synced work items without leaving the app.
-- All Jira communication stays behind one backend adapter, matching the `gbrain` boundary.
+The integration is off by default, so the application runs without a Jira site.
 
 ## Non-goals
 
 - Editing, creating, or transitioning Jira work items. Jira stays the source of truth.
 - Mirroring Jira permissions per user.
-- Real-time sync through webhooks.
+- Real-time sync through webhooks or scheduled sync.
 - Agentic, multi-step Jira reasoning at query time (see [Future work](#future-work)).
 
 ## Approach
 
 gbrain's `synthesize` tool accepts only `question`, `since`, and `until`. It gathers evidence from pages it already stores and cites only those pages, so Jira content must exist as gbrain pages before Ask AI can use it.
 
-KnowledgeBridge therefore copies each work item into gbrain as a Markdown page through the existing ingestion pipeline. Synced rows also back the Jira View, so users browse exactly what the AI knows.
-
-Jira is reached through Atlassian's Rovo MCP server (`https://mcp.atlassian.com/v2/mcp`) using HTTP Basic auth with an account email and a personal scoped API token. See [Stage 0 findings](#stage-0-findings) for its observed behavior.
+KnowledgeBridge therefore copies each work item into gbrain as a Markdown page through the existing ingestion pipeline. Jira is read through Atlassian's Rovo MCP server. See [Atlassian MCP behavior](#atlassian-mcp-behavior).
 
 ## Architecture
 
 ```text
-Frontend (Jira View, admin sync controls)
+Frontend (admin sync panel)
         │  /api/integrations/jira/**
         ▼
 jiraintegration ──► ingestion.IngestionService ──► gbrain adapter ──► gbrain
@@ -52,25 +46,29 @@ Talks to Jira and nothing else. It knows nothing about knowledge items or gbrain
 
 | Class | Responsibility |
 |---|---|
-| `JiraClient` | Interface: search work items, get one work item, list projects, check connection |
-| `McpJiraClient` | Real implementation over MCP; reuses the hand-built MCP transport pattern from `gbrain` (JSON-RPC, SSE framing, three error layers) instead of adding the MCP Java SDK |
-| `InMemoryJiraClient` | Test and offline implementation, matching `InMemoryGbrainClient` |
-| `JiraIssue`, `JiraProject`, `JiraComment` | Jira records returned by the client |
-| `JiraProperties` | Connection settings |
-| `JiraException`, `JiraErrorCode` | Typed failures, matching `GbrainException` |
+| `JiraClient` | Interface: list projects, search work items, get one work item, list comments, report connection status |
+| `McpJiraClient` | Implements `JiraClient` with Atlassian's MCP tools |
+| `JiraMcpTransport` | MCP over HTTP: Basic auth, session handling, error classification, and retries. It is separate from the gbrain transport and shares no code with it |
+| `JiraResponseMapper` | Converts Atlassian's JSON to application records |
+| `InMemoryJiraClient` | Fixed sample data for development and tests |
+| `JiraProperties`, `JiraConfiguration` | Validated settings and wiring |
+| `JiraException`, `JiraErrorCode` | The adapter's only failure type |
 
 ### `jiraintegration` package
 
 | Class | Responsibility |
 |---|---|
-| `JiraSyncService` | Pulls work items through `JiraClient`, creates or updates `KnowledgeItem` rows, and hands them to `IngestionService` |
-| `JiraMarkdownConverter` | Builds the document from the Markdown returned by the MCP server |
-| `JiraSyncRun`, `JiraSyncRunRepository` | Sync history and progress |
-| `JiraIntegrationController` | Sync routes and Jira View routes |
+| `JiraSyncService` | Runs background syncs and hands items to `IngestionService` |
+| `JiraMarkdownConverter` | Builds the title and Markdown page for one work item |
+| `JiraSyncRun` and repository | Sync history and progress |
+| `JiraWorkItem`, repository, and `JiraWorkItemService` | Structured fields for filtering, and work item reads |
+| `JiraIntegrationController` | The API routes |
 
 `JiraSyncService` never calls gbrain directly. Going through `IngestionService` keeps revision bumps, query-cache invalidation, retries, and attempt history working without new code.
 
 ## Data model
+
+Migrations `V15` and `V16` add the following.
 
 ### `knowledge_item` additions
 
@@ -85,7 +83,6 @@ Column names are source-agnostic so later integrations can reuse them.
 
 - A unique index on (`external_source`, `external_key`) prevents duplicates on re-sync.
 - `KnowledgeSourceKind` gains `JIRA`.
-- Jira items are read-only in KnowledgeBridge; manual-note editing already rejects non-manual items. Ingestion retry still applies.
 
 ### `jira_sync_run`
 
@@ -99,9 +96,11 @@ Column names are source-agnostic so later integrations can reuse them.
 | `error_code`, `error_message` | Safe failure details; never credentials or document bodies |
 | `triggered_by` | User id of the admin who started the run |
 
+A partial unique index allows only one `RUNNING` run per project, even if two requests race.
+
 ### `jira_work_item`
 
-One row per synced knowledge item, holding the structured fields the Jira View filters on: key, summary, project, type, status, priority, assignee, reporter, parent, Jira timestamps, and browse link. Every sync refreshes it, including for items whose page is unchanged. It's removed with its knowledge item.
+One row per synced knowledge item, holding the fields the API filters on: key, summary, project, type, status, priority, assignee, reporter, parent, Jira timestamps, and browse link. Every sync refreshes it, including for items whose page is unchanged. It's removed with its knowledge item.
 
 ## Document format
 
@@ -136,91 +135,106 @@ Link: https://example.atlassian.net/browse/KB-42
 
 - The `Projects:` line lets `EntityHints` create PROJECT entities.
 - Header lines end with two spaces so they render as separate lines. Newlines in Jira values are collapsed so a value can't add a header field of its own.
-- Named assignees and reporters give gbrain's person extractor material for PERSON entities.
-- The knowledge item `title` is `KB-42: <summary>`, and `type` is the Jira work item type, slugified as usual (`story`, `bug`).
-- All comments are included. Bodies stay under `GbrainDocument.MAX_BODY_BYTES` (1 MB); oldest comments are dropped first when a body would exceed it.
+- The knowledge item `title` is `KB-42: <summary>`, and `type` is the Jira work item type, or `work-item` when Jira omits it.
+- The seed script's `kb-seed` and `kbseed-*` labels are left out of the page.
+- All comments are included. Bodies stay under `GbrainDocument.MAX_BODY_BYTES` (1 MB); oldest comments are dropped first, and the page states how many.
 
 ## Sync behavior
 
-Syncs are manual; there is no scheduled sync.
+Syncs are manual, and each project can have only one running at a time.
 
-1. An admin starts a sync for one project. The API creates a `jira_sync_run` and returns `202` with its id.
-2. A background worker pages through `project = <KEY>`, ordered by `updated`.
-3. For each work item:
-   - No existing row: create a `KnowledgeItem` and ingest it.
-   - Existing row with an unchanged `external_updated_at`: count it as unchanged and skip it.
-   - Existing row with a newer `updated`: rebuild the body, bump the content revision, and reingest.
-4. A failed item increments `failed_count`; the run continues.
-5. The run ends `COMPLETED`, or `FAILED` if Jira becomes unreachable.
+1. An admin starts a sync. The API creates a `jira_sync_run` and returns `202`.
+2. A background thread pages through `project = "<KEY>" ORDER BY updated ASC`.
+3. For each work item, `jira_work_item` is refreshed and then:
 
-Only one run per project may be active at a time; a second request returns `409`.
+| Knowledge item state | Action | Counted as |
+|---|---|---|
+| None exists | Create and ingest | Created |
+| Trashed or deactivated | Leave it alone | Unchanged |
+| Completed, and Jira's `updated` matches | Skip | Unchanged |
+| Otherwise, including a failed last ingestion | Rebuild the page, advance the revision, and reingest | Updated |
+
+4. If the search returned only some comments, the sync fetches the complete list.
+5. A problem with one item adds to `failed_count`, and the run continues. A failure reaching Jira ends the run as `FAILED`; running it again skips what's already current.
+6. A run still active when the application restarts is marked `FAILED` with code `INTERRUPTED`.
+
+Each ingested item also runs gbrain's entity extraction, so a first sync makes one LLM call per work item.
+
+### Retries
+
+Every tool call the adapter makes is read-only, so repeating one is safe.
+
+- Rate limits and outages are retried up to `JIRA_RETRY_MAX_ATTEMPTS` times, honoring `Retry-After` and otherwise backing off from 500 ms.
+- If Jira asks for a wait longer than `JIRA_RETRY_MAX_BACKOFF`, the call fails instead of blocking.
+- Authentication failures and timeouts are not retried.
 
 ## API
 
-All routes are under `/api/integrations/jira` and require a bearer token.
+All routes are under `/api/integrations/jira` and require a bearer token. They're in [`openapi.json`](./openapi.json).
 
 | Method | Path | Role | Success |
 |---|---|---|---|
 | `GET` | `/status` | Admin | `200`, whether Jira is configured and reachable |
 | `GET` | `/projects` | Admin | `200`, live Jira project list |
-| `POST` | `/projects/{key}/sync` | Admin | `202`, the new sync run |
-| `GET` | `/sync-runs` | Admin | `200`, sync history, newest first |
+| `POST` | `/projects/{key}/sync` | Admin | `202`, the new sync run; `400` for an invalid key; `409` if already running |
+| `GET` | `/sync-runs` | Admin | `200`, the 50 most recent runs |
 | `GET` | `/sync-runs/{id}` | Admin | `200`, one run, for polling |
-| `GET` | `/issues` | User | `200`, synced work items, filterable by project, type, status, and assignee |
-| `GET` | `/issues/{key}` | User | `200`, one synced work item |
+| `GET` | `/issues` | User | `200`, synced work items, with optional exact-match `project`, `type`, `status`, and `assignee` filters |
+| `GET` | `/issues/{key}` | User | `200`, one work item and its Markdown page |
 
-Errors use the shared `{ "code", "message" }` shape. Jira failures map to `502` (`JIRA_UNAVAILABLE`) or `503` (`JIRA_NOT_CONFIGURED`).
+`/issues` routes read local rows, not live Jira, and show only indexed, active items. Errors use the shared `{ "code", "message" }` shape. Jira failures return `502` (`JIRA_UNAVAILABLE`) or `503` (`JIRA_NOT_CONFIGURED`), never `401`, so a Jira credential problem doesn't sign a user out.
 
 ## Frontend
 
-- **Jira View:** a page listing synced work items with filters and a details panel with an "Open in Jira" link.
-- **Admin sync controls:** connection status, a project picker, a "Sync now" button, and sync history.
-- **Knowledge Base:** a source filter or badge so Jira items don't bury uploaded documents.
-- **Ask AI:** citations to Jira items show the work item key and link to Jira.
+Implemented:
 
-## Configuration
+- **Admin sync panel** on the Knowledge Base page (`JiraSyncPanel.tsx`, `jiraSyncApi.ts`): a project picker, a **Sync Jira** button, and the progress or last result. It's hidden from non-admins and when Jira isn't configured or reachable.
+- **`JIRA` source kind** accepted by the knowledge item validator.
+- **Jira row** in the Dashboard's Document Types panel.
 
-Added to `.env` and `.env.example` with comments:
+Not built:
 
-| Variable | Purpose |
-|---|---|
-| `JIRA_ENABLED` | Turns the integration on; defaults to `false` |
-| `JIRA_MODE` | `mcp` or `in-memory`, matching `GBRAIN_MODE` |
-| `JIRA_MCP_URL` | Atlassian MCP endpoint |
-| `JIRA_EMAIL` | Atlassian account email for Basic auth |
-| `JIRA_API_TOKEN` | Atlassian API token; never committed or logged |
-| `JIRA_CLOUD_ID` | Jira site cloud id required by the MCP tools |
-| `JIRA_SITE_URL` | `https://<site>.atlassian.net`, used to build browse links |
+- The Jira View page.
+- A Knowledge Base source filter or badge. Jira items are listed with other documents.
+- Links from Ask AI citations to Jira. Citations open the stored page.
 
-## Implementation stages
+## Setup
 
-Each stage ends in a reviewable pull request and leaves the app working.
+1. An organization admin turns on API token authentication under Atlassian Administration → Connectors → Atlassian MCP server → Authentication.
+2. Create a personal API token with scopes at id.atlassian.com, with `search:jira:agent-interface` and `read:jira:agent-interface`.
+3. Set the variables below in the root `.env`. The site's cloud id is at `<site>/_edge/tenant_info`.
 
-### Stage 0: Spike
+| Variable | Purpose | Default |
+|---|---|---|
+| `JIRA_ENABLED` | Turns the integration on | `false` |
+| `JIRA_MODE` | `mcp`, or `in-memory` for fixed sample work items | `mcp` |
+| `JIRA_MCP_URL` | Atlassian MCP endpoint | `https://mcp.atlassian.com/v2/mcp` |
+| `JIRA_SITE_URL` | `https://<site>.atlassian.net`, used to build browse links | none |
+| `JIRA_EMAIL` | Atlassian account email for Basic auth | none |
+| `JIRA_API_TOKEN` | The scoped API token; never committed or logged | none |
+| `JIRA_CLOUD_ID` | Jira site cloud id required by the MCP tools | none |
+| `JIRA_RETRY_MAX_ATTEMPTS` | Attempts per call, including the first | `4` |
+| `JIRA_RETRY_MAX_BACKOFF` | Longest wait allowed before giving up | `PT30S` |
 
-- Create a free Jira Cloud site and an API token, and find the site's cloud id.
-- Call `tools/list` on the Atlassian MCP server and record the tools and parameters.
-- Confirm how `searchJiraIssuesUsingJql` paginates.
-- Capture real work item responses, including ADF descriptions and comments, as test fixtures.
-- Seed the site with work items that line up with the `synthetic-data` corpus.
+`JIRA_CONNECT_TIMEOUT`, `JIRA_READ_TIMEOUT`, `JIRA_MAX_RESPONSE_SIZE`, and `JIRA_PAGE_SIZE` are optional for host-run backends and aren't passed through Compose.
 
-**Done when:** the tool list, pagination behavior, and fixtures are recorded in this document.
+### Test data
 
-#### Stage 0 findings
+`synthetic-data/tools/seed_jira.py` creates 22 work items from `synthetic-data/jira/acme-jira-seed.json`, matching the people and projects in the synthetic corpus. The target project must already exist. The script needs an unscoped token with write access to the site's REST API, so it won't run with the read-only token above. Assignees and reporters are the site owner because the Acme people aren't Jira users; their names appear in descriptions and comments.
 
-Verified against a live Jira Cloud site on 2026-11-09.
+## Atlassian MCP behavior
+
+Observed against a live Jira Cloud site on 2026-11-09.
 
 **Access**
 
-- An organization admin must turn on API token authentication under Atlassian Administration → Connectors → Atlassian MCP server → Authentication.
-- The token must be a personal API token with scopes, created at id.atlassian.com. Unscoped tokens fail with a missing-scope error, and a key beginning `ATCTT` was rejected as `invalid_token`.
-- Required scopes: `search:jira:agent-interface` for search, and `read:jira:agent-interface` for work items, comments, and projects.
-- `initialize` and `tools/list` succeed even when tool calls are refused, so a connection check must call a real tool.
+- Unscoped tokens fail with a missing-scope error, and an admin-console key beginning `ATCTT` was rejected as `invalid_token`.
+- `initialize` and `tools/list` succeed even when tool calls are refused, so the connection check calls a real tool.
 
 **Protocol**
 
 - Responses are SSE-framed. Results are a JSON string inside `content[0].text`, with the payload under `data`.
-- The server issues an `Mcp-Session-Id` on `initialize` and requires it on later calls; without it the request fails with HTTP 400 (`-32600`). The gbrain transport does not send this header, so it must be added for Jira.
+- The server issues an `Mcp-Session-Id` on `initialize` and requires it on later calls; without it the request fails with HTTP 400 (`-32600`).
 - Authentication failures are HTTP 401 with `{"error":"invalid_token"}`, not SSE. Permission and scope failures are HTTP 200 with `isError: true` and a `statusCode` inside the text.
 
 **Tools used**
@@ -230,76 +244,23 @@ Verified against a live Jira Cloud site on 2026-11-09.
 | Search | `searchJiraIssuesUsingJql` | Pages with `nextPageToken` until `isLast` is true; no total |
 | One work item | `getJiraIssue` | `view: "evidence"` reports only the comment count; the tool embeds at most 20 comments |
 | Comments | `listJiraIssueComments` | Pages with `startAt` until `isLast` is true; 100 per page at most |
-| Projects | `executeRead` with `name: listJiraProjects` | Returns `values`, `isLast`, `total`, and `startAt` |
+| Projects | `executeRead` with `name: listJiraProjects` | Pages with `startAt`; returns `values` and `isLast` |
 
 **Content**
 
 - `responseContentFormat: "markdown"` returns descriptions and comments already converted from ADF.
-- `searchJiraIssuesUsingJql` returns only a compact field set by default and silently omits `description`, `parent`, `comment`, and `issuelinks`, even when requested. `view: "full"` returns all of them.
-- `view: "evidence"` returns descriptions and parents, but no comments or links in search.
-- Raw scrubbed payloads are in `backend/src/test/resources/jira/mcp/`.
+- `searchJiraIssuesUsingJql` returns only a compact field set by default and silently omits `description`, `parent`, `comment`, and `issuelinks`, even when requested. The adapter passes `view: "full"`.
+- Scrubbed payloads are in `backend/src/test/resources/jira/mcp/`.
 
-**Seed data**
+## Verification
 
-`synthetic-data/tools/seed_jira.py` needs an unscoped token with write access to the site's REST API, so it won't run with the read-only token above. The `ACME` project holds 22 seeded work items. Assignees and reporters are the site owner because the Acme people aren't Jira users; their names appear in descriptions and comments.
+`JiraLiveTests` checks the adapter and routes against a real site and is excluded from `check`. From `backend`, with the root `.env` exported and Docker running:
 
-### Stage 1: `jira` adapter
+```bash
+JIRA_ENABLED=true ./gradlew liveTest --tests '*JiraLiveTests'
+```
 
-- `JiraClient`, `InMemoryJiraClient`, `McpJiraClient`, `JiraProperties`, and typed errors.
-- Configuration variables in `.env.example` and `application.properties`.
-- `GET /status` and `GET /projects`.
-
-**Done when:** both routes work against the real site and against `JIRA_MODE=in-memory`, with tests.
-
-### Stage 2: Data model
-
-- Migration adding the `external_*` columns, the unique index, and `jira_sync_run`.
-- `JIRA` in `KnowledgeSourceKind`; entity fields on `KnowledgeItem`.
-
-**Done when:** the migration applies cleanly to an existing database and existing tests pass.
-
-### Stage 3: Converter
-
-- `JiraMarkdownConverter`: builds the document from the Markdown the MCP server returns, adding the header block. No ADF parsing is needed.
-- Size limiting by dropping the oldest comments.
-
-**Done when:** unit tests pass against the Stage 0 fixtures.
-
-### Stage 4: Sync
-
-- `JiraSyncService`, the background worker, and sync run tracking.
-- `POST /projects/{key}/sync`, `GET /sync-runs`, and `GET /sync-runs/{id}`.
-
-**Done when:** syncing a seeded project creates completed knowledge items, a second sync reports them unchanged, and Ask AI cites a Jira item.
-
-### Stage 5: Jira View API
-
-- `GET /issues` with filters and `GET /issues/{key}`, read from synced rows.
-- OpenAPI, `API-Routes.md`, and `Integration-and-authentication.md` updates.
-
-**Done when:** both routes return synced data with tests and documentation.
-
-### Stage 6: Frontend
-
-- Admin sync controls.
-- Jira View page and navigation entry.
-- Knowledge Base source filter or badge, and Jira links on Ask AI citations.
-
-**Done when:** each flow is verified in a browser against a synced project.
-
-### Stage 7: Evaluation
-
-- Add Jira-sourced questions to the LLM-as-judge set with the evaluation team.
-
-**Done when:** Jira questions run in the evaluation suite.
-
-## Open decisions
-
-| Decision | Options | Needed by |
-|---|---|---|
-| Knowledge Base treatment | Filter, badge, or hide Jira items | Stage 6 |
-| Navigation placement | New nav item, Uploads tab, or Admin | Stage 6 |
-| Dashboard card | "Last synced / N items" card, coordinated with the dashboard owner | Stage 6 |
+It requires the seeded `ACME` project.
 
 ## Known limitations
 
@@ -307,9 +268,24 @@ Verified against a live Jira Cloud site on 2026-11-09.
 - Answers reflect the last sync, not live Jira state.
 - Synced items are read-only in KnowledgeBridge.
 - Work items deleted in Jira remain in KnowledgeBridge and gbrain, because a sync can't detect them.
+- A work item permanently deleted in KnowledgeBridge returns on the next sync.
+- Link-only edits in Jira may not change a work item's `updated` time, so its page can keep old links until another edit.
+- gbrain's person extractor can mistake header values such as "In Progress" and "To Do" for people.
+- `/issues` isn't paginated.
+- Retry behavior has been tested only against a simulated rate limit.
+- A stack with synced Jira items gives the corpus evaluation extra facts, so evaluations should run without them.
+
+## Open decisions
+
+| Decision | Options |
+|---|---|
+| Jira View placement | New nav item, Uploads tab, or Admin |
+| Knowledge Base treatment | Filter, badge, or hide Jira items |
+| Dashboard card | "Last synced / N items" card, coordinated with the dashboard owner |
+| Evaluation | Add Jira-sourced questions to the LLM-as-judge set |
 
 ## Future work
 
-- An agentic query layer (for example, a LangGraph service behind `/api`) that uses gbrain and Jira as MCP tools for multi-step reasoning. It lives outside gbrain, which is pinned to an upstream revision.
+- An agentic query layer (for example, a LangGraph service behind `/api`) that uses gbrain and Jira as MCP tools for multi-step reasoning. It would live outside gbrain, which is pinned to an upstream revision.
 - Webhook-driven sync once the app has a public URL.
 - Confluence or other sources reusing the `external_*` columns.
