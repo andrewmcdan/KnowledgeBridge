@@ -119,7 +119,11 @@ Link: https://example.atlassian.net/browse/KB-42
 
 ## Description
 
-…converted from ADF…
+…Markdown from the MCP server…
+
+## Links
+
+- blocks KB-43
 
 ## Comments
 
@@ -127,6 +131,7 @@ Link: https://example.atlassian.net/browse/KB-42
 ```
 
 - The `Projects:` line lets `EntityHints` create PROJECT entities.
+- Header lines end with two spaces so they render as separate lines. Newlines in Jira values are collapsed so a value can't add a header field of its own.
 - Named assignees and reporters give gbrain's person extractor material for PERSON entities.
 - The knowledge item `title` is `KB-42: <summary>`, and `type` is the Jira work item type, slugified as usual (`story`, `bug`).
 - All comments are included. Bodies stay under `GbrainDocument.MAX_BODY_BYTES` (1 MB); oldest comments are dropped first when a body would exceed it.

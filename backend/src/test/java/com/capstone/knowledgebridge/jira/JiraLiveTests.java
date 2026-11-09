@@ -24,6 +24,7 @@ import org.testcontainers.utility.DockerImageName;
 
 import com.capstone.knowledgebridge.jira.model.JiraIssue;
 import com.capstone.knowledgebridge.jira.model.JiraSearchPage;
+import com.capstone.knowledgebridge.jiraintegration.JiraMarkdownConverter;
 
 import tools.jackson.databind.json.JsonMapper;
 
@@ -91,6 +92,8 @@ class JiraLiveTests {
 		assertThat(jira.listComments("ACME-5")).hasSize(1);
 		assertThat(jira.getIssue("ACME-5")).isPresent();
 		assertThat(jira.getIssue("ACME-99999")).isEmpty();
+		assertThat(JiraMarkdownConverter.toMarkdown(drill, drill.comments())).contains("Projects: Acme Delivery",
+				"- blocks ACME-6", "## Comments");
 	}
 
 }
