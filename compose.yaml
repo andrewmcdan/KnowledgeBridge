@@ -57,6 +57,16 @@ services:
       GBRAIN_EXTRACTION_OAUTH_CLIENT_ID: ${GBRAIN_EXTRACTION_OAUTH_CLIENT_ID:-}
       GBRAIN_EXTRACTION_OAUTH_CLIENT_SECRET: ${GBRAIN_EXTRACTION_OAUTH_CLIENT_SECRET:-}
       GBRAIN_OAUTH_TOKEN_URL: http://gbrain:3131/token
+      # Consumed by the backend Jira adapter (knowledgebridge.jira.*).
+      JIRA_ENABLED: ${JIRA_ENABLED:-false}
+      JIRA_MODE: ${JIRA_MODE:-mcp}
+      JIRA_MCP_URL: ${JIRA_MCP_URL:-https://mcp.atlassian.com/v2/mcp}
+      JIRA_SITE_URL: ${JIRA_SITE_URL:-}
+      JIRA_EMAIL: ${JIRA_EMAIL:-}
+      JIRA_API_TOKEN: ${JIRA_API_TOKEN:-}
+      JIRA_CLOUD_ID: ${JIRA_CLOUD_ID:-}
+      JIRA_RETRY_MAX_ATTEMPTS: ${JIRA_RETRY_MAX_ATTEMPTS:-4}
+      JIRA_RETRY_MAX_BACKOFF: ${JIRA_RETRY_MAX_BACKOFF:-PT30S}
     depends_on:
       postgres:
         condition: service_healthy

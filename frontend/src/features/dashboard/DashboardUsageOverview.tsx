@@ -414,6 +414,7 @@ function DocumentTypesPanel({ items }: { items: KnowledgeItem[] }) {
         ["DOCX", "DOCX"],
         ["PDF", "PDF"],
         ["MANUAL", "Manual notes"],
+        ["JIRA", "Jira"],
     ];
     const ingested = items.filter((item) => item.status === "COMPLETED");
     const total = ingested.length;

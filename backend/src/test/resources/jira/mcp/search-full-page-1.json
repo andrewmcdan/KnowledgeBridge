@@ -1,0 +1,1144 @@
+{
+    "data": {
+        "issues": [
+            {
+                "id": "10006",
+                "key": "ACME-1",
+                "fields": {
+                    "summary": "Project Cedar: Atlas approval reliability",
+                    "issuetype": {
+                        "id": "10000",
+                        "description": "A big user story that needs to be broken down. Created by Jira Software - do not edit or delete.",
+                        "name": "Epic",
+                        "subtask": false,
+                        "hierarchyLevel": 1
+                    },
+                    "created": "2026-11-05T17:37:50.849-0500",
+                    "description": "Project Cedar improves the reliability and auditability of Atlas approval workflows.\n\n* Executive sponsor: Priya Shah\n* Delivery lead: Theo Park\n* Approved envelope: $48,000\n\n## Release gates\n\n* Passing approval-path regression tests\n* No open tenant-isolation finding\n* An accepted rollback drill\n* Joint Engineering and IT Operations readiness approval\n\nSource of truth for status is the latest steering snapshot (ACME-023), not this epic.",
+                    "reporter": {
+                        "accountId": "000000:00000000-0000-0000-0000-000000000000",
+                        "emailAddress": "test.user@example.com",
+                        "displayName": "Test User",
+                        "active": true,
+                        "timeZone": "America/New_York",
+                        "accountType": "atlassian"
+                    },
+                    "comment": {
+                        "comments": [
+                            {
+                                "id": "10000",
+                                "author": {
+                                    "accountId": "000000:00000000-0000-0000-0000-000000000000",
+                                    "emailAddress": "test.user@example.com",
+                                    "displayName": "Test User",
+                                    "active": true,
+                                    "timeZone": "America/New_York",
+                                    "accountType": "atlassian"
+                                },
+                                "body": "Sept 4 snapshot: Cedar is amber. Rollout forecast moved from September 15 to September 22, 2026; Priya approved the revised forecast at the September 3 steering meeting.",
+                                "updateAuthor": {
+                                    "accountId": "000000:00000000-0000-0000-0000-000000000000",
+                                    "emailAddress": "test.user@example.com",
+                                    "displayName": "Test User",
+                                    "active": true,
+                                    "timeZone": "America/New_York",
+                                    "accountType": "atlassian"
+                                },
+                                "created": "2026-11-05T17:37:51.779-0500",
+                                "updated": "2026-11-05T17:37:51.779-0500",
+                                "jsdPublic": true
+                            }
+                        ],
+                        "maxResults": 1,
+                        "total": 1,
+                        "startAt": 0
+                    },
+                    "issuelinks": [],
+                    "assignee": null,
+                    "priority": {
+                        "name": "High",
+                        "id": "2"
+                    },
+                    "updated": "2026-11-05T17:37:52.528-0500",
+                    "labels": [
+                        "atlas",
+                        "cedar",
+                        "kb-seed",
+                        "kbseed-cedar-epic"
+                    ],
+                    "status": {
+                        "description": "This work item is being actively worked on at the moment by the assignee.",
+                        "name": "In Progress",
+                        "id": "3",
+                        "statusCategory": {
+                            "id": 4,
+                            "key": "indeterminate",
+                            "colorName": "yellow",
+                            "name": "In Progress"
+                        }
+                    }
+                }
+            },
+            {
+                "id": "10007",
+                "key": "ACME-2",
+                "fields": {
+                    "summary": "Tenant-scoped idempotency key for approval notifications",
+                    "issuetype": {
+                        "id": "10007",
+                        "description": "Stories track functionality or features expressed as user goals.",
+                        "name": "Story",
+                        "subtask": false,
+                        "hierarchyLevel": 0
+                    },
+                    "parent": {
+                        "id": "10006",
+                        "key": "ACME-1",
+                        "fields": {
+                            "summary": "Project Cedar: Atlas approval reliability",
+                            "status": {
+                                "description": "This work item is being actively worked on at the moment by the assignee.",
+                                "name": "In Progress",
+                                "id": "3",
+                                "statusCategory": {
+                                    "id": 4,
+                                    "key": "indeterminate",
+                                    "colorName": "yellow",
+                                    "name": "In Progress"
+                                }
+                            },
+                            "priority": {
+                                "name": "High",
+                                "id": "2"
+                            },
+                            "issuetype": {
+                                "id": "10000",
+                                "description": "A big user story that needs to be broken down. Created by Jira Software - do not edit or delete.",
+                                "name": "Epic",
+                                "subtask": false,
+                                "hierarchyLevel": 1
+                            }
+                        }
+                    },
+                    "created": "2026-11-05T17:37:53.074-0500",
+                    "description": "Implement the tenant-scoped idempotent delivery decision from ADR-001 so a retried approval event cannot notify the same approver twice.\n\nFollow-up to INC-2026-02 (duplicate approval notifications).\n\n## Acceptance\n\n* The idempotency key includes the tenant identifier\n* Component review passed\n\n",
+                    "reporter": {
+                        "accountId": "000000:00000000-0000-0000-0000-000000000000",
+                        "emailAddress": "test.user@example.com",
+                        "displayName": "Test User",
+                        "active": true,
+                        "timeZone": "America/New_York",
+                        "accountType": "atlassian"
+                    },
+                    "priority": {
+                        "name": "High",
+                        "id": "2"
+                    },
+                    "labels": [
+                        "adr-001",
+                        "atlas",
+                        "cedar",
+                        "kb-seed",
+                        "kbseed-cedar-idempotency"
+                    ],
+                    "comment": {
+                        "comments": [
+                            {
+                                "id": "10001",
+                                "author": {
+                                    "accountId": "000000:00000000-0000-0000-0000-000000000000",
+                                    "emailAddress": "test.user@example.com",
+                                    "displayName": "Test User",
+                                    "active": true,
+                                    "timeZone": "America/New_York",
+                                    "accountType": "atlassian"
+                                },
+                                "body": "Component review passed. Retry regression evidence is tracked separately in the Cedar retry regression task.",
+                                "updateAuthor": {
+                                    "accountId": "000000:00000000-0000-0000-0000-000000000000",
+                                    "emailAddress": "test.user@example.com",
+                                    "displayName": "Test User",
+                                    "active": true,
+                                    "timeZone": "America/New_York",
+                                    "accountType": "atlassian"
+                                },
+                                "created": "2026-11-05T17:37:53.803-0500",
+                                "updated": "2026-11-05T17:37:53.803-0500",
+                                "jsdPublic": true
+                            }
+                        ],
+                        "maxResults": 1,
+                        "total": 1,
+                        "startAt": 0
+                    },
+                    "issuelinks": [],
+                    "assignee": null,
+                    "updated": "2026-11-05T17:37:54.574-0500",
+                    "status": {
+                        "description": "",
+                        "name": "Done",
+                        "id": "10005",
+                        "statusCategory": {
+                            "id": 3,
+                            "key": "done",
+                            "colorName": "green",
+                            "name": "Done"
+                        }
+                    }
+                }
+            },
+            {
+                "id": "10008",
+                "key": "ACME-3",
+                "fields": {
+                    "summary": "Clearer approval-history view",
+                    "issuetype": {
+                        "id": "10007",
+                        "description": "Stories track functionality or features expressed as user goals.",
+                        "name": "Story",
+                        "subtask": false,
+                        "hierarchyLevel": 0
+                    },
+                    "parent": {
+                        "id": "10006",
+                        "key": "ACME-1",
+                        "fields": {
+                            "summary": "Project Cedar: Atlas approval reliability",
+                            "status": {
+                                "description": "This work item is being actively worked on at the moment by the assignee.",
+                                "name": "In Progress",
+                                "id": "3",
+                                "statusCategory": {
+                                    "id": 4,
+                                    "key": "indeterminate",
+                                    "colorName": "yellow",
+                                    "name": "In Progress"
+                                }
+                            },
+                            "priority": {
+                                "name": "High",
+                                "id": "2"
+                            },
+                            "issuetype": {
+                                "id": "10000",
+                                "description": "A big user story that needs to be broken down. Created by Jira Software - do not edit or delete.",
+                                "name": "Epic",
+                                "subtask": false,
+                                "hierarchyLevel": 1
+                            }
+                        }
+                    },
+                    "created": "2026-11-05T17:37:55.123-0500",
+                    "description": "Give workflow administrators a clearer approval-history view. Customer-facing workflow rules must remain backward compatible.",
+                    "reporter": {
+                        "accountId": "000000:00000000-0000-0000-0000-000000000000",
+                        "emailAddress": "test.user@example.com",
+                        "displayName": "Test User",
+                        "active": true,
+                        "timeZone": "America/New_York",
+                        "accountType": "atlassian"
+                    },
+                    "priority": {
+                        "name": "Medium",
+                        "id": "3"
+                    },
+                    "labels": [
+                        "atlas",
+                        "cedar",
+                        "kb-seed",
+                        "kbseed-cedar-history-view"
+                    ],
+                    "comment": {
+                        "comments": [
+                            {
+                                "id": "10002",
+                                "author": {
+                                    "accountId": "000000:00000000-0000-0000-0000-000000000000",
+                                    "emailAddress": "test.user@example.com",
+                                    "displayName": "Test User",
+                                    "active": true,
+                                    "timeZone": "America/New_York",
+                                    "accountType": "atlassian"
+                                },
+                                "body": "Approval-history interface passed its component review. Three pilot workspaces completed the basic approval path.",
+                                "updateAuthor": {
+                                    "accountId": "000000:00000000-0000-0000-0000-000000000000",
+                                    "emailAddress": "test.user@example.com",
+                                    "displayName": "Test User",
+                                    "active": true,
+                                    "timeZone": "America/New_York",
+                                    "accountType": "atlassian"
+                                },
+                                "created": "2026-11-05T17:37:55.810-0500",
+                                "updated": "2026-11-05T17:37:55.810-0500",
+                                "jsdPublic": true
+                            }
+                        ],
+                        "maxResults": 1,
+                        "total": 1,
+                        "startAt": 0
+                    },
+                    "issuelinks": [],
+                    "assignee": null,
+                    "updated": "2026-11-05T17:37:56.413-0500",
+                    "status": {
+                        "description": "",
+                        "name": "Done",
+                        "id": "10005",
+                        "statusCategory": {
+                            "id": 3,
+                            "key": "done",
+                            "colorName": "green",
+                            "name": "Done"
+                        }
+                    }
+                }
+            },
+            {
+                "id": "10009",
+                "key": "ACME-4",
+                "fields": {
+                    "summary": "Retry regression evidence for duplicate notification delivery",
+                    "issuetype": {
+                        "id": "10008",
+                        "description": "A small, distinct piece of work.",
+                        "name": "Task",
+                        "subtask": false,
+                        "hierarchyLevel": 0
+                    },
+                    "parent": {
+                        "id": "10006",
+                        "key": "ACME-1",
+                        "fields": {
+                            "summary": "Project Cedar: Atlas approval reliability",
+                            "status": {
+                                "description": "This work item is being actively worked on at the moment by the assignee.",
+                                "name": "In Progress",
+                                "id": "3",
+                                "statusCategory": {
+                                    "id": 4,
+                                    "key": "indeterminate",
+                                    "colorName": "yellow",
+                                    "name": "In Progress"
+                                }
+                            },
+                            "priority": {
+                                "name": "High",
+                                "id": "2"
+                            },
+                            "issuetype": {
+                                "id": "10000",
+                                "description": "A big user story that needs to be broken down. Created by Jira Software - do not edit or delete.",
+                                "name": "Epic",
+                                "subtask": false,
+                                "hierarchyLevel": 1
+                            }
+                        }
+                    },
+                    "created": "2026-11-05T17:37:56.983-0500",
+                    "description": "Owner: Theo Park\n\nProduce regression evidence that retried deliveries do not send duplicate approval notifications. This is a Cedar release gate and must close before the joint Engineering and IT Operations readiness decision.",
+                    "reporter": {
+                        "accountId": "000000:00000000-0000-0000-0000-000000000000",
+                        "emailAddress": "test.user@example.com",
+                        "displayName": "Test User",
+                        "active": true,
+                        "timeZone": "America/New_York",
+                        "accountType": "atlassian"
+                    },
+                    "priority": {
+                        "name": "Highest",
+                        "id": "1"
+                    },
+                    "labels": [
+                        "cedar",
+                        "kb-seed",
+                        "kbseed-cedar-retry-regression",
+                        "release-gate"
+                    ],
+                    "comment": {
+                        "comments": [
+                            {
+                                "id": "10003",
+                                "author": {
+                                    "accountId": "000000:00000000-0000-0000-0000-000000000000",
+                                    "emailAddress": "test.user@example.com",
+                                    "displayName": "Test User",
+                                    "active": true,
+                                    "timeZone": "America/New_York",
+                                    "accountType": "atlassian"
+                                },
+                                "body": "Two of the three planned retry scenarios pass in staging. The third, a retry after a partial tenant failover, still needs a test fixture. Theo Park",
+                                "updateAuthor": {
+                                    "accountId": "000000:00000000-0000-0000-0000-000000000000",
+                                    "emailAddress": "test.user@example.com",
+                                    "displayName": "Test User",
+                                    "active": true,
+                                    "timeZone": "America/New_York",
+                                    "accountType": "atlassian"
+                                },
+                                "created": "2026-11-05T17:37:58.084-0500",
+                                "updated": "2026-11-05T17:37:58.084-0500",
+                                "jsdPublic": true
+                            },
+                            {
+                                "id": "10004",
+                                "author": {
+                                    "accountId": "000000:00000000-0000-0000-0000-000000000000",
+                                    "emailAddress": "test.user@example.com",
+                                    "displayName": "Test User",
+                                    "active": true,
+                                    "timeZone": "America/New_York",
+                                    "accountType": "atlassian"
+                                },
+                                "body": "Reminder: a passing component review is not the same as this regression gate. Keep them separate in the steering report.",
+                                "updateAuthor": {
+                                    "accountId": "000000:00000000-0000-0000-0000-000000000000",
+                                    "emailAddress": "test.user@example.com",
+                                    "displayName": "Test User",
+                                    "active": true,
+                                    "timeZone": "America/New_York",
+                                    "accountType": "atlassian"
+                                },
+                                "created": "2026-11-05T17:37:58.501-0500",
+                                "updated": "2026-11-05T17:37:58.501-0500",
+                                "jsdPublic": true
+                            }
+                        ],
+                        "maxResults": 2,
+                        "total": 2,
+                        "startAt": 0
+                    },
+                    "issuelinks": [
+                        {
+                            "id": "10000",
+                            "type": {
+                                "id": "10000",
+                                "name": "Blocks",
+                                "inward": "is blocked by",
+                                "outward": "blocks"
+                            },
+                            "inwardIssue": {
+                                "id": "10011",
+                                "key": "ACME-6",
+                                "fields": {
+                                    "summary": "Joint Engineering and IT Operations readiness decision",
+                                    "status": {
+                                        "description": "",
+                                        "name": "To Do",
+                                        "id": "10004",
+                                        "statusCategory": {
+                                            "id": 2,
+                                            "key": "new",
+                                            "colorName": "blue-gray",
+                                            "name": "To Do"
+                                        }
+                                    },
+                                    "priority": {
+                                        "name": "High",
+                                        "id": "2"
+                                    },
+                                    "issuetype": {
+                                        "id": "10008",
+                                        "description": "A small, distinct piece of work.",
+                                        "name": "Task",
+                                        "subtask": false,
+                                        "hierarchyLevel": 0
+                                    }
+                                }
+                            }
+                        }
+                    ],
+                    "assignee": null,
+                    "updated": "2026-11-05T17:38:23.298-0500",
+                    "status": {
+                        "description": "This work item is being actively worked on at the moment by the assignee.",
+                        "name": "In Progress",
+                        "id": "3",
+                        "statusCategory": {
+                            "id": 4,
+                            "key": "indeterminate",
+                            "colorName": "yellow",
+                            "name": "In Progress"
+                        }
+                    }
+                }
+            },
+            {
+                "id": "10010",
+                "key": "ACME-5",
+                "fields": {
+                    "summary": "Rollback drill sign-off after restore credential issue",
+                    "issuetype": {
+                        "id": "10008",
+                        "description": "A small, distinct piece of work.",
+                        "name": "Task",
+                        "subtask": false,
+                        "hierarchyLevel": 0
+                    },
+                    "parent": {
+                        "id": "10006",
+                        "key": "ACME-1",
+                        "fields": {
+                            "summary": "Project Cedar: Atlas approval reliability",
+                            "status": {
+                                "description": "This work item is being actively worked on at the moment by the assignee.",
+                                "name": "In Progress",
+                                "id": "3",
+                                "statusCategory": {
+                                    "id": 4,
+                                    "key": "indeterminate",
+                                    "colorName": "yellow",
+                                    "name": "In Progress"
+                                }
+                            },
+                            "priority": {
+                                "name": "High",
+                                "id": "2"
+                            },
+                            "issuetype": {
+                                "id": "10000",
+                                "description": "A big user story that needs to be broken down. Created by Jira Software - do not edit or delete.",
+                                "name": "Epic",
+                                "subtask": false,
+                                "hierarchyLevel": 1
+                            }
+                        }
+                    },
+                    "created": "2026-11-05T17:37:59.818-0500",
+                    "description": "Owner: Morgan Reed  \nReviewer: Jordan Blake\n\nThe August 27 restore drill took 95 minutes against a 60-minute target because the runbook referenced an obsolete credential location (INC-2026-04).\n\n* Update the runbook to use the managed secret alias\n* Validate that the incident role can resolve it\n* Repeat the drill and record the measured restore time\n\n",
+                    "reporter": {
+                        "accountId": "000000:00000000-0000-0000-0000-000000000000",
+                        "emailAddress": "test.user@example.com",
+                        "displayName": "Test User",
+                        "active": true,
+                        "timeZone": "America/New_York",
+                        "accountType": "atlassian"
+                    },
+                    "priority": {
+                        "name": "Highest",
+                        "id": "1"
+                    },
+                    "labels": [
+                        "cedar",
+                        "inc-2026-04",
+                        "kb-seed",
+                        "kbseed-cedar-rollback-drill",
+                        "release-gate"
+                    ],
+                    "comment": {
+                        "comments": [
+                            {
+                                "id": "10005",
+                                "author": {
+                                    "accountId": "000000:00000000-0000-0000-0000-000000000000",
+                                    "emailAddress": "test.user@example.com",
+                                    "displayName": "Test User",
+                                    "active": true,
+                                    "timeZone": "America/New_York",
+                                    "accountType": "atlassian"
+                                },
+                                "body": "Runbook updated to the managed secret alias. Repeat drill not yet scheduled; an assigned due date is not proof the repeat test succeeded. Morgan Reed",
+                                "updateAuthor": {
+                                    "accountId": "000000:00000000-0000-0000-0000-000000000000",
+                                    "emailAddress": "test.user@example.com",
+                                    "displayName": "Test User",
+                                    "active": true,
+                                    "timeZone": "America/New_York",
+                                    "accountType": "atlassian"
+                                },
+                                "created": "2026-11-05T17:38:00.498-0500",
+                                "updated": "2026-11-05T17:38:00.498-0500",
+                                "jsdPublic": true
+                            }
+                        ],
+                        "maxResults": 1,
+                        "total": 1,
+                        "startAt": 0
+                    },
+                    "issuelinks": [
+                        {
+                            "id": "10001",
+                            "type": {
+                                "id": "10000",
+                                "name": "Blocks",
+                                "inward": "is blocked by",
+                                "outward": "blocks"
+                            },
+                            "inwardIssue": {
+                                "id": "10011",
+                                "key": "ACME-6",
+                                "fields": {
+                                    "summary": "Joint Engineering and IT Operations readiness decision",
+                                    "status": {
+                                        "description": "",
+                                        "name": "To Do",
+                                        "id": "10004",
+                                        "statusCategory": {
+                                            "id": 2,
+                                            "key": "new",
+                                            "colorName": "blue-gray",
+                                            "name": "To Do"
+                                        }
+                                    },
+                                    "priority": {
+                                        "name": "High",
+                                        "id": "2"
+                                    },
+                                    "issuetype": {
+                                        "id": "10008",
+                                        "description": "A small, distinct piece of work.",
+                                        "name": "Task",
+                                        "subtask": false,
+                                        "hierarchyLevel": 0
+                                    }
+                                }
+                            }
+                        }
+                    ],
+                    "assignee": null,
+                    "updated": "2026-11-05T17:38:23.757-0500",
+                    "status": {
+                        "description": "This work item is being actively worked on at the moment by the assignee.",
+                        "name": "In Progress",
+                        "id": "3",
+                        "statusCategory": {
+                            "id": 4,
+                            "key": "indeterminate",
+                            "colorName": "yellow",
+                            "name": "In Progress"
+                        }
+                    }
+                }
+            },
+            {
+                "id": "10011",
+                "key": "ACME-6",
+                "fields": {
+                    "summary": "Joint Engineering and IT Operations readiness decision",
+                    "issuetype": {
+                        "id": "10008",
+                        "description": "A small, distinct piece of work.",
+                        "name": "Task",
+                        "subtask": false,
+                        "hierarchyLevel": 0
+                    },
+                    "parent": {
+                        "id": "10006",
+                        "key": "ACME-1",
+                        "fields": {
+                            "summary": "Project Cedar: Atlas approval reliability",
+                            "status": {
+                                "description": "This work item is being actively worked on at the moment by the assignee.",
+                                "name": "In Progress",
+                                "id": "3",
+                                "statusCategory": {
+                                    "id": 4,
+                                    "key": "indeterminate",
+                                    "colorName": "yellow",
+                                    "name": "In Progress"
+                                }
+                            },
+                            "priority": {
+                                "name": "High",
+                                "id": "2"
+                            },
+                            "issuetype": {
+                                "id": "10000",
+                                "description": "A big user story that needs to be broken down. Created by Jira Software - do not edit or delete.",
+                                "name": "Epic",
+                                "subtask": false,
+                                "hierarchyLevel": 1
+                            }
+                        }
+                    },
+                    "created": "2026-11-05T17:38:01.649-0500",
+                    "description": "Record the joint readiness decision for the Cedar rollout. Blocked until the retry regression evidence and the rollback drill sign-off are accepted.",
+                    "reporter": {
+                        "accountId": "000000:00000000-0000-0000-0000-000000000000",
+                        "emailAddress": "test.user@example.com",
+                        "displayName": "Test User",
+                        "active": true,
+                        "timeZone": "America/New_York",
+                        "accountType": "atlassian"
+                    },
+                    "priority": {
+                        "name": "High",
+                        "id": "2"
+                    },
+                    "labels": [
+                        "cedar",
+                        "kb-seed",
+                        "kbseed-cedar-readiness",
+                        "release-gate"
+                    ],
+                    "comment": {
+                        "comments": [],
+                        "maxResults": 0,
+                        "total": 0,
+                        "startAt": 0
+                    },
+                    "issuelinks": [
+                        {
+                            "id": "10000",
+                            "type": {
+                                "id": "10000",
+                                "name": "Blocks",
+                                "inward": "is blocked by",
+                                "outward": "blocks"
+                            },
+                            "outwardIssue": {
+                                "id": "10009",
+                                "key": "ACME-4",
+                                "fields": {
+                                    "summary": "Retry regression evidence for duplicate notification delivery",
+                                    "status": {
+                                        "description": "This work item is being actively worked on at the moment by the assignee.",
+                                        "name": "In Progress",
+                                        "id": "3",
+                                        "statusCategory": {
+                                            "id": 4,
+                                            "key": "indeterminate",
+                                            "colorName": "yellow",
+                                            "name": "In Progress"
+                                        }
+                                    },
+                                    "priority": {
+                                        "name": "Highest",
+                                        "id": "1"
+                                    },
+                                    "issuetype": {
+                                        "id": "10008",
+                                        "description": "A small, distinct piece of work.",
+                                        "name": "Task",
+                                        "subtask": false,
+                                        "hierarchyLevel": 0
+                                    }
+                                }
+                            }
+                        },
+                        {
+                            "id": "10001",
+                            "type": {
+                                "id": "10000",
+                                "name": "Blocks",
+                                "inward": "is blocked by",
+                                "outward": "blocks"
+                            },
+                            "outwardIssue": {
+                                "id": "10010",
+                                "key": "ACME-5",
+                                "fields": {
+                                    "summary": "Rollback drill sign-off after restore credential issue",
+                                    "status": {
+                                        "description": "This work item is being actively worked on at the moment by the assignee.",
+                                        "name": "In Progress",
+                                        "id": "3",
+                                        "statusCategory": {
+                                            "id": 4,
+                                            "key": "indeterminate",
+                                            "colorName": "yellow",
+                                            "name": "In Progress"
+                                        }
+                                    },
+                                    "priority": {
+                                        "name": "Highest",
+                                        "id": "1"
+                                    },
+                                    "issuetype": {
+                                        "id": "10008",
+                                        "description": "A small, distinct piece of work.",
+                                        "name": "Task",
+                                        "subtask": false,
+                                        "hierarchyLevel": 0
+                                    }
+                                }
+                            }
+                        }
+                    ],
+                    "assignee": null,
+                    "updated": "2026-11-05T17:38:23.737-0500",
+                    "status": {
+                        "description": "",
+                        "name": "To Do",
+                        "id": "10004",
+                        "statusCategory": {
+                            "id": 2,
+                            "key": "new",
+                            "colorName": "blue-gray",
+                            "name": "To Do"
+                        }
+                    }
+                }
+            },
+            {
+                "id": "10012",
+                "key": "ACME-7",
+                "fields": {
+                    "summary": "Revised pilot update for Cedar pilot workspaces",
+                    "issuetype": {
+                        "id": "10008",
+                        "description": "A small, distinct piece of work.",
+                        "name": "Task",
+                        "subtask": false,
+                        "hierarchyLevel": 0
+                    },
+                    "parent": {
+                        "id": "10006",
+                        "key": "ACME-1",
+                        "fields": {
+                            "summary": "Project Cedar: Atlas approval reliability",
+                            "status": {
+                                "description": "This work item is being actively worked on at the moment by the assignee.",
+                                "name": "In Progress",
+                                "id": "3",
+                                "statusCategory": {
+                                    "id": 4,
+                                    "key": "indeterminate",
+                                    "colorName": "yellow",
+                                    "name": "In Progress"
+                                }
+                            },
+                            "priority": {
+                                "name": "High",
+                                "id": "2"
+                            },
+                            "issuetype": {
+                                "id": "10000",
+                                "description": "A big user story that needs to be broken down. Created by Jira Software - do not edit or delete.",
+                                "name": "Epic",
+                                "subtask": false,
+                                "hierarchyLevel": 1
+                            }
+                        }
+                    },
+                    "created": "2026-11-05T17:38:02.672-0500",
+                    "description": "Customer Success prepares a revised update for the three Cedar pilot workspaces reflecting the September 22 forecast. Do not describe a customer-wide launch; none has been recorded.",
+                    "reporter": {
+                        "accountId": "000000:00000000-0000-0000-0000-000000000000",
+                        "emailAddress": "test.user@example.com",
+                        "displayName": "Test User",
+                        "active": true,
+                        "timeZone": "America/New_York",
+                        "accountType": "atlassian"
+                    },
+                    "priority": {
+                        "name": "Medium",
+                        "id": "3"
+                    },
+                    "labels": [
+                        "cedar",
+                        "customer-success",
+                        "kb-seed",
+                        "kbseed-cedar-pilot-update"
+                    ],
+                    "comment": {
+                        "comments": [],
+                        "maxResults": 0,
+                        "total": 0,
+                        "startAt": 0
+                    },
+                    "issuelinks": [],
+                    "assignee": null,
+                    "updated": "2026-11-05T17:38:02.748-0500",
+                    "status": {
+                        "description": "",
+                        "name": "To Do",
+                        "id": "10004",
+                        "statusCategory": {
+                            "id": 2,
+                            "key": "new",
+                            "colorName": "blue-gray",
+                            "name": "To Do"
+                        }
+                    }
+                }
+            },
+            {
+                "id": "10013",
+                "key": "ACME-8",
+                "fields": {
+                    "summary": "Project Aurora: Beacon regional reporting",
+                    "issuetype": {
+                        "id": "10000",
+                        "description": "A big user story that needs to be broken down. Created by Jira Software - do not edit or delete.",
+                        "name": "Epic",
+                        "subtask": false,
+                        "hierarchyLevel": 1
+                    },
+                    "created": "2026-11-05T17:38:03.376-0500",
+                    "description": "Project Aurora adds regional reporting to Beacon.\n\n* Sponsor: Priya Shah\n* Delivery lead: Leo Martin\n* Planning envelope: $32,000\n* Limited pilot target: October 6, 2026\n\nNo general-availability date has been approved. Until the exit gates close, sales material must describe Aurora as a planned pilot.",
+                    "reporter": {
+                        "accountId": "000000:00000000-0000-0000-0000-000000000000",
+                        "emailAddress": "test.user@example.com",
+                        "displayName": "Test User",
+                        "active": true,
+                        "timeZone": "America/New_York",
+                        "accountType": "atlassian"
+                    },
+                    "comment": {
+                        "comments": [],
+                        "maxResults": 0,
+                        "total": 0,
+                        "startAt": 0
+                    },
+                    "issuelinks": [],
+                    "assignee": null,
+                    "priority": {
+                        "name": "Medium",
+                        "id": "3"
+                    },
+                    "updated": "2026-11-05T17:38:04.187-0500",
+                    "labels": [
+                        "aurora",
+                        "beacon",
+                        "kb-seed",
+                        "kbseed-aurora-epic"
+                    ],
+                    "status": {
+                        "description": "This work item is being actively worked on at the moment by the assignee.",
+                        "name": "In Progress",
+                        "id": "3",
+                        "statusCategory": {
+                            "id": 4,
+                            "key": "indeterminate",
+                            "colorName": "yellow",
+                            "name": "In Progress"
+                        }
+                    }
+                }
+            },
+            {
+                "id": "10014",
+                "key": "ACME-9",
+                "fields": {
+                    "summary": "Validate region tags in a non-production dataset",
+                    "issuetype": {
+                        "id": "10008",
+                        "description": "A small, distinct piece of work.",
+                        "name": "Task",
+                        "subtask": false,
+                        "hierarchyLevel": 0
+                    },
+                    "parent": {
+                        "id": "10013",
+                        "key": "ACME-8",
+                        "fields": {
+                            "summary": "Project Aurora: Beacon regional reporting",
+                            "status": {
+                                "description": "This work item is being actively worked on at the moment by the assignee.",
+                                "name": "In Progress",
+                                "id": "3",
+                                "statusCategory": {
+                                    "id": 4,
+                                    "key": "indeterminate",
+                                    "colorName": "yellow",
+                                    "name": "In Progress"
+                                }
+                            },
+                            "priority": {
+                                "name": "Medium",
+                                "id": "3"
+                            },
+                            "issuetype": {
+                                "id": "10000",
+                                "description": "A big user story that needs to be broken down. Created by Jira Software - do not edit or delete.",
+                                "name": "Epic",
+                                "subtask": false,
+                                "hierarchyLevel": 1
+                            }
+                        }
+                    },
+                    "created": "2026-11-05T17:38:04.696-0500",
+                    "description": "Owner: Leo Martin\n\nStage one of the Aurora rollout. Customer data must not be copied into test fixtures to accelerate this check.",
+                    "reporter": {
+                        "accountId": "000000:00000000-0000-0000-0000-000000000000",
+                        "emailAddress": "test.user@example.com",
+                        "displayName": "Test User",
+                        "active": true,
+                        "timeZone": "America/New_York",
+                        "accountType": "atlassian"
+                    },
+                    "priority": {
+                        "name": "Medium",
+                        "id": "3"
+                    },
+                    "labels": [
+                        "aurora",
+                        "beacon",
+                        "kb-seed",
+                        "kbseed-aurora-region-tags"
+                    ],
+                    "comment": {
+                        "comments": [
+                            {
+                                "id": "10006",
+                                "author": {
+                                    "accountId": "000000:00000000-0000-0000-0000-000000000000",
+                                    "emailAddress": "test.user@example.com",
+                                    "displayName": "Test User",
+                                    "active": true,
+                                    "timeZone": "America/New_York",
+                                    "accountType": "atlassian"
+                                },
+                                "body": "Region tags validated for synthetic North America data. European records are waiting on the hosting-region decision. Leo Martin",
+                                "updateAuthor": {
+                                    "accountId": "000000:00000000-0000-0000-0000-000000000000",
+                                    "emailAddress": "test.user@example.com",
+                                    "displayName": "Test User",
+                                    "active": true,
+                                    "timeZone": "America/New_York",
+                                    "accountType": "atlassian"
+                                },
+                                "created": "2026-11-05T17:38:05.538-0500",
+                                "updated": "2026-11-05T17:38:05.538-0500",
+                                "jsdPublic": true
+                            }
+                        ],
+                        "maxResults": 1,
+                        "total": 1,
+                        "startAt": 0
+                    },
+                    "issuelinks": [
+                        {
+                            "id": "10002",
+                            "type": {
+                                "id": "10000",
+                                "name": "Blocks",
+                                "inward": "is blocked by",
+                                "outward": "blocks"
+                            },
+                            "outwardIssue": {
+                                "id": "10017",
+                                "key": "ACME-12",
+                                "fields": {
+                                    "summary": "Decide hosting region for European customer data",
+                                    "status": {
+                                        "description": "",
+                                        "name": "To Do",
+                                        "id": "10004",
+                                        "statusCategory": {
+                                            "id": 2,
+                                            "key": "new",
+                                            "colorName": "blue-gray",
+                                            "name": "To Do"
+                                        }
+                                    },
+                                    "priority": {
+                                        "name": "High",
+                                        "id": "2"
+                                    },
+                                    "issuetype": {
+                                        "id": "10007",
+                                        "description": "Stories track functionality or features expressed as user goals.",
+                                        "name": "Story",
+                                        "subtask": false,
+                                        "hierarchyLevel": 0
+                                    }
+                                }
+                            }
+                        }
+                    ],
+                    "assignee": null,
+                    "updated": "2026-11-05T17:38:24.288-0500",
+                    "status": {
+                        "description": "This work item is being actively worked on at the moment by the assignee.",
+                        "name": "In Progress",
+                        "id": "3",
+                        "statusCategory": {
+                            "id": 4,
+                            "key": "indeterminate",
+                            "colorName": "yellow",
+                            "name": "In Progress"
+                        }
+                    }
+                }
+            },
+            {
+                "id": "10015",
+                "key": "ACME-10",
+                "fields": {
+                    "summary": "Compare regional aggregate totals with the existing report",
+                    "issuetype": {
+                        "id": "10008",
+                        "description": "A small, distinct piece of work.",
+                        "name": "Task",
+                        "subtask": false,
+                        "hierarchyLevel": 0
+                    },
+                    "parent": {
+                        "id": "10013",
+                        "key": "ACME-8",
+                        "fields": {
+                            "summary": "Project Aurora: Beacon regional reporting",
+                            "status": {
+                                "description": "This work item is being actively worked on at the moment by the assignee.",
+                                "name": "In Progress",
+                                "id": "3",
+                                "statusCategory": {
+                                    "id": 4,
+                                    "key": "indeterminate",
+                                    "colorName": "yellow",
+                                    "name": "In Progress"
+                                }
+                            },
+                            "priority": {
+                                "name": "Medium",
+                                "id": "3"
+                            },
+                            "issuetype": {
+                                "id": "10000",
+                                "description": "A big user story that needs to be broken down. Created by Jira Software - do not edit or delete.",
+                                "name": "Epic",
+                                "subtask": false,
+                                "hierarchyLevel": 1
+                            }
+                        }
+                    },
+                    "created": "2026-11-05T17:38:06.576-0500",
+                    "description": "Stage two of the Aurora rollout: compare aggregate totals from the regional report with the existing Beacon report before inviting pilot customers.",
+                    "reporter": {
+                        "accountId": "000000:00000000-0000-0000-0000-000000000000",
+                        "emailAddress": "test.user@example.com",
+                        "displayName": "Test User",
+                        "active": true,
+                        "timeZone": "America/New_York",
+                        "accountType": "atlassian"
+                    },
+                    "priority": {
+                        "name": "Medium",
+                        "id": "3"
+                    },
+                    "labels": [
+                        "aurora",
+                        "beacon",
+                        "kb-seed",
+                        "kbseed-aurora-aggregate-compare"
+                    ],
+                    "comment": {
+                        "comments": [],
+                        "maxResults": 0,
+                        "total": 0,
+                        "startAt": 0
+                    },
+                    "issuelinks": [],
+                    "assignee": null,
+                    "updated": "2026-11-05T17:38:06.699-0500",
+                    "status": {
+                        "description": "",
+                        "name": "To Do",
+                        "id": "10004",
+                        "statusCategory": {
+                            "id": 2,
+                            "key": "new",
+                            "colorName": "blue-gray",
+                            "name": "To Do"
+                        }
+                    }
+                }
+            }
+        ],
+        "nextPageToken": "EAoYy4qhgpw0Ih9wcm9qZWN0ID0gQUNNRSBPUkRFUiBCWSBrZXkgQVNDKgJbXTIgVEVOQU5UX05PVF9GT1VORF9JTl9URU5BTlRfU1RPUkU=",
+        "isLast": false,
+        "appliedContentFormat": "markdown"
+    }
+}

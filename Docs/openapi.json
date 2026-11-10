@@ -891,6 +891,285 @@
                     }
                 }
             }
+        },
+        "/api/integrations/jira/status": {
+            "get": {
+                "summary": "Report whether Jira is configured and reachable",
+                "x-roles": [
+                    "ADMIN"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Connection status. Failures appear in the body.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/JiraConnectionStatus"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/ApiError"
+                    },
+                    "403": {
+                        "$ref": "#/components/responses/ApiError"
+                    }
+                }
+            }
+        },
+        "/api/integrations/jira/projects": {
+            "get": {
+                "summary": "List Jira projects visible to the configured account",
+                "x-roles": [
+                    "ADMIN"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Live list from Jira.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "array",
+                                    "items": {
+                                        "$ref": "#/components/schemas/JiraProject"
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/ApiError"
+                    },
+                    "403": {
+                        "$ref": "#/components/responses/ApiError"
+                    },
+                    "502": {
+                        "$ref": "#/components/responses/ApiError"
+                    },
+                    "503": {
+                        "$ref": "#/components/responses/ApiError"
+                    }
+                }
+            }
+        },
+        "/api/integrations/jira/projects/{key}/sync": {
+            "post": {
+                "summary": "Start a background sync of one project",
+                "x-roles": [
+                    "ADMIN"
+                ],
+                "responses": {
+                    "202": {
+                        "description": "The new run, in RUNNING status.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/JiraSyncRun"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "$ref": "#/components/responses/ApiError"
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/ApiError"
+                    },
+                    "403": {
+                        "$ref": "#/components/responses/ApiError"
+                    },
+                    "409": {
+                        "$ref": "#/components/responses/ApiError"
+                    },
+                    "503": {
+                        "$ref": "#/components/responses/ApiError"
+                    }
+                },
+                "parameters": [
+                    {
+                        "name": "key",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "description": "Returns 400 for an invalid project key and 409 when the project already has a running sync."
+            }
+        },
+        "/api/integrations/jira/sync-runs": {
+            "get": {
+                "summary": "List the 50 most recent sync runs",
+                "x-roles": [
+                    "ADMIN"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Newest first.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "array",
+                                    "items": {
+                                        "$ref": "#/components/schemas/JiraSyncRun"
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/ApiError"
+                    },
+                    "403": {
+                        "$ref": "#/components/responses/ApiError"
+                    }
+                }
+            }
+        },
+        "/api/integrations/jira/sync-runs/{id}": {
+            "get": {
+                "summary": "Get one sync run",
+                "x-roles": [
+                    "ADMIN"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "One run, for polling.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/JiraSyncRun"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/ApiError"
+                    },
+                    "403": {
+                        "$ref": "#/components/responses/ApiError"
+                    },
+                    "404": {
+                        "$ref": "#/components/responses/ApiError"
+                    }
+                },
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer",
+                            "format": "int64"
+                        }
+                    }
+                ]
+            }
+        },
+        "/api/integrations/jira/issues": {
+            "get": {
+                "summary": "List synced work items",
+                "x-roles": [
+                    "ADMIN",
+                    "USER"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Most recently updated first. Only indexed, active items appear.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "array",
+                                    "items": {
+                                        "$ref": "#/components/schemas/JiraWorkItem"
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/ApiError"
+                    }
+                },
+                "parameters": [
+                    {
+                        "name": "project",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "string"
+                        },
+                        "description": "Exact match. Blank is ignored."
+                    },
+                    {
+                        "name": "type",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "string"
+                        },
+                        "description": "Exact match. Blank is ignored."
+                    },
+                    {
+                        "name": "status",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "string"
+                        },
+                        "description": "Exact match. Blank is ignored."
+                    },
+                    {
+                        "name": "assignee",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "string"
+                        },
+                        "description": "Exact match. Blank is ignored."
+                    }
+                ],
+                "description": "Reads local synced rows, not live Jira. No pagination."
+            }
+        },
+        "/api/integrations/jira/issues/{key}": {
+            "get": {
+                "summary": "Get one synced work item and its page",
+                "x-roles": [
+                    "ADMIN",
+                    "USER"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The work item and the Markdown page stored for it.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/JiraWorkItemDetail"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/ApiError"
+                    },
+                    "404": {
+                        "$ref": "#/components/responses/ApiError"
+                    }
+                },
+                "parameters": [
+                    {
+                        "name": "key",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ]
+            }
         }
     },
     "components": {
@@ -974,7 +1253,8 @@
                             "MARKDOWN",
                             "DOCX",
                             "PDF",
-                            "VIDEO"
+                            "VIDEO",
+                            "JIRA"
                         ]
                     },
                     "characterCount": {
@@ -1735,6 +2015,238 @@
                         "type": "boolean",
                         "default": false,
                         "description": "Generate the final title from extracted content before indexing. The title field is guidance; it remains required. Naming failures save a FAILED item with AI_TITLE_FAILED for explicit retry."
+                    }
+                }
+            },
+            "JiraProject": {
+                "type": "object",
+                "required": [
+                    "id",
+                    "key",
+                    "name"
+                ],
+                "properties": {
+                    "id": {
+                        "type": "string"
+                    },
+                    "key": {
+                        "type": "string"
+                    },
+                    "name": {
+                        "type": "string"
+                    }
+                }
+            },
+            "JiraConnectionStatus": {
+                "type": "object",
+                "required": [
+                    "configured",
+                    "reachable",
+                    "failure"
+                ],
+                "properties": {
+                    "configured": {
+                        "type": "boolean"
+                    },
+                    "reachable": {
+                        "type": "boolean"
+                    },
+                    "failure": {
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "enum": [
+                            "NOT_CONFIGURED",
+                            "UNAUTHORIZED",
+                            "NOT_FOUND",
+                            "VALIDATION",
+                            "RATE_LIMITED",
+                            "TIMEOUT",
+                            "UNAVAILABLE",
+                            "PROTOCOL",
+                            null
+                        ]
+                    }
+                }
+            },
+            "JiraSyncRun": {
+                "type": "object",
+                "required": [
+                    "id",
+                    "projectKey",
+                    "status",
+                    "startedAt",
+                    "finishedAt",
+                    "createdCount",
+                    "updatedCount",
+                    "unchangedCount",
+                    "failedCount",
+                    "errorCode",
+                    "errorMessage"
+                ],
+                "properties": {
+                    "id": {
+                        "type": "integer",
+                        "format": "int64"
+                    },
+                    "projectKey": {
+                        "type": "string"
+                    },
+                    "status": {
+                        "type": "string",
+                        "enum": [
+                            "RUNNING",
+                            "COMPLETED",
+                            "FAILED"
+                        ]
+                    },
+                    "startedAt": {
+                        "type": "string",
+                        "format": "date-time"
+                    },
+                    "finishedAt": {
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "format": "date-time"
+                    },
+                    "createdCount": {
+                        "type": "integer"
+                    },
+                    "updatedCount": {
+                        "type": "integer"
+                    },
+                    "unchangedCount": {
+                        "type": "integer"
+                    },
+                    "failedCount": {
+                        "type": "integer"
+                    },
+                    "errorCode": {
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "errorMessage": {
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    }
+                }
+            },
+            "JiraWorkItem": {
+                "type": "object",
+                "required": [
+                    "knowledgeItemId",
+                    "key",
+                    "summary",
+                    "projectKey",
+                    "projectName",
+                    "type",
+                    "status",
+                    "priority",
+                    "assignee",
+                    "reporter",
+                    "parentKey",
+                    "parentSummary",
+                    "created",
+                    "updated",
+                    "browseUrl"
+                ],
+                "properties": {
+                    "knowledgeItemId": {
+                        "type": "integer",
+                        "format": "int64"
+                    },
+                    "key": {
+                        "type": "string"
+                    },
+                    "summary": {
+                        "type": "string"
+                    },
+                    "projectKey": {
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "projectName": {
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "type": {
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "status": {
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "priority": {
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "assignee": {
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "reporter": {
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "parentKey": {
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "parentSummary": {
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "created": {
+                        "type": "string",
+                        "format": "date-time"
+                    },
+                    "updated": {
+                        "type": "string",
+                        "format": "date-time"
+                    },
+                    "browseUrl": {
+                        "type": "string"
+                    }
+                }
+            },
+            "JiraWorkItemDetail": {
+                "type": "object",
+                "required": [
+                    "workItem",
+                    "body"
+                ],
+                "properties": {
+                    "workItem": {
+                        "$ref": "#/components/schemas/JiraWorkItem"
+                    },
+                    "body": {
+                        "type": "string"
                     }
                 }
             }

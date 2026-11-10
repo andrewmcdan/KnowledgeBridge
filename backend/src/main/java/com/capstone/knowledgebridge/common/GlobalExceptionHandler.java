@@ -13,6 +13,7 @@ import org.springframework.web.context.request.WebRequest;
 import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExceptionHandler;
 
 import com.capstone.knowledgebridge.extraction.ExtractionException;
+import com.capstone.knowledgebridge.jira.JiraException;
 
 /**
  * Safe JSON errors for validation, malformed requests, multipart limits, and unexpected failures.
@@ -34,6 +35,19 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
 		log.info("Rejected upload: {}", exception.reason(), exception.getCause());
 		ExtractionException.Reason reason = exception.reason();
 		return ResponseEntity.badRequest().body(new ApiError(reason.code(), reason.message()));
+	}
+
+	/** Upstream failures are 502, never 401, so a Jira credential problem doesn't sign the user out. */
+	@ExceptionHandler(JiraException.class)
+	public ResponseEntity<ApiError> handleJira(JiraException exception) {
+		log.warn("Jira request failed: {}: {}", exception.code(), exception.getMessage());
+		return switch (exception.code()) {
+			case NOT_CONFIGURED -> ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
+					.body(new ApiError("JIRA_NOT_CONFIGURED", "The Jira integration is not configured."));
+			case NOT_FOUND -> ResponseEntity.status(HttpStatus.NOT_FOUND).body(ApiError.forStatus(404));
+			default -> ResponseEntity.status(HttpStatus.BAD_GATEWAY)
+					.body(new ApiError("JIRA_UNAVAILABLE", "Jira could not complete the request. Please try again."));
+		};
 	}
 
 	@ExceptionHandler(AccessDeniedException.class)

@@ -1,0 +1,79 @@
+{
+    "data": {
+        "nextPageToken": "EBQYupShgpw0Ih9wcm9qZWN0ID0gQUNNRSBPUkRFUiBCWSBrZXkgQVNDKgJbXTIgVEVOQU5UX05PVF9GT1VORF9JTl9URU5BTlRfU1RPUkU=",
+        "isLast": false,
+        "appliedContentFormat": "markdown",
+        "issues": [
+            {
+                "id": "10016",
+                "key": "ACME-11",
+                "fields": {
+                    "summary": "Reconcile Beacon guide retention with the data retention standard"
+                }
+            },
+            {
+                "id": "10017",
+                "key": "ACME-12",
+                "fields": {
+                    "summary": "Decide hosting region for European customer data"
+                }
+            },
+            {
+                "id": "10018",
+                "key": "ACME-13",
+                "fields": {
+                    "summary": "Customer communication plan for the Aurora pilot"
+                }
+            },
+            {
+                "id": "10019",
+                "key": "ACME-14",
+                "fields": {
+                    "summary": "Project Ledger: vendor reference cleanup"
+                }
+            },
+            {
+                "id": "10020",
+                "key": "ACME-15",
+                "fields": {
+                    "summary": "Staging report normalizing vendor names and tax-reference placeholders"
+                }
+            },
+            {
+                "id": "10021",
+                "key": "ACME-16",
+                "fields": {
+                    "summary": "Finance review of candidate duplicate vendor pairs"
+                }
+            },
+            {
+                "id": "10022",
+                "key": "ACME-17",
+                "fields": {
+                    "summary": "Sample ten purchase orders after approved merges"
+                }
+            },
+            {
+                "id": "10023",
+                "key": "ACME-18",
+                "fields": {
+                    "summary": "Confirm the Nimbus renewal uses the reviewed vendor record"
+                }
+            },
+            {
+                "id": "10024",
+                "key": "ACME-19",
+                "fields": {
+                    "summary": "Project Compass: standard customer onboarding"
+                }
+            },
+            {
+                "id": "10025",
+                "key": "ACME-20",
+                "fields": {
+                    "summary": "Kickoff checklist for the Pinecrest Services pilot"
+                }
+            }
+        ]
+    }
+}
