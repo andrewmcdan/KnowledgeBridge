@@ -411,6 +411,34 @@
                 }
             }
         },
+        "/api/usage/trends": {
+            "get": {
+                "summary": "Read 30-day query usage trends",
+                "description": "Users see only their own successful query requests; admins see workspace trends. Returns 30 UTC daily buckets, including zero-activity days. Provider model and estimated-cost values are available only for records captured after V15.",
+                "x-roles": [
+                    "ADMIN",
+                    "USER"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Personal or workspace 30-day daily usage trends based on the authenticated role.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/UsageTrends"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/ApiError"
+                    },
+                    "500": {
+                        "$ref": "#/components/responses/ApiError"
+                    }
+                }
+            }
+        },
         "/api/query/synthesize": {
             "post": {
                 "summary": "Synthesize an answer with source citations and token usage",
@@ -1342,6 +1370,155 @@
                     "totalTokens": 20,
                     "cacheHits": 1,
                     "estimatedQueryCount": 1
+                }
+            },
+            "DailyUsageTrend": {
+                "type": "object",
+                "required": [
+                    "date",
+                    "queryCount",
+                    "inputTokens",
+                    "outputTokens",
+                    "totalTokens",
+                    "cacheHits",
+                    "estimatedQueryCount",
+                    "estimatedCostUsd",
+                    "hasEstimatedCost"
+                ],
+                "properties": {
+                    "date": {
+                        "type": "string",
+                        "format": "date"
+                    },
+                    "queryCount": {
+                        "type": "integer",
+                        "format": "int64",
+                        "minimum": 0
+                    },
+                    "inputTokens": {
+                        "type": "integer",
+                        "format": "int64",
+                        "minimum": 0
+                    },
+                    "outputTokens": {
+                        "type": "integer",
+                        "format": "int64",
+                        "minimum": 0
+                    },
+                    "totalTokens": {
+                        "type": "integer",
+                        "format": "int64",
+                        "minimum": 0
+                    },
+                    "cacheHits": {
+                        "type": "integer",
+                        "format": "int64",
+                        "minimum": 0
+                    },
+                    "estimatedQueryCount": {
+                        "type": "integer",
+                        "format": "int64",
+                        "minimum": 0
+                    },
+                    "estimatedCostUsd": {
+                        "type": "number",
+                        "minimum": 0
+                    },
+                    "hasEstimatedCost": {
+                        "type": "boolean"
+                    }
+                }
+            },
+            "ModelUsageTrend": {
+                "type": "object",
+                "required": [
+                    "model",
+                    "queryCount",
+                    "inputTokens",
+                    "outputTokens",
+                    "totalTokens",
+                    "estimatedCostUsd",
+                    "hasEstimatedCost"
+                ],
+                "properties": {
+                    "model": {
+                        "type": "string"
+                    },
+                    "queryCount": {
+                        "type": "integer",
+                        "format": "int64",
+                        "minimum": 0
+                    },
+                    "inputTokens": {
+                        "type": "integer",
+                        "format": "int64",
+                        "minimum": 0
+                    },
+                    "outputTokens": {
+                        "type": "integer",
+                        "format": "int64",
+                        "minimum": 0
+                    },
+                    "totalTokens": {
+                        "type": "integer",
+                        "format": "int64",
+                        "minimum": 0
+                    },
+                    "estimatedCostUsd": {
+                        "type": "number",
+                        "minimum": 0
+                    },
+                    "hasEstimatedCost": {
+                        "type": "boolean"
+                    }
+                }
+            },
+            "UsageTrends": {
+                "type": "object",
+                "required": [
+                    "scope",
+                    "startDate",
+                    "endDate",
+                    "daily",
+                    "models",
+                    "estimatedCostUsd",
+                    "hasEstimatedCost"
+                ],
+                "properties": {
+                    "scope": {
+                        "type": "string",
+                        "enum": [
+                            "personal",
+                            "workspace"
+                        ]
+                    },
+                    "startDate": {
+                        "type": "string",
+                        "format": "date"
+                    },
+                    "endDate": {
+                        "type": "string",
+                        "format": "date"
+                    },
+                    "daily": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/DailyUsageTrend"
+                        }
+                    },
+                    "models": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/ModelUsageTrend"
+                        }
+                    },
+                    "estimatedCostUsd": {
+                        "type": "number",
+                        "minimum": 0
+                    },
+                    "hasEstimatedCost": {
+                        "type": "boolean"
+                    }
                 }
             },
             "TokenUsage": {
