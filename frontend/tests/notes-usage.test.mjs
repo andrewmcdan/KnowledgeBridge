@@ -30,6 +30,15 @@ const note = { id: 12, title: "Original", type: "Note", text: "Content", revisio
 const contract = JSON.parse(readFileSync(new URL("../../Docs/openapi.json", import.meta.url), "utf8"));
 const item = contract.components.schemas.KnowledgeItem.example;
 const totals = { scope: "personal", queryCount: 2, inputTokens: 10, outputTokens: 5, totalTokens: 15, cacheHits: 1, estimatedQueryCount: 1 };
+const trends = {
+    scope: "personal",
+    startDate: "2026-10-11",
+    endDate: "2026-11-09",
+    daily: [{ date: "2026-11-09", queryCount: 2, inputTokens: 10, outputTokens: 5, totalTokens: 15, cacheHits: 1, estimatedQueryCount: 1, estimatedCostUsd: 0.0025, hasEstimatedCost: true }],
+    models: [{ model: "openrouter:model", queryCount: 2, inputTokens: 10, outputTokens: 5, totalTokens: 15, estimatedCostUsd: 0.0025, hasEstimatedCost: true }],
+    estimatedCostUsd: 0.0025,
+    hasEstimatedCost: true,
+};
 
 test("editing sends the captured revision, preserves text, and accepts a saved note whose reindex failed", async () => {
     const requests = [];
@@ -79,6 +88,18 @@ test("usage totals use the authenticated endpoint and reject invalid scopes or c
         await assert.rejects(loadApi("usage/usageApi", async () => Response.json(invalid)).api.getUsageTotals(), { message: "The server returned invalid usage totals." });
     }
     await assert.rejects(loadApi("usage/usageApi", async () => new Response("<html>offline</html>", { status: 502 })).api.getUsageTotals(), { message: "We could not load usage totals." });
+});
+
+test("usage trends use the authenticated endpoint and reject malformed buckets", async () => {
+    const { api } = loadApi("usage/usageApi", async (path, options) => {
+        assert.equal(path, "/api/usage/trends");
+        assert.ok(options.headers.Authorization);
+        return Response.json(trends);
+    });
+    assert.equal((await api.getUsageTrends()).models[0].model, "openrouter:model");
+    for (const invalid of [null, {}, { ...trends, daily: [{}] }, { ...trends, models: [{ ...trends.models[0], totalTokens: -1 }] }, { ...trends, hasEstimatedCost: "yes" }]) {
+        await assert.rejects(loadApi("usage/usageApi", async () => Response.json(invalid)).api.getUsageTrends(), { message: "The server returned invalid usage trends." });
+    }
 });
 
 test("synthesis responses preserve cache and estimated usage markers and reject invalid counts", async () => {

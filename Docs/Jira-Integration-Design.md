@@ -68,7 +68,7 @@ Talks to Jira and nothing else. It knows nothing about knowledge items or gbrain
 
 ## Data model
 
-Migrations `V15` and `V16` add the following.
+Migrations `V16` and `V17` add the following.
 
 ### `knowledge_item` additions
 

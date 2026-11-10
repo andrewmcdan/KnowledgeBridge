@@ -27,7 +27,7 @@ class LifecycleMigrationTests {
 				Long.class);
 		Flyway upgraded = Flyway.configure()
 				.dataSource(postgres.getJdbcUrl(), postgres.getUsername(), postgres.getPassword()).load();
-		assertThat(upgraded.migrate().migrationsExecuted).isEqualTo(3);
+		assertThat(upgraded.migrate().migrationsExecuted).isEqualTo(4);
 		upgraded.validate();
 		assertThat(jdbc.queryForMap(
 				"SELECT owner_id,body_text,lifecycle_state,trashed_from FROM knowledge_item WHERE id = ?", id))

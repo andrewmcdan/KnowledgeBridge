@@ -39,7 +39,7 @@ class IntegrationMigrationTests {
 
 		Flyway upgraded = Flyway.configure()
 				.dataSource(postgres.getJdbcUrl(), postgres.getUsername(), postgres.getPassword()).load();
-		assertThat(upgraded.migrate().migrationsExecuted).isEqualTo(8);
+		assertThat(upgraded.migrate().migrationsExecuted).isEqualTo(9);
 		upgraded.validate();
 
 		assertThat(jdbc.queryForObject("SELECT body_text FROM knowledge_item WHERE id = ?", String.class, id))
@@ -53,6 +53,10 @@ class IntegrationMigrationTests {
 		assertThat(jdbc.queryForObject("SELECT content_updated_at = created_at FROM knowledge_item WHERE id = ?",
 				Boolean.class, id)).isTrue();
 		assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM query_usage", Integer.class)).isZero();
+		assertThat(jdbc.queryForObject("""
+				SELECT COUNT(*) FROM information_schema.columns
+				WHERE table_name = 'query_usage' AND column_name IN ('provider_model', 'estimated_cost_usd')
+				""", Integer.class)).isEqualTo(2);
 		assertThat(jdbc.queryForObject("SELECT ai_title_requested FROM knowledge_item WHERE id = ?", Boolean.class, id))
 				.isFalse();
 		assertThat(

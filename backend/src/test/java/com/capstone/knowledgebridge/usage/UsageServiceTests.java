@@ -7,6 +7,8 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
+import java.math.BigDecimal;
+
 import org.junit.jupiter.api.Test;
 import org.springframework.dao.DataAccessResourceFailureException;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -34,5 +36,9 @@ class UsageServiceTests {
 				new TokenUsage("model", null, 1L, null, true)));
 		assertThatNoException().isThrownBy(() -> usage.record(1, QueryMode.SYNTHESIS, false,
 				new TokenUsage("model", 1L, null, null)));
+		assertThatNoException().isThrownBy(
+				() -> usage.record(1, QueryMode.SYNTHESIS, false, new TokenUsage(null, 1L, 1L, BigDecimal.ZERO)));
+		assertThatNoException().isThrownBy(() -> usage.record(1, QueryMode.SYNTHESIS, false,
+				new TokenUsage("", 1L, 1L, BigDecimal.valueOf(-1))));
 	}
 }

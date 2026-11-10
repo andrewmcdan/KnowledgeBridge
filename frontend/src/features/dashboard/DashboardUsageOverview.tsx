@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useState } from "react";
 import { getEntities, type DetectedEntity } from "../entities/entitiesApi";
 import { getKnowledgeItems, type KnowledgeItem } from "../knowledge/knowledgeApi";
-import { getUsageTotals, type UsageTotals } from "../usage/usageApi";
+import { getUsageTotals, getUsageTrends, type DailyUsageTrend, type ModelUsageTrend, type UsageTotals, type UsageTrends } from "../usage/usageApi";
 
 interface DashboardData {
     totals: UsageTotals;
+    trends: UsageTrends;
     items: KnowledgeItem[];
     entities: DetectedEntity[];
 }
@@ -40,6 +41,15 @@ const DEMO_DATA: DashboardData = {
         cacheHits: 327189,
         estimatedQueryCount: 0,
     },
+    trends: {
+        scope: "workspace",
+        startDate: "2026-10-04",
+        endDate: "2026-11-02",
+        daily: [],
+        models: [],
+        estimatedCostUsd: 372.4,
+        hasEstimatedCost: true,
+    },
     items: [
         demoItem(1, "Q4 Product Strategy", "MARKDOWN", "2026-11-02T15:40:00Z"),
         demoItem(2, "Engineering Onboarding Guide", "PDF", "2026-11-02T14:25:00Z"),
@@ -74,10 +84,10 @@ export function DashboardUsageOverview() {
 
     useEffect(() => {
         let active = true;
-        void Promise.all([getUsageTotals(), getKnowledgeItems(), getEntities("", "", 100)])
-            .then(([totals, items, entities]) => {
+        void Promise.all([getUsageTotals(), getUsageTrends(), getKnowledgeItems(), getEntities("", "", 100)])
+            .then(([totals, trends, items, entities]) => {
                 if (!active) return;
-                setData({ totals, items, entities });
+                setData({ totals, trends, items, entities });
                 setError(null);
             })
             .catch((reason: unknown) => {
@@ -147,11 +157,23 @@ export function DashboardUsageOverview() {
                         <section className="dashboard-wide-panel" aria-label="Input versus output token history">
                             <h3>Input vs output tokens</h3>
                             <p>Daily token usage for AI requests</p>
-                            {demoMode ? <DemoLineChart /> : <EmptyChart message="Daily input and output token history is not currently recorded." />}
+                            {demoMode ? (
+                                <DemoLineChart />
+                            ) : activeData.trends.daily.some((day) => day.queryCount > 0) ? (
+                                <TokenTrendChart daily={activeData.trends.daily} />
+                            ) : (
+                                <EmptyChart message="No AI requests were recorded during the last 30 days." />
+                            )}
                         </section>
                         <section className="dashboard-side-panel" aria-label="Usage by model">
                             <h3>Usage by Model</h3>
-                            {demoMode ? <DemoModelUsage /> : <EmptyChart message="Provider model usage is not currently recorded." variant="donut" />}
+                            {demoMode ? (
+                                <DemoModelUsage />
+                            ) : activeData.trends.models.length ? (
+                                <ModelUsageChart models={activeData.trends.models} />
+                            ) : (
+                                <EmptyChart message="Provider model usage will appear for future synthesis responses." variant="donut" />
+                            )}
                         </section>
                     </div>
                     <div className="dashboard-summary-grid">
@@ -168,12 +190,24 @@ export function DashboardUsageOverview() {
                                         <dd>{metrics.cacheHitRate}%</dd>
                                     </div>
                                 </dl>
-                                {demoMode ? <DemoSparkline /> : <EmptyChart message="Cache-hit trend data is not currently recorded." compact />}
+                                {demoMode ? (
+                                    <DemoSparkline />
+                                ) : activeData.trends.daily.some((day) => day.queryCount > 0) ? (
+                                    <CacheTrendChart daily={activeData.trends.daily} />
+                                ) : (
+                                    <EmptyChart message="No AI requests were recorded during the last 30 days." compact />
+                                )}
                             </div>
                         </section>
                         <section className="dashboard-cost-summary" aria-label="Token spend and cost estimate">
                             <h3>Token Spend & Cost Estimate</h3>
-                            {demoMode ? <DemoCostSummary /> : <EmptyChart message="Cost and spend data is not currently recorded." compact />}
+                            {demoMode ? (
+                                <DemoCostSummary />
+                            ) : activeData.trends.hasEstimatedCost ? (
+                                <CostSummary trends={activeData.trends} totals={activeData.totals} />
+                            ) : (
+                                <EmptyChart message="Estimated provider cost will appear for future synthesis responses." compact />
+                            )}
                         </section>
                     </div>
                     <div className="dashboard-empty-panels dashboard-knowledge-panels">
@@ -184,6 +218,111 @@ export function DashboardUsageOverview() {
                 </>
             )}
         </section>
+    );
+}
+
+function linePath(values: number[], width: number, height: number, padding = 12): string {
+    const maximum = Math.max(...values, 1);
+    const usableWidth = width - padding * 2;
+    const usableHeight = height - padding * 2;
+    return values
+        .map((value, index) => {
+            const x = values.length === 1 ? width / 2 : padding + (index / (values.length - 1)) * usableWidth;
+            const y = height - padding - (value / maximum) * usableHeight;
+            return `${index === 0 ? "M" : "L"}${x.toFixed(2)} ${y.toFixed(2)}`;
+        })
+        .join(" ");
+}
+
+function TokenTrendChart({ daily }: { daily: DailyUsageTrend[] }) {
+    return (
+        <div className="dashboard-demo-line-chart" role="img" aria-label="Daily input and output token usage trend">
+            <svg viewBox="0 0 640 210" preserveAspectRatio="none" aria-hidden="true">
+                <path
+                    d={linePath(
+                        daily.map((day) => day.inputTokens),
+                        640,
+                        210,
+                    )}
+                    className="dashboard-demo-input-line"
+                />
+                <path
+                    d={linePath(
+                        daily.map((day) => day.outputTokens),
+                        640,
+                        210,
+                    )}
+                    className="dashboard-demo-output-line"
+                />
+            </svg>
+            <div className="dashboard-demo-chart-key">
+                <span>
+                    <i className="dashboard-input-key" /> Input tokens
+                </span>
+                <span>
+                    <i className="dashboard-output-key" /> Output tokens
+                </span>
+            </div>
+        </div>
+    );
+}
+
+const MODEL_COLORS = ["#2867eb", "#74b6ff", "#9f89f3", "#61c98d", "#f0ac5f"];
+
+function ModelUsageChart({ models }: { models: ModelUsageTrend[] }) {
+    const visibleModels = models.slice(0, 5);
+    const total = visibleModels.reduce((sum, model) => sum + model.totalTokens, 0);
+    const gradient = visibleModels
+        .map((model, index) => {
+            const start = total === 0 ? 0 : (visibleModels.slice(0, index).reduce((sum, preceding) => sum + preceding.totalTokens, 0) / total) * 100;
+            const end = total === 0 ? 0 : start + (model.totalTokens / total) * 100;
+            return `${MODEL_COLORS[index]} ${start}% ${end}%`;
+        })
+        .join(", ");
+    return (
+        <div className="dashboard-demo-models">
+            <div className="dashboard-demo-model-donut" role="img" aria-label="Token usage by provider model" style={{ background: `conic-gradient(${gradient})` }} />
+            <ul>
+                {visibleModels.map((model, index) => {
+                    const share = total === 0 ? 0 : Math.round((model.totalTokens / total) * 1000) / 10;
+                    return (
+                        <li key={model.model}>
+                            <i style={{ background: MODEL_COLORS[index] }} />
+                            <span>{model.model}</span>
+                            <strong>{share}%</strong>
+                            <small>{model.queryCount.toLocaleString()} requests</small>
+                        </li>
+                    );
+                })}
+            </ul>
+        </div>
+    );
+}
+
+function CacheTrendChart({ daily }: { daily: DailyUsageTrend[] }) {
+    const rates = daily.map((day) => (day.queryCount === 0 ? 0 : (day.cacheHits / day.queryCount) * 100));
+    const line = linePath(rates, 260, 70, 3);
+    return (
+        <div className="dashboard-demo-sparkline" role="img" aria-label="Daily cached response hit rate trend">
+            <svg viewBox="0 0 260 70" preserveAspectRatio="none" aria-hidden="true">
+                <path d={`${line} L260 70 L0 70 Z`} />
+            </svg>
+        </div>
+    );
+}
+
+function CostSummary({ trends, totals }: { trends: UsageTrends; totals: UsageTotals }) {
+    return (
+        <div className="dashboard-demo-cost">
+            <div>
+                <strong>{trends.estimatedCostUsd.toLocaleString(undefined, { style: "currency", currency: "USD" })}</strong>
+                <span>Estimated cost · last 30 days</span>
+            </div>
+            <div>
+                <strong>{totals.totalTokens.toLocaleString()}</strong>
+                <span>Total tokens since tracking began</span>
+            </div>
+        </div>
     );
 }
 
