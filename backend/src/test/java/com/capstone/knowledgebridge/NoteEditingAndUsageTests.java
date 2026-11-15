@@ -211,6 +211,35 @@ class NoteEditingAndUsageTests {
 		assertThat(jdbc.queryForObject("SELECT count(*) FROM query_usage", Long.class)).isEqualTo(4);
 	}
 
+	@Test
+	void usageTrendsReturnThirtyScopedDailyBucketsAndFutureModelCosts() throws Exception {
+		jdbc.update("TRUNCATE query_usage");
+		jdbc.update(
+				"""
+						INSERT INTO query_usage
+						    (user_id, query_mode, cache_hit, input_tokens, output_tokens, estimated, provider_model, estimated_cost_usd)
+						VALUES (2, 'SYNTHESIS', false, 12, 8, false, 'openrouter:model', 0.0015),
+						       (1, 'SYNTHESIS', true, 20, 10, false, 'workspace-only', 0.0025)
+						""");
+
+		mvc.perform(get("/api/usage/trends").header("Authorization", user))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.scope").value("personal"))
+				.andExpect(jsonPath("$.daily.length()").value(30))
+				.andExpect(jsonPath("$.daily[29].queryCount").value(1))
+				.andExpect(jsonPath("$.daily[29].inputTokens").value(12))
+				.andExpect(jsonPath("$.daily[29].outputTokens").value(8))
+				.andExpect(jsonPath("$.daily[29].cacheHits").value(0))
+				.andExpect(jsonPath("$.models[0].model").value("openrouter:model"))
+				.andExpect(jsonPath("$.models[0].queryCount").value(1))
+				.andExpect(jsonPath("$.estimatedCostUsd").value(0.0015))
+				.andExpect(jsonPath("$.hasEstimatedCost").value(true));
+		mvc.perform(get("/api/usage/trends").header("Authorization", admin))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.scope").value("workspace"))
+				.andExpect(jsonPath("$.models.length()").value(2));
+	}
+
 	private String login(String email, String password) throws Exception {
 		String response = mvc.perform(post("/api/auth/login").contentType("application/json")
 				.content(json.writeValueAsString(java.util.Map.of("email", email, "password", password))))

@@ -4,6 +4,7 @@ import { DocumentRow } from "../../components/ui/DocumentRow";
 import { changeKnowledgeLifecycle, getKnowledgeItems, knowledgeActionLabels, type KnowledgeAction, type KnowledgeItem, type KnowledgeLifecycle } from "./knowledgeApi";
 import { useAuth } from "../auth/useAuth";
 import { KnowledgeActionDialog } from "./KnowledgeActionDialog";
+import { JiraSyncPanel } from "./JiraSyncPanel";
 
 interface KnowledgeBasePageProps {
     search: string;
@@ -96,6 +97,7 @@ export function KnowledgeBasePage({ search, onOpenDetail }: KnowledgeBasePagePro
                 </button>
                 {items && <span>{filtered.length} documents</span>}
             </div>
+            {admin && <JiraSyncPanel onSynced={() => void refresh()} />}
             {notice && (
                 <p className="upload-success" role="status">
                     {notice}

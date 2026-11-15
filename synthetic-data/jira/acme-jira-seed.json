@@ -1,0 +1,274 @@
+{
+    "project": {
+        "key": "ACME",
+        "name": "Acme Delivery"
+    },
+    "referenceDate": "2026-09-11",
+    "items": [
+        {
+            "seedId": "cedar-epic",
+            "type": "Epic",
+            "summary": "Project Cedar: Atlas approval reliability",
+            "status": "In Progress",
+            "priority": "High",
+            "labels": ["cedar", "atlas"],
+            "description": "Project Cedar improves the reliability and auditability of Atlas approval workflows.\n\n- Executive sponsor: Priya Shah\n- Delivery lead: Theo Park\n- Approved envelope: $48,000\n\n## Release gates\n\n- Passing approval-path regression tests\n- No open tenant-isolation finding\n- An accepted rollback drill\n- Joint Engineering and IT Operations readiness approval\n\nSource of truth for status is the latest steering snapshot (ACME-023), not this epic.",
+            "comments": [
+                "Sept 4 snapshot: Cedar is amber. Rollout forecast moved from September 15 to September 22, 2026; Priya approved the revised forecast at the September 3 steering meeting."
+            ]
+        },
+        {
+            "seedId": "cedar-idempotency",
+            "type": "Story",
+            "parent": "cedar-epic",
+            "summary": "Tenant-scoped idempotency key for approval notifications",
+            "status": "Done",
+            "priority": "High",
+            "labels": ["cedar", "atlas", "adr-001"],
+            "description": "Implement the tenant-scoped idempotent delivery decision from ADR-001 so a retried approval event cannot notify the same approver twice.\n\nFollow-up to INC-2026-02 (duplicate approval notifications).\n\n## Acceptance\n\n- The idempotency key includes the tenant identifier\n- Component review passed",
+            "comments": [
+                "Component review passed. Retry regression evidence is tracked separately in the Cedar retry regression task."
+            ]
+        },
+        {
+            "seedId": "cedar-history-view",
+            "type": "Story",
+            "parent": "cedar-epic",
+            "summary": "Clearer approval-history view",
+            "status": "Done",
+            "priority": "Medium",
+            "labels": ["cedar", "atlas"],
+            "description": "Give workflow administrators a clearer approval-history view. Customer-facing workflow rules must remain backward compatible.",
+            "comments": [
+                "Approval-history interface passed its component review. Three pilot workspaces completed the basic approval path."
+            ]
+        },
+        {
+            "seedId": "cedar-retry-regression",
+            "type": "Task",
+            "parent": "cedar-epic",
+            "summary": "Retry regression evidence for duplicate notification delivery",
+            "status": "In Progress",
+            "priority": "Highest",
+            "labels": ["cedar", "release-gate"],
+            "description": "Owner: Theo Park\n\nProduce regression evidence that retried deliveries do not send duplicate approval notifications. This is a Cedar release gate and must close before the joint Engineering and IT Operations readiness decision.",
+            "comments": [
+                "Two of the three planned retry scenarios pass in staging. The third, a retry after a partial tenant failover, still needs a test fixture. Theo Park",
+                "Reminder: a passing component review is not the same as this regression gate. Keep them separate in the steering report."
+            ]
+        },
+        {
+            "seedId": "cedar-rollback-drill",
+            "type": "Task",
+            "parent": "cedar-epic",
+            "summary": "Rollback drill sign-off after restore credential issue",
+            "status": "In Progress",
+            "priority": "Highest",
+            "labels": ["cedar", "release-gate", "inc-2026-04"],
+            "description": "Owner: Morgan Reed\nReviewer: Jordan Blake\n\nThe August 27 restore drill took 95 minutes against a 60-minute target because the runbook referenced an obsolete credential location (INC-2026-04).\n\n- Update the runbook to use the managed secret alias\n- Validate that the incident role can resolve it\n- Repeat the drill and record the measured restore time",
+            "comments": [
+                "Runbook updated to the managed secret alias. Repeat drill not yet scheduled; an assigned due date is not proof the repeat test succeeded. Morgan Reed"
+            ]
+        },
+        {
+            "seedId": "cedar-readiness",
+            "type": "Task",
+            "parent": "cedar-epic",
+            "summary": "Joint Engineering and IT Operations readiness decision",
+            "status": "To Do",
+            "priority": "High",
+            "labels": ["cedar", "release-gate"],
+            "description": "Record the joint readiness decision for the Cedar rollout. Blocked until the retry regression evidence and the rollback drill sign-off are accepted.",
+            "comments": []
+        },
+        {
+            "seedId": "cedar-pilot-update",
+            "type": "Task",
+            "parent": "cedar-epic",
+            "summary": "Revised pilot update for Cedar pilot workspaces",
+            "status": "To Do",
+            "priority": "Medium",
+            "labels": ["cedar", "customer-success"],
+            "description": "Customer Success prepares a revised update for the three Cedar pilot workspaces reflecting the September 22 forecast. Do not describe a customer-wide launch; none has been recorded.",
+            "comments": []
+        },
+        {
+            "seedId": "aurora-epic",
+            "type": "Epic",
+            "summary": "Project Aurora: Beacon regional reporting",
+            "status": "In Progress",
+            "priority": "Medium",
+            "labels": ["aurora", "beacon"],
+            "description": "Project Aurora adds regional reporting to Beacon.\n\n- Sponsor: Priya Shah\n- Delivery lead: Leo Martin\n- Planning envelope: $32,000\n- Limited pilot target: October 6, 2026\n\nNo general-availability date has been approved. Until the exit gates close, sales material must describe Aurora as a planned pilot.",
+            "comments": []
+        },
+        {
+            "seedId": "aurora-region-tags",
+            "type": "Task",
+            "parent": "aurora-epic",
+            "summary": "Validate region tags in a non-production dataset",
+            "status": "In Progress",
+            "priority": "Medium",
+            "labels": ["aurora", "beacon"],
+            "description": "Owner: Leo Martin\n\nStage one of the Aurora rollout. Customer data must not be copied into test fixtures to accelerate this check.",
+            "comments": [
+                "Region tags validated for synthetic North America data. European records are waiting on the hosting-region decision. Leo Martin"
+            ]
+        },
+        {
+            "seedId": "aurora-aggregate-compare",
+            "type": "Task",
+            "parent": "aurora-epic",
+            "summary": "Compare regional aggregate totals with the existing report",
+            "status": "To Do",
+            "priority": "Medium",
+            "labels": ["aurora", "beacon"],
+            "description": "Stage two of the Aurora rollout: compare aggregate totals from the regional report with the existing Beacon report before inviting pilot customers.",
+            "comments": []
+        },
+        {
+            "seedId": "aurora-retention",
+            "type": "Task",
+            "parent": "aurora-epic",
+            "summary": "Reconcile Beacon guide retention with the data retention standard",
+            "status": "In Progress",
+            "priority": "High",
+            "labels": ["aurora", "beacon", "retention"],
+            "description": "Owner: Leo Martin\nReviewer: Jordan Blake\n\nThe controlled Data Retention Standard v2 says audit records are kept 365 days. The draft Beacon administration guide says 180 days. The standard is the authority; update the guide and confirm the implementation matches.",
+            "comments": [
+                "Implementation confirmed at 365 days. Guide update drafted and waiting on Jordan Blake's review."
+            ]
+        },
+        {
+            "seedId": "aurora-eu-region",
+            "type": "Story",
+            "parent": "aurora-epic",
+            "summary": "Decide hosting region for European customer data",
+            "status": "To Do",
+            "priority": "High",
+            "labels": ["aurora", "beacon", "adr-005"],
+            "description": "ADR-005 (Beacon regional storage) is still pending. No signed data-residency architecture exists.\n\nA meeting attendee's preference for a region is not an approved hosting commitment.",
+            "comments": [
+                "Blocks European region tagging and the pilot exit gate."
+            ]
+        },
+        {
+            "seedId": "aurora-comms-plan",
+            "type": "Task",
+            "parent": "aurora-epic",
+            "summary": "Customer communication plan for the Aurora pilot",
+            "status": "To Do",
+            "priority": "Medium",
+            "labels": ["aurora", "beacon"],
+            "description": "One of the three Aurora pilot exit gates, alongside the region decision and retention evidence.",
+            "comments": []
+        },
+        {
+            "seedId": "ledger-epic",
+            "type": "Epic",
+            "summary": "Project Ledger: vendor reference cleanup",
+            "status": "In Progress",
+            "priority": "Medium",
+            "labels": ["ledger", "procurement"],
+            "description": "Project Ledger cleans vendor reference data in ProcureFlow and reconciles it with LedgerOne.\n\n- Lead: Ravi Desai\n- Sponsor: Elena Ortiz\n- Envelope: $12,000\n\nNo automatic production merges are authorized. Never store bank-account data in the knowledge base.",
+            "comments": []
+        },
+        {
+            "seedId": "ledger-staging-report",
+            "type": "Task",
+            "parent": "ledger-epic",
+            "summary": "Staging report normalizing vendor names and tax-reference placeholders",
+            "status": "Done",
+            "priority": "Medium",
+            "labels": ["ledger", "procurement"],
+            "description": "Build the staging report that normalizes vendor names and tax-reference placeholders.\n\nBaseline inventory: 240 vendor records and 36 possible duplicate pairs. These are candidate pairs, not 36 confirmed duplicate vendors.",
+            "comments": []
+        },
+        {
+            "seedId": "ledger-pair-review",
+            "type": "Task",
+            "parent": "ledger-epic",
+            "summary": "Finance review of candidate duplicate vendor pairs",
+            "status": "In Progress",
+            "priority": "High",
+            "labels": ["ledger", "procurement"],
+            "description": "Owner: Ravi Desai\n\nFinance records a decision for every candidate pair. Keep the surviving identifier, source identifiers, reviewer, and reason in the merge log.",
+            "comments": [
+                "A declined merge counts as reviewed, not as an unresolved failure. There is no target to force the vendor count down."
+            ]
+        },
+        {
+            "seedId": "ledger-po-sample",
+            "type": "Task",
+            "parent": "ledger-epic",
+            "summary": "Sample ten purchase orders after approved merges",
+            "status": "To Do",
+            "priority": "Medium",
+            "labels": ["ledger", "procurement"],
+            "description": "Acceptance check: a sample of ten purchase orders must resolve to the intended vendor, and historical purchase-order references must remain resolvable.",
+            "comments": []
+        },
+        {
+            "seedId": "ledger-nimbus",
+            "type": "Task",
+            "parent": "ledger-epic",
+            "summary": "Confirm the Nimbus renewal uses the reviewed vendor record",
+            "status": "To Do",
+            "priority": "High",
+            "labels": ["ledger", "procurement", "nimbus"],
+            "description": "The Nimbus compute renewal must use the reviewed vendor record before any commitment.",
+            "comments": []
+        },
+        {
+            "seedId": "compass-epic",
+            "type": "Epic",
+            "summary": "Project Compass: standard customer onboarding",
+            "status": "In Progress",
+            "priority": "Medium",
+            "labels": ["compass", "customer-success"],
+            "description": "Compass standardizes customer onboarding across Atlas and Harbor.\n\n- Sponsor and lead: Samira Cole\n- Envelope: $8,000\n- Pilot account: Pinecrest Services (fictional)\n\nTarget: an accepted handoff within ten business days after all customer prerequisites are complete.",
+            "comments": []
+        },
+        {
+            "seedId": "compass-kickoff",
+            "type": "Task",
+            "parent": "compass-epic",
+            "summary": "Kickoff checklist for the Pinecrest Services pilot",
+            "status": "Done",
+            "priority": "Medium",
+            "labels": ["compass", "customer-success"],
+            "description": "Kickoff checklist covering the prerequisites: a signed scope, a named customer administrator, approved test data, and validated access.",
+            "comments": []
+        },
+        {
+            "seedId": "compass-config-record",
+            "type": "Task",
+            "parent": "compass-epic",
+            "summary": "Responsibility map and configuration record",
+            "status": "In Progress",
+            "priority": "Medium",
+            "labels": ["compass", "customer-success"],
+            "description": "Owner: Samira Cole\n\nDeliver the responsibility map and configuration record for the Pinecrest pilot.",
+            "comments": [
+                "Pinecrest's named administrator is confirmed; approved test data is still outstanding, so the ten-day clock has not started. Samira Cole"
+            ]
+        },
+        {
+            "seedId": "compass-clock-bug",
+            "type": "Bug",
+            "parent": "compass-epic",
+            "summary": "Onboarding tracker starts the handoff clock at the sales introduction",
+            "status": "To Do",
+            "priority": "High",
+            "labels": ["compass", "customer-success"],
+            "description": "The onboarding tracker starts the ten-business-day handoff clock when sales makes the first introduction. Per the Compass plan, the clock starts only once all customer prerequisites are complete; an informal sales introduction or unsigned proposal does not start it.\n\n## Expected\n\n- Clock starts when the last prerequisite is marked complete\n- Missing prerequisites are reported separately from execution delays",
+            "comments": []
+        }
+    ],
+    "links": [
+        { "type": "Blocks", "from": "cedar-retry-regression", "to": "cedar-readiness" },
+        { "type": "Blocks", "from": "cedar-rollback-drill", "to": "cedar-readiness" },
+        { "type": "Blocks", "from": "aurora-eu-region", "to": "aurora-region-tags" },
+        { "type": "Relates", "from": "ledger-nimbus", "to": "ledger-pair-review" }
+    ]
+}

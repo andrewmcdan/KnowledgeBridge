@@ -1,0 +1,155 @@
+{
+    "data": {
+        "id": "10027",
+        "key": "ACME-22",
+        "fields": {
+            "statuscategorychangedate": "2026-11-05T17:38:22.933-0500",
+            "issuetype": {
+                "id": "10010",
+                "description": "A problem or error.",
+                "name": "Bug",
+                "subtask": false,
+                "hierarchyLevel": 0
+            },
+            "parent": {
+                "id": "10024",
+                "key": "ACME-19",
+                "fields": {
+                    "summary": "Project Compass: standard customer onboarding",
+                    "status": {
+                        "description": "This work item is being actively worked on at the moment by the assignee.",
+                        "name": "In Progress",
+                        "id": "3",
+                        "statusCategory": {
+                            "id": 4,
+                            "key": "indeterminate",
+                            "colorName": "yellow",
+                            "name": "In Progress"
+                        }
+                    },
+                    "priority": {
+                        "name": "Medium",
+                        "id": "3"
+                    },
+                    "issuetype": {
+                        "id": "10000",
+                        "description": "A big user story that needs to be broken down. Created by Jira Software - do not edit or delete.",
+                        "name": "Epic",
+                        "subtask": false,
+                        "hierarchyLevel": 1
+                    }
+                }
+            },
+            "project": {
+                "id": "10001",
+                "key": "ACME",
+                "name": "Acme Delivery",
+                "projectTypeKey": "software",
+                "simplified": false
+            },
+            "fixVersions": [],
+            "statusCategory": {
+                "id": 2,
+                "key": "new",
+                "colorName": "blue-gray",
+                "name": "To Do"
+            },
+            "workratio": -1,
+            "watches": {
+                "watchCount": 1,
+                "isWatching": true
+            },
+            "created": "2026-11-05T17:38:22.522-0500",
+            "priority": {
+                "name": "High",
+                "id": "2"
+            },
+            "labels": [
+                "compass",
+                "customer-success",
+                "kb-seed",
+                "kbseed-compass-clock-bug"
+            ],
+            "versions": [],
+            "issuelinks": [],
+            "assignee": null,
+            "updated": "2026-11-05T17:38:22.631-0500",
+            "status": {
+                "description": "",
+                "name": "To Do",
+                "id": "10004",
+                "statusCategory": {
+                    "id": 2,
+                    "key": "new",
+                    "colorName": "blue-gray",
+                    "name": "To Do"
+                }
+            },
+            "components": [],
+            "description": "The onboarding tracker starts the ten-business-day handoff clock when sales makes the first introduction. Per the Compass plan, the clock starts only once all customer prerequisites are complete; an informal sales introduction or unsigned proposal does not start it.\n\n## Expected\n\n* Clock starts when the last prerequisite is marked complete\n* Missing prerequisites are reported separately from execution delays\n\n",
+            "timetracking": {},
+            "attachment": [],
+            "summary": "Onboarding tracker starts the handoff clock at the sales introduction",
+            "creator": {
+                "accountId": "000000:00000000-0000-0000-0000-000000000000",
+                "emailAddress": "test.user@example.com",
+                "displayName": "Test User",
+                "active": true,
+                "timeZone": "America/New_York",
+                "accountType": "atlassian"
+            },
+            "subtasks": [],
+            "reporter": {
+                "accountId": "000000:00000000-0000-0000-0000-000000000000",
+                "emailAddress": "test.user@example.com",
+                "displayName": "Test User",
+                "active": true,
+                "timeZone": "America/New_York",
+                "accountType": "atlassian"
+            },
+            "aggregateprogress": {
+                "progress": 0,
+                "total": 0
+            },
+            "progress": {
+                "progress": 0,
+                "total": 0
+            },
+            "votes": {
+                "votes": 0,
+                "hasVoted": false
+            },
+            "comment": {
+                "comments": [],
+                "maxResults": 0,
+                "total": 0,
+                "startAt": 0
+            },
+            "worklog": {
+                "startAt": 0,
+                "maxResults": 20,
+                "total": 0,
+                "worklogs": []
+            },
+            "customFields": {
+                "Status pages": {
+                    "id": "customfield_10037",
+                    "value": []
+                },
+                "Rank": {
+                    "id": "customfield_10019",
+                    "value": "0|i0005w:"
+                },
+                "Epic Link": {
+                    "id": "customfield_10014",
+                    "value": "ACME-19"
+                },
+                "Organizations": {
+                    "id": "customfield_10002",
+                    "value": []
+                }
+            }
+        },
+        "appliedContentFormat": "markdown"
+    }
+}

@@ -90,6 +90,20 @@ Implemented: `GET /api/usage` returns personal query/token totals for users and 
 | DELETE | `/api/admin/cache` | Admin | Clears the exact-match response cache. |
 | GET | `/api/admin/engine/status` | Admin | Reports gbrain adapter reachability and configuration so admins can diagnose ingestion failures. |
 
+## Jira integration
+
+Implemented. See [the design](./Jira-Integration-Design.md).
+
+| Method | Route | Role | Description |
+|---|---|---|---|
+| GET | `/api/integrations/jira/status` | Admin | Whether Jira is configured and reachable. |
+| GET | `/api/integrations/jira/projects` | Admin | Live list of Jira projects. |
+| POST | `/api/integrations/jira/projects/{key}/sync` | Admin | Starts a background sync; returns 202 with the run, or 409 if one is running. |
+| GET | `/api/integrations/jira/sync-runs` | Admin | The 50 most recent sync runs. |
+| GET | `/api/integrations/jira/sync-runs/{id}` | Admin | One run, for polling. |
+| GET | `/api/integrations/jira/issues` | User | Synced work items, filterable by `project`, `type`, `status`, and `assignee`. |
+| GET | `/api/integrations/jira/issues/{key}` | User | One synced work item and its Markdown page. |
+
 ## Notes
 
 - The frontend never calls gbrain directly; all knowledge-engine traffic goes through the backend adapter behind these routes.

@@ -20,4 +20,9 @@ public class UsageController {
 	public UsageService.Totals totals(@AuthenticationPrincipal Jwt jwt) {
 		return usage.totals(Long.parseLong(jwt.getSubject()), "ADMIN".equals(jwt.getClaimAsString("role")));
 	}
+
+	@GetMapping("/trends")
+	public UsageService.Trends trends(@AuthenticationPrincipal Jwt jwt) {
+		return usage.trends(Long.parseLong(jwt.getSubject()), "ADMIN".equals(jwt.getClaimAsString("role")));
+	}
 }

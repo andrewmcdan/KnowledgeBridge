@@ -1,0 +1,86 @@
+{
+    "data": {
+        "appliedContentFormat": "markdown",
+        "id": "10010",
+        "key": "ACME-5",
+        "fields": {
+            "summary": "Rollback drill sign-off after restore credential issue",
+            "description": "Owner: Morgan Reed  \nReviewer: Jordan Blake\n\nThe August 27 restore drill took 95 minutes against a 60-minute target because the runbook referenced an obsolete credential location (INC-2026-04).\n\n* Update the runbook to use the managed secret alias\n* Validate that the incident role can resolve it\n* Repeat the drill and record the measured restore time\n\n",
+            "status": {
+                "name": "In Progress",
+                "statusCategory": {
+                    "name": "In Progress"
+                }
+            },
+            "assignee": null,
+            "reporter": {
+                "accountId": "000000:00000000-0000-0000-0000-000000000000",
+                "displayName": "Test User"
+            },
+            "priority": {
+                "name": "Highest"
+            },
+            "issuetype": {
+                "id": "10008",
+                "name": "Task"
+            },
+            "created": "2026-11-05T17:37:59.818-0500",
+            "updated": "2026-11-05T17:38:23.757-0500",
+            "labels": [
+                "cedar",
+                "inc-2026-04",
+                "kb-seed",
+                "kbseed-cedar-rollback-drill",
+                "release-gate"
+            ],
+            "parent": {
+                "id": "10006",
+                "key": "ACME-1",
+                "fields": {
+                    "summary": "Project Cedar: Atlas approval reliability"
+                }
+            },
+            "subtasks": [],
+            "comment": {
+                "total": 1
+            },
+            "issuelinks": [
+                {
+                    "id": "10001",
+                    "type": {
+                        "name": "Blocks",
+                        "inward": "is blocked by",
+                        "outward": "blocks"
+                    },
+                    "inwardIssue": {
+                        "key": "ACME-6",
+                        "fields": {
+                            "summary": "Joint Engineering and IT Operations readiness decision",
+                            "status": {
+                                "name": "To Do"
+                            }
+                        }
+                    }
+                }
+            ],
+            "customFields": {
+                "Status pages": {
+                    "id": "customfield_10037",
+                    "value": []
+                },
+                "Rank": {
+                    "id": "customfield_10019",
+                    "value": "0|i00022:"
+                },
+                "Epic Link": {
+                    "id": "customfield_10014",
+                    "value": "ACME-1"
+                },
+                "Organizations": {
+                    "id": "customfield_10002",
+                    "value": []
+                }
+            }
+        }
+    }
+}
