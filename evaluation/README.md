@@ -141,5 +141,14 @@ The November 7 diagnostic repair aligned the existing OpenRouter generation, re-
 
 Model score deltas are calculated only for cases with validated judgments and identical context hashes within the same scope. Context mismatches are reported as inconclusive model comparisons. Corpus/workspace arms intentionally have different context; they are not labeled matched model comparisons. Requests never override the server allowlist, retry synthesis, ingest answer keys, or transmit credentials to evaluator models. Traces can contain workspace content; keep them in ignored run directories.
 
+For a known blank-line-only corpus/import mismatch, preview and optionally add a canonical Markdown copy:
+
+```powershell
+python -B scripts/reconcile_synthetic_imports.py --doc-id ACME-011
+python -B scripts/reconcile_synthetic_imports.py --doc-id ACME-011 --apply
+```
+
+Repair requires an ADMIN account and a formatting-only matching import, preserves existing documents, refuses substantive changes, and skips sources already matched. It never deletes, rewrites, promotes users or retries uploads. Wait for ingestion completion and rerun the preview before evaluating. An interrupted upload may already have queued work; inspect the knowledge list before retrying.
+
 Use `--dry-run` for an offline plan/PDF, or `--from-json <saved-report.json>` to generate a PDF without making or repeating requests. Default new-run artifacts are ignored `evaluation/runs/corpus-<run-id>/results.json` and `report.pdf`. See [script usage](../scripts/README.md#entire-corpus-with-a-pdf-report) for examples, options, dependency installation, recovery and exit codes.
 

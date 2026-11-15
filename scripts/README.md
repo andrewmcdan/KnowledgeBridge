@@ -60,6 +60,8 @@ Use `python -B scripts/evaluate_synthesis.py --suite evaluation/diagnostic-suite
 
 `compare_synthesis.py --model openai:gpt-4o-mini --model openrouter:anthropic/claude-haiku-4.5` runs the suite across both models and corpus/workspace evidence scopes, writes a JSON/PDF per arm and a frozen-suite comparison manifest, and calculates model deltas only when actual context hashes match. Add `--dry-run` for an offline preview, `--scope corpus` for one scope, or repeated `--case-id DIAG-09 --case-id DIAG-13` for a small regression. Tracing requires an existing ADMIN account, explicit opt-in/allowed models and rebuilt gbrain/backend settings; it makes real paid requests when not dry-run. See the [diagnostic workflow](../evaluation/README.md#diagnostic-rubric-v5-and-controlled-comparisons) for scope semantics, trace fields and setup.
 
+`reconcile_synthetic_imports.py --doc-id ACME-011` previews formatting-only import differences. Its explicit `--apply` imports a canonical Markdown copy while preserving old records; it refuses substantive changes and skips already-matching copies. It does not alter evaluation source files or answer keys.
+
 ## Local development launcher
 
 The PowerShell launcher starts PostgreSQL/pgvector and gbrain through Docker Compose while running Spring Boot and Vite directly on the host for fast frontend reloads. It reuses already-running infrastructure without recreating it.
