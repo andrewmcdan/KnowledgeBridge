@@ -685,14 +685,16 @@ def summarize(cases, planned):
     counts = {status: sum(case["status"] == status for case in cases) for status in ["pass", "fail", "error"]}
     completed = sum(counts.values())
     scored = [case["judgment"]["scores"] for case in cases if case.get("judgment_validated") and case["status"] in {"pass", "fail"}]
+    target_source_cited = sum(case.get("citation_check", {}).get("all_selected_cited") is True
+                              for case in cases if case["status"] in {"pass", "fail"})
     return {"planned": planned, "completed": completed, "passed": counts["pass"], "failed": counts["fail"],
             "errors": counts["error"], "not_run": planned - completed,
             "pass_rate": counts["pass"] / planned if planned else None,
             "cache_hits": sum(case.get("synthesis", {}).get("cacheHit") is True for case in cases),
             "answer_quality_passed": sum(case.get("answer_quality_status") == "pass" for case in cases),
-            "target_source_cited": sum(case.get("citation_check", {}).get("all_selected_cited") is True for case in cases),
+            "target_source_cited": target_source_cited,
             "answer_quality_pass_rate": sum(case.get("answer_quality_status") == "pass" for case in cases) / planned if planned else None,
-            "target_source_citation_rate": sum(case.get("citation_check", {}).get("all_selected_cited") is True for case in cases) / planned if planned else None,
+            "target_source_citation_rate": target_source_cited / planned if planned else None,
             "scored_cases": len(scored), "average_scores": {
                 name: round(sum(scores[name] for scores in scored) / len(scored), 3) if scored else None
                 for name in ["accuracy", "grounding", "completeness"]}}

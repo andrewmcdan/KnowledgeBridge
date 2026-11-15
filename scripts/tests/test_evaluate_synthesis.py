@@ -632,6 +632,27 @@ class EvaluationTests(unittest.TestCase):
         self.assertEqual(report["summary"]["pass_rate"], 0.25)
         self.assertEqual(report["summary"]["average_scores"]["accuracy"], 3.333)
 
+    def test_citation_success_excludes_invalid_judgments_after_citations_are_verified(self):
+        report = {}
+        with redirect_stdout(io.StringIO()), redirect_stderr(io.StringIO()):
+            code = evaluation.run_batch(FakeApp(), BatchAI({1: "error"}), SELECTED[:1], "2026-09-11", report)
+        self.assertEqual(code, 2)
+        self.assertTrue(report["cases"][0]["citation_check"]["all_selected_cited"])
+        for summary in [report["summary"], report["document_summaries"]["ACME-013"]]:
+            self.assertEqual(summary["scored_cases"], 0)
+            self.assertEqual(summary["target_source_cited"], 0)
+            self.assertEqual(summary["target_source_citation_rate"], 0)
+
+    def test_citation_success_counts_completed_pass_and_fail_cases_with_planned_denominator(self):
+        report = {}
+        with redirect_stdout(io.StringIO()), redirect_stderr(io.StringIO()):
+            evaluation.run_batch(FakeApp(), BatchAI({1: "fail", 2: "error"}), SELECTED, "2026-09-11", report, queries_per_doc=2)
+        self.assertEqual([case["status"] for case in report["cases"]], ["fail", "error", "pass", "pass"])
+        self.assertEqual(report["summary"]["target_source_cited"], 3)
+        self.assertEqual(report["summary"]["target_source_citation_rate"], 0.75)
+        self.assertEqual(report["document_summaries"]["ACME-013"]["target_source_citation_rate"], 0.5)
+        self.assertEqual(report["document_summaries"]["ACME-017"]["target_source_citation_rate"], 1)
+
     def test_batch_quality_failure_without_evaluator_errors_exits_one(self):
         report = {}
         with redirect_stdout(io.StringIO()), redirect_stderr(io.StringIO()):
@@ -673,6 +694,11 @@ class EvaluationTests(unittest.TestCase):
             self.assertEqual([case["status"] for case in report["cases"]], ["pass", "error"])
             self.assertEqual(report["summary"]["completed"], 2)
             self.assertEqual(report["summary"]["not_run"], 2)
+            self.assertTrue(report["cases"][1]["citation_check"]["all_selected_cited"])
+            self.assertEqual(report["summary"]["target_source_cited"], 1)
+            self.assertEqual(report["summary"]["target_source_citation_rate"], 0.25)
+            self.assertEqual(report["document_summaries"]["ACME-013"]["target_source_citation_rate"], 0.5)
+            self.assertEqual(report["document_summaries"]["ACME-017"]["target_source_citation_rate"], 0)
             self.assertEqual(len(app.synthesis_calls), 2)
             self.assertEqual(report["document_summaries"]["ACME-017"]["not_run"], 2)
 

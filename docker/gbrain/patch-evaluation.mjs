@@ -34,10 +34,12 @@ edit("src/core/think/index.ts", [
   }
   // D6: per-stream gather failures`],
     ["  const systemPrompt = buildThinkSystemPrompt({", "  let systemPrompt = buildThinkSystemPrompt({"],
-    ["  const userMessage = buildThinkUserMessage({", `  systemPrompt += '\\nSource discipline: distinguish questions, examples, proposals and quoted misconceptions from asserted facts. '
-    + 'For historical questions use the policy effective for the requested period, not current thresholds. '
-    + 'Prefer controlled source records over drafts and informal notes. Never invent names, numbers, approvals or dates. '
-    + 'State what is missing when the supplied evidence cannot answer. Cite the evidence supporting each material claim.';
+    ["  const userMessage = buildThinkUserMessage({", `  if (opts.evaluation) {
+    systemPrompt += '\\nSource discipline: distinguish questions, examples, proposals and quoted misconceptions from asserted facts. '
+      + 'For historical questions use the policy effective for the requested period, not current thresholds. '
+      + 'Prefer controlled source records over drafts and informal notes. Never invent names, numbers, approvals or dates. '
+      + 'State what is missing when the supplied evidence cannot answer. Cite the evidence supporting each material claim.';
+  }
   const userMessage = buildThinkUserMessage({`],
     ["  // #1698: true only when an actual synthesis", `  const evaluationTrace = opts.evaluation ? {
     version: 1, candidates: evaluationCandidates,
