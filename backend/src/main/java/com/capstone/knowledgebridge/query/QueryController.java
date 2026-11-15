@@ -1,5 +1,7 @@
 package com.capstone.knowledgebridge.query;
 
+import java.util.List;
+
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -11,9 +13,12 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-import com.capstone.knowledgebridge.gbrain.GbrainException;
-import com.capstone.knowledgebridge.common.ApiError;
+import tools.jackson.databind.JsonNode;
+
 import com.capstone.knowledgebridge.cache.QueryMode;
+import com.capstone.knowledgebridge.common.ApiError;
+import com.capstone.knowledgebridge.gbrain.GbrainEvaluationService;
+import com.capstone.knowledgebridge.gbrain.GbrainException;
 import com.capstone.knowledgebridge.usage.UsageService;
 import com.capstone.knowledgebridge.query.QueryService.SearchResponse;
 import com.capstone.knowledgebridge.query.QueryService.SynthesisResponse;
@@ -22,6 +27,7 @@ import jakarta.validation.Valid;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 
 @RestController
@@ -34,12 +40,23 @@ public class QueryController {
 	public record SynthesisRequest(@NotBlank @Size(max = 2000) String question) {
 	}
 
+	public record EvaluationRequest(@NotBlank @Size(max = 2000) String question,
+			@NotBlank @Size(max = 255) String model,
+			@NotNull @Size(max = 100) List<@NotNull @Min(1) Long> allowedItemIds) {
+	}
+
+	public record EvaluationResponse(SynthesisResponse synthesis, JsonNode trace) {
+	}
+
 	private final QueryService queryService;
 	private final UsageService usageService;
+	private final GbrainEvaluationService evaluationService;
 
-	public QueryController(QueryService queryService, UsageService usageService) {
+	public QueryController(QueryService queryService, UsageService usageService,
+			GbrainEvaluationService evaluationService) {
 		this.queryService = queryService;
 		this.usageService = usageService;
+		this.evaluationService = evaluationService;
 	}
 
 	@PostMapping("/search")
@@ -58,6 +75,17 @@ public class QueryController {
 		usageService.record(Long.parseLong(jwt.getSubject()), QueryMode.SYNTHESIS, response.cacheHit(),
 				response.usage());
 		return response;
+	}
+
+	// Evaluation is opt-in and admin-only; it bypasses caches so model/scope arms cannot share an old answer.
+	@PostMapping("/evaluate")
+	@PreAuthorize("hasRole('ADMIN')")
+	public EvaluationResponse evaluate(@Valid @RequestBody EvaluationRequest request,
+			@AuthenticationPrincipal Jwt jwt) {
+		var result = evaluationService.evaluate(request.question(), request.model(), request.allowedItemIds());
+		var response = queryService.toSynthesisResponse(request.question(), result.synthesis());
+		usageService.record(Long.parseLong(jwt.getSubject()), QueryMode.SYNTHESIS, false, response.usage());
+		return new EvaluationResponse(response, result.trace());
 	}
 
 	@ExceptionHandler(GbrainException.class)

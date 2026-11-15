@@ -28,7 +28,9 @@ class QueryControllerTests {
 	private final QueryService queryService = mock(QueryService.class);
 
 	private final UsageService usage = mock(UsageService.class);
-	private final QueryController controller = new QueryController(queryService, usage);
+	private final com.capstone.knowledgebridge.gbrain.GbrainEvaluationService evaluation = mock(
+			com.capstone.knowledgebridge.gbrain.GbrainEvaluationService.class);
+	private final QueryController controller = new QueryController(queryService, usage, evaluation);
 
 	private Jwt user() {
 		Jwt jwt = mock(Jwt.class);
@@ -58,6 +60,19 @@ class QueryControllerTests {
 
 		assertThat(response).isSameAs(expected);
 		verify(queryService).synthesize("What changed?");
+		verify(usage).record(2L, QueryMode.SYNTHESIS, false, null);
+	}
+
+	@Test
+	void evaluationIsMappedThroughNormalAvailabilityChecksAndUsageWithoutCaching() {
+		var result = new com.capstone.knowledgebridge.gbrain.GbrainEvaluationService.Result(null, null);
+		SynthesisResponse expected = new SynthesisResponse("Answer", true, false, List.of(), List.of(), List.of(), null,
+				false);
+		when(evaluation.evaluate("Q", "model", List.of(1L))).thenReturn(result);
+		when(queryService.toSynthesisResponse("Q", null)).thenReturn(expected);
+		var response = controller.evaluate(new QueryController.EvaluationRequest("Q", "model", List.of(1L)), user());
+		assertThat(response.synthesis()).isSameAs(expected);
+		assertThat(response.trace()).isNull();
 		verify(usage).record(2L, QueryMode.SYNTHESIS, false, null);
 	}
 

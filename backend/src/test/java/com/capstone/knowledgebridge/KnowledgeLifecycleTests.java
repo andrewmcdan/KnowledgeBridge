@@ -61,6 +61,21 @@ class KnowledgeLifecycleTests {
 	}
 
 	@Test
+	void evaluationDiagnosticsRequireAdminAndAreDisabledByDefault() throws Exception {
+		String request = "{\"question\":\"Test\",\"model\":\"model\",\"allowedItemIds\":[]}";
+		mvc.perform(post("/api/query/evaluate").contentType("application/json").content(request))
+				.andExpect(status().isUnauthorized());
+		mvc.perform(post("/api/query/evaluate").header("Authorization", user)
+				.contentType("application/json").content(request)).andExpect(status().isForbidden());
+		mvc.perform(post("/api/query/evaluate").header("Authorization", admin)
+				.contentType("application/json").content(request)).andExpect(status().isNotFound());
+		mvc.perform(
+				post("/api/query/evaluate").header("Authorization", admin).contentType("application/json")
+						.content("{\"question\":\"Test\",\"model\":\"model\",\"allowedItemIds\":[-1]}"))
+				.andExpect(status().isBadRequest());
+	}
+
+	@Test
 	void onlyAdminsCanPerformAnyLifecycleMutation() throws Exception {
 		long id = create();
 		clearInvocations(engine);

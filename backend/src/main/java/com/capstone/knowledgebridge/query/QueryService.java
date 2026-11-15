@@ -120,6 +120,11 @@ public class QueryService {
 
 	private SynthesisResponse askGbrain(String question) {
 		GbrainSynthesisResult result = gbrainClient.synthesize(new GbrainSynthesisRequest(question));
+		return toSynthesisResponse(question, result);
+	}
+
+	/** Maps an uncached diagnostic result through the same availability and accounting checks. */
+	public SynthesisResponse toSynthesisResponse(String question, GbrainSynthesisResult result) {
 		Map<String, KnowledgeItem> itemsById = knowledgeItemRepository.findAllById(itemIds(result.citations()))
 				.stream()
 				.collect(Collectors.toMap(item -> Long.toString(item.getId()), Function.identity()));

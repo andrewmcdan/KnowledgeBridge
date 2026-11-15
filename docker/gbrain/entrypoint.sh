@@ -6,8 +6,8 @@ set -eu
 [ -n "${OPENAI_API_KEY:-}" ] || unset OPENAI_API_KEY
 
 # Default models follow whichever provider key is available; OpenRouter wins when both are set.
-# Both routes serve OpenAI text-embedding-3-small at 1536 dimensions, so switching the route keeps
-# stored vectors comparable. Changing the embedding model or dimensions still requires migration.
+# Provider-qualified routes are distinct embedding generations, even for the same underlying model.
+# Pin the existing route; changing its provider, model or dimensions requires a supported migration.
 if [ -n "${OPENROUTER_API_KEY:-}" ]; then
     default_embedding_model="openrouter:openai/text-embedding-3-small"
     default_synthesis_model="openrouter:anthropic/claude-haiku-4.5"
@@ -50,6 +50,8 @@ else
 fi
 
 bun run src/cli.ts config set models.think "${GBRAIN_SYNTHESIS_MODEL}"
+bun run src/cli.ts config set evaluation.enabled "${KNOWLEDGEBRIDGE_EVALUATION_ENABLED:-false}" --force
+bun run src/cli.ts config set evaluation.models "${GBRAIN_EVALUATION_MODELS:-}" --force
 # KnowledgeBridge writes pages through the MCP adapter and keeps them in PostgreSQL rather than a Git checkout.
 bun run src/cli.ts config set persistence.unbound_write database_only
 
