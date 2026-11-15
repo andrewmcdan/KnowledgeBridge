@@ -158,6 +158,9 @@ def build_pdf(report, source, output):
     rate = "N/A" if totals["pass_rate"] is None else f"{totals['pass_rate']:.1%}"
     add(f"Pass rate: {rate} (passed / planned). Completed: {totals['completed']}/{totals['planned']}. "
         f"Validated scored cases: {totals['scored_cases']}. Cache hits: {totals['cache_hits']}.")
+    if report.get("rubric_version") == "synthesis-batch-v5":
+        add(f"Answer-quality passes: {totals['answer_quality_passed']}/{totals['planned']} (quality gates without the exact-target citation gate). "
+            f"Exact target source cited: {totals['target_source_cited']}/{totals['planned']}. Strict passes above require both.")
     add(f"*Not run includes {running} in-progress/unresolved case(s) in this snapshot. "
         "Errors and unrun cases are inconclusive; they do not count as passes or receive zero scores.")
     if report.get("status") == "dry_run":
@@ -172,9 +175,14 @@ def build_pdf(report, source, output):
         f"reference date: {report.get('as_of', 'N/A')}; rubric: {report.get('rubric_version', 'N/A')}.")
     counts = Counter(doc.get("status", "unknown") for doc in documents.values())
     add("Selected document statuses: " + (", ".join(f"{key}: {value}" for key, value in sorted(counts.items())) or "none"))
-    add(f"Evaluator: {report.get('provider', 'not selected')}; "
-        f"generator: {report.get('models', {}).get('generator') or 'not selected'}; "
+    generator = "reviewed fixed suite (no generation call)" if report.get("mode") == "fixed_diagnostic" else (
+        report.get("models", {}).get("generator") or "not selected")
+    add(f"Evaluator: {report.get('provider', 'not selected')}; benchmark: {generator}; "
         f"judge: {report.get('models', {}).get('judge') or 'not selected'}.")
+    options = report.get("evaluation_options")
+    if options:
+        add(f"Synthesis model: {options['model']}; evidence scope: "
+            f"{'canonical corpus' if options.get('allowedItemIds') else 'workspace'}; uncached diagnostic endpoint.")
     add(f"Minimum score: {report.get('min_score', 3)}/4 in every dimension; fresh synthesis required: "
         f"{'yes' if report.get('require_fresh') else 'no'}. "
         f"Recorded evaluator calls: {len(report.get('evaluator_calls', []))}.")
@@ -216,6 +224,13 @@ def build_pdf(report, source, output):
                 continue
             add(f"{item['case_id']} - {case['status'].upper()}", "Heading3")
             add("Question: " + case.get("generated", {}).get("question", "Not generated."))
+            if "answer_quality_status" in case:
+                add("Answer quality: " + case["answer_quality_status"].upper())
+            trace = case.get("retrieval_trace")
+            if trace:
+                add(f"Evidence trace: {len(trace.get('candidates', []))} candidates; {len(trace.get('selected_pages', []))} selected chunks; "
+                    f"context SHA-256: {trace.get('context_sha256', 'N/A')}. Exact prompt and chunks are in the JSON.")
+                add("Target evidence checks: " + "; ".join(f"{key}: {value}" for key, value in case.get("retrieval_check", {}).items()))
             if case.get("error"):
                 add(f"Error at {case.get('stage', 'unknown')}: {case['error']}")
             for failure in case.get("failures", []):
