@@ -43,7 +43,7 @@ python -B scripts/evaluate_synthesis.py --combined --doc-id ACME-011 --doc-id AC
 ### What each case does
 
 1. Check selected files against the corpus catalog checksums. Find their completed application items by comparing full document content, ignoring only BOM, CRLF/LF and outer whitespace. AI-renamed titles do not affect identity. Duplicate imports with identical content are valid aliases. Missing sources produce inconclusive errors for their cases before question generation; other documents can continue. Batch-wide configuration, authentication or source-list failures stop the run.
-2. Ask an AI to generate one business question, an expected answer, and essential criteria requiring every selected document. Each criterion selects an ID from a catalog of source passages. Python resolves it to the exact source document and quote, rather than asking the AI to copy or reconstruct text. Only selected document text, passage catalogs and metadata go to the generator; evaluation answer keys do not. The benchmark answer is kept out of the synthesis request.
+2. Ask an AI to generate one focused business question, an expected answer, and essential criteria requiring every selected document. Each criterion selects an ID from a catalog of source passages. Python resolves it to the exact source document and quote. A separate validation conversation audits the entire benchmark against the supplied sources before synthesis; unsupported claims, misunderstood training questions, non-atomic criteria and questions requiring unsupplied linked bodies are rejected as inconclusive. Only selected document text, passage catalogs and metadata go to these calls; fixed evaluation answer keys do not. The benchmark answer is kept out of the synthesis request. AI validation reduces defects but does not establish human-reviewed truth.
 3. Send exactly one `{question}` request to Spring's `/api/query/synthesize`, with no selected-source hint. Product retrieval and synthesis still go through Spring's gbrain adapter.
 4. Check citation IDs deterministically: **every selected source must be cited**. A handbook or other equivalent source does not substitute for a selected document. Fetch every actual cited body through the authorized content endpoint; recheck selected bodies for changes during the run.
 5. In a separate AI conversation, judge accuracy, grounding and completeness against the question, essential criteria, selected-source benchmark and actual cited bodies. The generated expected answer stays out of the judge input to reduce confusion with the candidate answer. Every supported criterion selects an answer passage ID and actual cited evidence passage IDs. Python derives their text and document identities, then verifies them against the original bodies. Verdict-specific schema branches require actual answer/evidence IDs for supported or contradicted facts; missing facts use the answer ID `NONE`. Only short ASCII IDs enter schema enums; quotations, line breaks and Unicode document text remain in the prompt data, avoiding provider schema errors from full-text enum values. A fact appearing only in a source cannot stand in for an omitted answer fact. Unknown IDs, missing/duplicate criterion indices, malformed or truncated results remain inconclusive errors.
@@ -69,7 +69,7 @@ A case passes only with all its selected sources in the references, an AI-synthe
 
 Exit codes: **0** when every case passes (or an explicitly labeled dry run), **1** for completed runs with quality failures and no evaluator errors, **2** if any case has an evaluator error, the batch cannot start, or the run is interrupted. Errors take precedence over quality failures and remain inconclusive. Reports preserve the stage reached and any response already received. Raw judge output remains available for diagnosis, but console scores appear only after judge validation succeeds (`judgment_validated: true`).
 
-Each completed case uses two AI requests to the selected evaluator provider (generation and judging) plus one application synthesis request. A 15-case batch can make 30 evaluator calls and 15 synthesis requests, incur provider charges, and update application query usage/cache state. Early errors can reduce those counts. The script prints the planned case count and selected evaluator route/models before calling AI; preview the plan with `--dry-run`. Requests are never retried automatically. A cached synthesis is allowed and recorded by default; `--require-fresh` fails a cache hit without purging the cache or forcing a fresh answer. Canceling the CLI does not guarantee that already-started provider/server work stops.
+Each completed generated case uses three evaluator AI requests (generation, benchmark validation and answer judging) plus one application synthesis request. A 15-case batch can make 45 evaluator calls and 15 synthesis requests, incur provider charges, and update application query usage/cache state. A fixed-suite case skips generation/benchmark validation and uses one answer-judging call plus one synthesis call. Early errors can reduce those counts. The script prints the planned case count and selected evaluator route/models before calling AI; preview with `--dry-run`. Requests are never retried automatically. A cached synthesis is allowed on the normal endpoint and recorded; `--require-fresh` fails a cache hit without clearing caches. The admin diagnostic endpoint always bypasses the answer cache. Canceling the CLI does not guarantee already-started work stops.
 
 ### Evaluator providers and models
 
@@ -103,6 +103,52 @@ python synthetic-data/tools/validate.py
 Use `python -B scripts/evaluate_synthetic_corpus.py --queries-per-doc 3` to run the existing evaluator against all 50 cataloged documents and generate both checkpointed JSON and a PDF report. This explicitly includes noncurrent documents that random `--count` selection excludes. The wrapper builds the PDF itself with ReportLab; install it using `python -m pip install -r scripts/requirements-evaluation.txt`.
 
 The PDF includes the overview, per-document totals/averages, all planned query scores, judge reasoning, criterion verdicts and failure/error details. Scores are effective, validated scores; incomplete or erroneous cases stay unscored. The existing evaluator's pass-rate denominator, score consistency caps and AI-judging limitations remain in force. Full answers and evidence remain in the JSON audit file.
+
+### Diagnostic rubric v5 and controlled comparisons
+
+Strict pass/fail is retained for continuity. New reports also separate `answer_quality_status` (all quality gates except exact-target citation) from `citation_check.all_selected_cited`. Summary rates for strict passes, answer-quality passes and target-source citations all use the planned-case denominator; errors and unrun cases count as none of these. An accurate answer citing equivalent handbook evidence can pass answer quality while failing the exact-target test. No-citation answers fail grounding; empty evidence arrays and legacy missing-criterion `NONE` placeholders are handled without turning them into fabricated citations or judge errors. Old reports remain readable and are not retroactively rescored.
+
+`diagnostic-suite.json` is a source-checked, fixed 20-question baseline with atomic criteria and exact canonical evidence quotes. It covers facts, procedures, boundaries, historical rules, conflicting authority and explicit knowledge gaps. It is separate from the original 60-case study and is not ingested. The correct Harbor contract is one initial attempt plus four retries. At runtime, suite dates, source checksums, IDs and evidence quotes are checked again. Questions/benchmarks stay fixed across comparison arms; only questions are submitted to synthesis.
+
+```powershell
+python -B scripts/evaluate_synthesis.py --suite evaluation/diagnostic-suite.json --dry-run
+python -B scripts/evaluate_synthesis.py --suite evaluation/diagnostic-suite.json --case-id DIAG-13
+```
+
+For traced comparisons, explicitly enable `KNOWLEDGEBRIDGE_EVALUATION_ENABLED=true` and set the comma-separated `GBRAIN_EVALUATION_MODELS` allowlist in untracked `.env`. Rebuild/recreate gbrain and restart the backend so both receive the settings. Use an existing ADMIN evaluation account. Keep the normal synthesis model explicitly pinned with `GBRAIN_SYNTHESIS_MODEL`; correct `OPENROUTER_API_KEY` spelling before selecting providers. Neither correcting credentials nor comparison requests silently change the pinned baseline model.
+
+```powershell
+docker compose up -d --build gbrain
+python -B scripts/compare_synthesis.py --model openai:gpt-4o-mini --model openrouter:anthropic/claude-haiku-4.5 --dry-run
+python -B scripts/compare_synthesis.py --model openai:gpt-4o-mini --model openrouter:anthropic/claude-haiku-4.5
+```
+
+By default there are four arms (two models times corpus/workspace scopes), each with its own checkpointed JSON and PDF, plus frozen `suite.json` and `comparison.json`. Twenty cases per arm mean up to 80 synthesis calls and 80 judge calls. Use repeated `--case-id` or `--scope corpus` for a smaller diagnostic. Output directories must be new and default to ignored `evaluation/runs/comparison-<run-id>`.
+
+`/api/query/evaluate` is opt-in, ADMIN-only and uncached. It still calls gbrain exclusively through the backend adapter. The pinned engine build applies the checked `docker/gbrain/patch-evaluation.mjs` instrumentation; upgrades fail the build if source anchors drift. Exact system/user prompts, pre-filter native candidates, selected chunks, scope and context SHA-256 are recorded for that actual call. Takes, graph and trajectory additions are disabled consistently in these diagnostic arms so their evidence is fully inspectable. Normal `/synthesize` keeps its ordinary pipeline and cache.
+
+Corpus-only means an allowlist filter **after native gather, before prompt assembly**, using every unchanged canonical imported item (including matching aliases). Workspace means application pages gathered from the whole credential-scoped workspace, including the handbook. These are reversible per-request context scopes; nothing is removed/deactivated. The test isolates context composition, not a physically separate index or a recall benchmark over an isolated corpus. Compare `candidates` with `selected_pages` before attributing a result to ranking. Prompt strings show exactly what reached the model; full-document citations alone do not establish this.
+
+Before diagnosing ranking, check embedding alignment:
+
+```powershell
+docker compose exec -T gbrain bun run src/cli.ts migrate embeddings --status --json
+```
+
+The environment, file and database planes must agree on the **provider-qualified** embedding model and dimensions, with zero stale/missing chunks. Direct OpenAI and OpenRouter routes have different generation identifiers even when they serve the same model at 1536 dimensions. A mismatch can exclude nearly the entire corpus from vector candidates. Pin `GBRAIN_EMBEDDING_MODEL` rather than relying on provider-key defaults for an existing index. Back up the gbrain database/configuration, align the environment, then use upstream's `migrate embeddings --to <provider:model> --dim 1536 --reranker keep --dry-run --json` to inspect work and cost. Apply with `--yes --max-cost-usd <reviewed-cap>` only after reviewing that plan. Do not rewrite generation identifiers manually. Recheck every configuration plane, stale/missing counts and auxiliary vector widths afterward.
+
+The November 7 diagnostic repair aligned the existing OpenRouter generation, re-embedded 12 mismatched chunks, and repaired the takes vector width using that supported workflow. All 155 indexed pages then shared the same generation, with zero stale/missing chunks and 1536-dimensional content/cache/fact/take vectors. Pre-repair and post-repair comparison reports are separate ignored artifacts; the small diagnostic subset does not replace a full-corpus rerun.
+
+Model score deltas are calculated only for cases with validated judgments and identical context hashes within the same scope. Context mismatches are reported as inconclusive model comparisons. Corpus/workspace arms intentionally have different context; they are not labeled matched model comparisons. Requests never override the server allowlist, retry synthesis, ingest answer keys, or transmit credentials to evaluator models. Traces can contain workspace content; keep them in ignored run directories.
+
+For a known blank-line-only corpus/import mismatch, preview and optionally add a canonical Markdown copy:
+
+```powershell
+python -B scripts/reconcile_synthetic_imports.py --doc-id ACME-011
+python -B scripts/reconcile_synthetic_imports.py --doc-id ACME-011 --apply
+```
+
+Repair requires an ADMIN account and a formatting-only matching import, preserves existing documents, refuses substantive changes, and skips sources already matched. It never deletes, rewrites, promotes users or retries uploads. Wait for ingestion completion and rerun the preview before evaluating. An interrupted upload may already have queued work; inspect the knowledge list before retrying.
 
 Use `--dry-run` for an offline plan/PDF, or `--from-json <saved-report.json>` to generate a PDF without making or repeating requests. Default new-run artifacts are ignored `evaluation/runs/corpus-<run-id>/results.json` and `report.pdf`. See [script usage](../scripts/README.md#entire-corpus-with-a-pdf-report) for examples, options, dependency installation, recovery and exit codes.
 

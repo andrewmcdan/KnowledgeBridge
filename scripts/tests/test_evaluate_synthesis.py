@@ -92,6 +92,8 @@ class FakeAI:
     def ask(self, stage, instruction, inputs, schema):
         self.requests.append((stage, inputs))
         self.schemas.append(schema)
+        if stage == "validation":
+            return {"valid": True, "rationale": "Offline source-checked fixture."}
         return wire_generation(self.generated, inputs) if stage == "generation" else wire_judgment(self.judgment, inputs)
 
 
@@ -108,6 +110,8 @@ class BatchAI:
     def ask(self, stage, instruction, inputs, schema):
         self.requests.append((stage, evaluation.deepcopy(inputs)))
         self.calls.append({"stage": stage, "usage": {"total_tokens": 10}})
+        if stage == "validation":
+            return {"valid": True, "rationale": "Offline source-checked fixture."}
         if stage == "generation":
             self.number += 1
             self.selected = inputs["selected_documents"]
@@ -131,6 +135,67 @@ class BatchAI:
 
 
 class EvaluationTests(unittest.TestCase):
+    def test_traced_calls_verify_model_and_prompt_hash_and_record_target_retrieval(self):
+        import hashlib
+        class TracedApp(FakeApp):
+            def request(self, path, payload=None):
+                if path != "/api/query/evaluate":
+                    return super().request(path, payload)
+                return {"synthesis": {**self.response, "usage": {"model": "model-a"}}, "trace": self.trace}
+        app = TracedApp()
+        app.trace = {"system_prompt": "System", "user_message": "Question and exact evidence",
+                     "context_sha256": hashlib.sha256(b"System\0Question and exact evidence").hexdigest(),
+                     "candidates": [{"slug": "knowledgebridge/10"}, {"slug": "knowledgebridge/20"}],
+                     "selected_pages": [{"slug": "knowledgebridge/10"}]}
+        code, report, _, ai = self.run_case(app, evaluation_options={"model": "model-a", "allowedItemIds": []})
+        self.assertEqual(code, 0)
+        self.assertEqual(report["retrieval_check"], {"all_targets_in_candidates": True, "all_targets_selected": False})
+        app.trace["context_sha256"] = "0" * 64
+        with self.assertRaisesRegex(evaluation.EvaluationError, "context does not match"):
+            self.run_case(app, evaluation_options={"model": "model-a", "allowedItemIds": []})
+        app.trace["context_sha256"] = hashlib.sha256(b"System\0Question and exact evidence").hexdigest()
+        with self.assertRaisesRegex(evaluation.EvaluationError, "different synthesis model"):
+            self.run_case(app, evaluation_options={"model": "other-model", "allowedItemIds": []})
+
+    def test_empty_citations_are_a_quality_failure_not_an_unknown_evidence_error(self):
+        app, ai = FakeApp(), FakeAI()
+        app.response["citations"] = []
+        for criterion in ai.judgment["criteria"]:
+            criterion.update({"verdict": "missing", "answer_quote": "", "evidence": []})
+        code, report, _, _ = self.run_case(app, ai)
+        self.assertEqual(code, 1)
+        self.assertTrue(report["judgment_validated"])
+        self.assertEqual(report["judgment"]["scores"]["grounding"], 0)
+        self.assertEqual(report["answer_quality_status"], "fail")
+        raw = {"criteria": [{"index": 1, "verdict": "missing", "answer_passage_id": "NONE", "evidence_passage_ids": ["NONE"]}]}
+        self.assertEqual(evaluation.resolve_judgment(raw, [], [])["criteria"][0]["evidence"], [])
+        schema = evaluation.judge_schema(evaluation.passage_catalog(ANSWER, "A"), [], 1)
+        self.assertTrue(all(branch["properties"]["evidence_passage_ids"]["maxItems"] == 0
+                            for branch in schema["properties"]["criteria"]["items"]["anyOf"]))
+
+    def test_answer_quality_is_separate_from_exact_target_source_retrieval(self):
+        app, ai = FakeApp(), FakeAI()
+        app.bodies[30] = BODY_ONE + "\n\n" + BODY_TWO
+        app.response["citations"] = [{"itemKey": "30", "externalId": "knowledgebridge/30"}]
+        for criterion in ai.judgment["criteria"]:
+            criterion["evidence"][0]["item_id"] = 30
+        code, report, _, _ = self.run_case(app, ai)
+        self.assertEqual(code, 1)
+        self.assertEqual(report["answer_quality_status"], "pass")
+        totals = evaluation.summarize([report], 1)
+        self.assertEqual(totals["answer_quality_passed"], 1)
+        self.assertEqual(totals["target_source_cited"], 0)
+        self.assertEqual(totals["passed"], 0)
+
+    def test_generated_false_benchmark_is_rejected_before_synthesis(self):
+        app, ai, report = FakeApp(), FakeAI(), {}
+        original = ai.ask
+        ai.ask = lambda stage, *args: {"valid": False, "rationale": "The source asks a question; it does not assert five retries."} if stage == "validation" else original(stage, *args)
+        with self.assertRaisesRegex(evaluation.EvaluationError, "benchmark rejected"), redirect_stdout(io.StringIO()):
+            evaluation.run_evaluation(app, ai, SELECTED, "2026-09-11", report)
+        self.assertEqual(app.synthesis_calls, [])
+        self.assertEqual(report["stage"], "benchmark_validation")
+
     def run_case(self, app=None, ai=None, **options):
         app, ai, report = app or FakeApp(), ai or FakeAI(), {}
         with redirect_stdout(io.StringIO()):
@@ -143,12 +208,12 @@ class EvaluationTests(unittest.TestCase):
         self.assertEqual(report["status"], "pass")
         self.assertEqual(report["source_item_ids"], {"ACME-013": [10, 11], "ACME-017": [20]})
         self.assertEqual(app.synthesis_calls, [{"question": ai.generated["question"]}])
-        self.assertEqual([stage for stage, _ in ai.requests], ["generation", "judging"])
-        self.assertEqual(ai.requests[1][1]["cited_documents"][0]["text"], BODY_ONE)
-        self.assertEqual(ai.requests[1][1]["candidate_answer"], app.response["answer"])
-        self.assertNotIn("expected_answer", ai.requests[1][1])
-        references = ai.schemas[1]["$defs"]["answer_passage"]["enum"]
-        self.assertEqual(references, [p["passage_id"] for p in ai.requests[1][1]["candidate_answer_passages"]])
+        self.assertEqual([stage for stage, _ in ai.requests], ["generation", "validation", "judging"])
+        self.assertEqual(ai.requests[2][1]["cited_documents"][0]["text"], BODY_ONE)
+        self.assertEqual(ai.requests[2][1]["candidate_answer"], app.response["answer"])
+        self.assertNotIn("expected_answer", ai.requests[2][1])
+        references = ai.schemas[2]["$defs"]["answer_passage"]["enum"]
+        self.assertEqual(references, [p["passage_id"] for p in ai.requests[2][1]["candidate_answer_passages"]])
         self.assertIn("body_sha256", report["cited_documents"][0])
 
     def test_all_selected_sources_are_required_even_if_judge_awards_perfect_scores(self):
@@ -349,7 +414,7 @@ class EvaluationTests(unittest.TestCase):
             limit = len(json.dumps({"as_of": "2026-09-11", "selected_documents": SELECTED,
                                    "source_passages": evaluation.source_catalog(SELECTED)})) + 1
             self.run_case(app, ai, max_context=limit)
-        self.assertEqual([stage for stage, _ in ai.requests], ["generation"])
+        self.assertEqual([stage for stage, _ in ai.requests], ["generation", "validation"])
         app, ai = FakeApp(), FakeAI()
         with self.assertRaisesRegex(evaluation.EvaluationError, "context"):
             self.run_case(app, ai, max_context=10)
@@ -457,7 +522,7 @@ class EvaluationTests(unittest.TestCase):
     def test_cli_records_resolved_openai_provider_and_models_without_credentials(self):
         def transport(url, method, payload, headers):
             inputs = json.loads(payload["messages"][1]["content"])
-            value = wire_generation(generated(SELECTED[:1]), inputs) if payload["model"] == "gpt-4.1-mini" else wire_judgment(judgment(SELECTED[:1]), inputs)
+            value = {"valid": True, "rationale": "Grounded."} if "benchmark" in inputs else wire_generation(generated(SELECTED[:1]), inputs) if payload["model"] == "gpt-4.1-mini" else wire_judgment(judgment(SELECTED[:1]), inputs)
             return {"choices": [{"finish_reason": "stop", "message": {"content": json.dumps(value)}}]}
         ai = evaluation.EvaluatorAI({"OPENAI_API_KEY": "private-openai-key"}, transport=transport)
         with tempfile.TemporaryDirectory() as folder:
@@ -552,7 +617,7 @@ class EvaluationTests(unittest.TestCase):
         self.assertTrue(all(len(inputs["selected_documents"]) == 1 for inputs in generations))
         self.assertEqual([case["source_item_ids"] for case in report["cases"]],
                          [{"ACME-013": [10, 11]}] * 3 + [{"ACME-017": [20]}] * 3)
-        self.assertTrue(all(len(case["evaluator_calls"]) == 2 for case in report["cases"]))
+        self.assertTrue(all(len(case["evaluator_calls"]) == 3 for case in report["cases"]))
 
     def test_batch_continues_after_quality_failures_and_invalid_judgments(self):
         report = {}
@@ -566,6 +631,27 @@ class EvaluationTests(unittest.TestCase):
         self.assertEqual(report["summary"]["scored_cases"], 3)
         self.assertEqual(report["summary"]["pass_rate"], 0.25)
         self.assertEqual(report["summary"]["average_scores"]["accuracy"], 3.333)
+
+    def test_citation_success_excludes_invalid_judgments_after_citations_are_verified(self):
+        report = {}
+        with redirect_stdout(io.StringIO()), redirect_stderr(io.StringIO()):
+            code = evaluation.run_batch(FakeApp(), BatchAI({1: "error"}), SELECTED[:1], "2026-09-11", report)
+        self.assertEqual(code, 2)
+        self.assertTrue(report["cases"][0]["citation_check"]["all_selected_cited"])
+        for summary in [report["summary"], report["document_summaries"]["ACME-013"]]:
+            self.assertEqual(summary["scored_cases"], 0)
+            self.assertEqual(summary["target_source_cited"], 0)
+            self.assertEqual(summary["target_source_citation_rate"], 0)
+
+    def test_citation_success_counts_completed_pass_and_fail_cases_with_planned_denominator(self):
+        report = {}
+        with redirect_stdout(io.StringIO()), redirect_stderr(io.StringIO()):
+            evaluation.run_batch(FakeApp(), BatchAI({1: "fail", 2: "error"}), SELECTED, "2026-09-11", report, queries_per_doc=2)
+        self.assertEqual([case["status"] for case in report["cases"]], ["fail", "error", "pass", "pass"])
+        self.assertEqual(report["summary"]["target_source_cited"], 3)
+        self.assertEqual(report["summary"]["target_source_citation_rate"], 0.75)
+        self.assertEqual(report["document_summaries"]["ACME-013"]["target_source_citation_rate"], 0.5)
+        self.assertEqual(report["document_summaries"]["ACME-017"]["target_source_citation_rate"], 1)
 
     def test_batch_quality_failure_without_evaluator_errors_exits_one(self):
         report = {}
@@ -581,7 +667,7 @@ class EvaluationTests(unittest.TestCase):
             code = evaluation.run_batch(app, ai, SELECTED[:1], "2026-09-11", report, queries_per_doc=2)
         self.assertEqual(code, 2)
         self.assertEqual(len(app.synthesis_calls), 1)
-        self.assertEqual([stage for stage, _ in ai.requests], ["generation", "judging", "generation"])
+        self.assertEqual([stage for stage, _ in ai.requests], ["generation", "validation", "judging", "generation", "validation"])
         self.assertIn("repeated an earlier question", report["cases"][1]["error"])
 
     def test_missing_document_does_not_prevent_other_documents_from_running(self):
@@ -594,7 +680,7 @@ class EvaluationTests(unittest.TestCase):
         self.assertEqual(code, 2)
         self.assertEqual([case["status"] for case in report["cases"]], ["error", "error", "pass", "pass"])
         self.assertEqual(len(app.synthesis_calls), 2)
-        self.assertEqual(len(ai.calls), 4)
+        self.assertEqual(len(ai.calls), 6)
 
     def test_interrupt_preserves_completed_and_interrupted_cases_and_remaining_plan(self):
         with tempfile.TemporaryDirectory() as folder:
@@ -608,6 +694,11 @@ class EvaluationTests(unittest.TestCase):
             self.assertEqual([case["status"] for case in report["cases"]], ["pass", "error"])
             self.assertEqual(report["summary"]["completed"], 2)
             self.assertEqual(report["summary"]["not_run"], 2)
+            self.assertTrue(report["cases"][1]["citation_check"]["all_selected_cited"])
+            self.assertEqual(report["summary"]["target_source_cited"], 1)
+            self.assertEqual(report["summary"]["target_source_citation_rate"], 0.25)
+            self.assertEqual(report["document_summaries"]["ACME-013"]["target_source_citation_rate"], 0.5)
+            self.assertEqual(report["document_summaries"]["ACME-017"]["target_source_citation_rate"], 0)
             self.assertEqual(len(app.synthesis_calls), 2)
             self.assertEqual(report["document_summaries"]["ACME-017"]["not_run"], 2)
 

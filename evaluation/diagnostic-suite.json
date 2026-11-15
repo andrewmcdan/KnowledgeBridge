@@ -1,0 +1,467 @@
+{
+    "suite_id": "acme-diagnostic-v1",
+    "as_of": "2026-09-11",
+    "review": "Source-checked diagnostic baseline. Quotes are checked against canonical hashes at runtime. This is separate from the fixed 60-case study.",
+    "cases": [
+        {
+            "case_id": "DIAG-01",
+            "category": "facts",
+            "doc_ids": [
+                "ACME-001"
+            ],
+            "benchmark": {
+                "question": "How many employees are in Acme's September planning baseline?",
+                "expected_answer": "120 employees.",
+                "criteria": [
+                    {
+                        "doc_id": "ACME-001",
+                        "claim": "The September planning baseline has 120 employees.",
+                        "quote": "## Business and operating model\nAcme Corporation is a fictional business-software and consulting company serving mid-sized organizations. Its 120 employees work across Engineering (38), IT Operations (12), Customer Success (24), Sales and Marketing (20), Finance and Procurement (14), and People Operations (12). These figures are the September planning baseline, not a live employee directory."
+                    }
+                ]
+            }
+        },
+        {
+            "case_id": "DIAG-02",
+            "category": "facts",
+            "doc_ids": [
+                "ACME-002"
+            ],
+            "benchmark": {
+                "question": "Who leads Engineering at Acme?",
+                "expected_answer": "Priya Shah leads Engineering.",
+                "criteria": [
+                    {
+                        "doc_id": "ACME-002",
+                        "claim": "Priya Shah leads Engineering.",
+                        "quote": "## Mandate\nEngineering builds and maintains Acme's applications, integration adapters, and automated release tests. The department has 38 employees and is led by Priya Shah. Product teams propose implementation options; Priya approves engineering priorities within the funded quarterly plan. Theo Park is technical lead for Atlas, while Leo Martin leads Beacon's data model work."
+                    }
+                ]
+            }
+        },
+        {
+            "case_id": "DIAG-03",
+            "category": "facts",
+            "doc_ids": [
+                "ACME-003"
+            ],
+            "benchmark": {
+                "question": "Who is the primary incident commander, and who is the backup?",
+                "expected_answer": "Morgan Reed is primary; Imani Brooks is backup.",
+                "criteria": [
+                    {
+                        "doc_id": "ACME-003",
+                        "claim": "Morgan Reed is the primary incident commander.",
+                        "quote": "## Escalation practice\nMorgan is the primary incident commander; Imani is the backup. An unavailable primary does not delay severity assignment or customer notification. Customer Success owns the outward-facing update, while the incident commander verifies its technical facts. Engineering owns code-level fixes and supplies a rollback assessment."
+                    },
+                    {
+                        "doc_id": "ACME-003",
+                        "claim": "Imani Brooks is the backup incident commander.",
+                        "quote": "## Escalation practice\nMorgan is the primary incident commander; Imani is the backup. An unavailable primary does not delay severity assignment or customer notification. Customer Success owns the outward-facing update, while the incident commander verifies its technical facts. Engineering owns code-level fixes and supplies a rollback assessment."
+                    }
+                ]
+            }
+        },
+        {
+            "case_id": "DIAG-04",
+            "category": "procedure",
+            "doc_ids": [
+                "ACME-013"
+            ],
+            "benchmark": {
+                "question": "During an incident, can a production access grant last longer than four hours?",
+                "expected_answer": "No. Each grant lasts at most four hours, including incidents; longer work requires a new grant with updated justification.",
+                "criteria": [
+                    {
+                        "doc_id": "ACME-013",
+                        "claim": "Elevated access lasts at most four hours per grant.",
+                        "quote": "## Time-limited elevation\nElevated production access lasts at most four hours per grant. The expiry applies during incidents too. Incident commanders may accelerate review but must retain the ticket and reviewer record. If recovery takes longer, request a new grant with updated justification rather than extending access silently."
+                    },
+                    {
+                        "doc_id": "ACME-013",
+                        "claim": "The expiry also applies during incidents.",
+                        "quote": "## Time-limited elevation\nElevated production access lasts at most four hours per grant. The expiry applies during incidents too. Incident commanders may accelerate review but must retain the ticket and reviewer record. If recovery takes longer, request a new grant with updated justification rather than extending access silently."
+                    },
+                    {
+                        "doc_id": "ACME-013",
+                        "claim": "Longer recovery requires a new grant with updated justification.",
+                        "quote": "## Time-limited elevation\nElevated production access lasts at most four hours per grant. The expiry applies during incidents too. Incident commanders may accelerate review but must retain the ticket and reviewer record. If recovery takes longer, request a new grant with updated justification rather than extending access silently."
+                    }
+                ]
+            }
+        },
+        {
+            "case_id": "DIAG-05",
+            "category": "procedure",
+            "doc_ids": [
+                "ACME-014"
+            ],
+            "benchmark": {
+                "question": "How long are support attachments retained, and when does that clock start?",
+                "expected_answer": "90 days after the support case closes, not after upload.",
+                "criteria": [
+                    {
+                        "doc_id": "ACME-014",
+                        "claim": "Support attachments are retained for 90 days.",
+                        "quote": "## Controlled retention schedule\nThis standard takes effect August 10, 2026. Application audit events are retained for 365 days from event time. Support attachments are retained for 90 days after the support case closes. Operational backups are retained for 30 days from backup creation. These are distinct record classes; a shorter backup window does not reduce the audit-event obligation."
+                    },
+                    {
+                        "doc_id": "ACME-014",
+                        "claim": "The attachment retention clock starts when the support case closes.",
+                        "quote": "## Controlled retention schedule\nThis standard takes effect August 10, 2026. Application audit events are retained for 365 days from event time. Support attachments are retained for 90 days after the support case closes. Operational backups are retained for 30 days from backup creation. These are distinct record classes; a shorter backup window does not reduce the audit-event obligation."
+                    }
+                ]
+            }
+        },
+        {
+            "case_id": "DIAG-06",
+            "category": "procedure",
+            "doc_ids": [
+                "ACME-015"
+            ],
+            "benchmark": {
+                "question": "What error-rate condition triggers rollback, and what security event triggers it immediately?",
+                "expected_answer": "An error rate above 2% for five consecutive minutes, or immediately on a tenant-isolation breach.",
+                "criteria": [
+                    {
+                        "doc_id": "ACME-015",
+                        "claim": "An error rate above 2% for five consecutive minutes triggers rollback.",
+                        "quote": "## Stop and rollback\nBegin rollback when the application error rate exceeds 2% for five consecutive minutes, or immediately when tenant isolation is breached. The incident commander may stop earlier if evidence indicates customer data risk. Record the rollback start time and validate restored business behavior before closing the change."
+                    },
+                    {
+                        "doc_id": "ACME-015",
+                        "claim": "A tenant-isolation breach triggers immediate rollback.",
+                        "quote": "## Stop and rollback\nBegin rollback when the application error rate exceeds 2% for five consecutive minutes, or immediately when tenant isolation is breached. The incident commander may stop earlier if evidence indicates customer data risk. Record the rollback start time and validate restored business behavior before closing the change."
+                    }
+                ]
+            }
+        },
+        {
+            "case_id": "DIAG-07",
+            "category": "boundary",
+            "doc_ids": [
+                "ACME-017"
+            ],
+            "benchmark": {
+                "question": "What is the daily meal cap for travel, and does it include tax and tips?",
+                "expected_answer": "$65 per person per travel day, including taxes and tips.",
+                "criteria": [
+                    {
+                        "doc_id": "ACME-017",
+                        "claim": "Meals are capped at $65 per person per travel day.",
+                        "quote": "## Expense claims\nSubmit claims within 30 days after the trip ends. Meals are capped at $65 per person per travel day, including taxes and tips. Itemized receipts are required for expenses over $25. Finance reviews business purpose and cost-center coding; missing evidence returns the claim for correction."
+                    },
+                    {
+                        "doc_id": "ACME-017",
+                        "claim": "The meal cap includes taxes and tips.",
+                        "quote": "## Expense claims\nSubmit claims within 30 days after the trip ends. Meals are capped at $65 per person per travel day, including taxes and tips. Itemized receipts are required for expenses over $25. Finance reviews business purpose and cost-center coding; missing evidence returns the claim for correction."
+                    }
+                ]
+            }
+        },
+        {
+            "case_id": "DIAG-08",
+            "category": "boundary",
+            "doc_ids": [
+                "ACME-012"
+            ],
+            "benchmark": {
+                "question": "Does a software purchase of exactly $20,000 trigger the additional CFO approval threshold?",
+                "expected_answer": "No. Exactly $20,000 is the middle band; $20,000.01 requires CFO approval.",
+                "criteria": [
+                    {
+                        "doc_id": "ACME-012",
+                        "claim": "Exactly $20,000 remains in the middle approval band.",
+                        "quote": "## Boundary examples\nA $5,000 renewal of already-approved software is in the first band. A $5,000.01 request enters the full review band. A $20,000 purchase is still in the middle band; $20,000.01 requires CFO approval. A $1,900 monthly commitment for twelve months is $22,800 and therefore needs CFO approval."
+                    },
+                    {
+                        "doc_id": "ACME-012",
+                        "claim": "$20,000.01 triggers additional CFO approval.",
+                        "quote": "## Boundary examples\nA $5,000 renewal of already-approved software is in the first band. A $5,000.01 request enters the full review band. A $20,000 purchase is still in the middle band; $20,000.01 requires CFO approval. A $1,900 monthly commitment for twelve months is $22,800 and therefore needs CFO approval."
+                    }
+                ]
+            }
+        },
+        {
+            "case_id": "DIAG-09",
+            "category": "historical",
+            "doc_ids": [
+                "ACME-018"
+            ],
+            "benchmark": {
+                "question": "Under the archived Procurement Policy v1.4, what spending thresholds triggered full review and additional CFO approval?",
+                "expected_answer": "Above $2,500 required manager, Finance, IT Operations and Procurement review; above $15,000 also required CFO approval.",
+                "criteria": [
+                    {
+                        "doc_id": "ACME-018",
+                        "claim": "Under v1.4, above $2,500 required manager, Finance, IT Operations and Procurement review.",
+                        "quote": "## Historical rules\nUnder v1.4, software purchases above $2,500 required manager, Finance, IT Operations, and Procurement review. Purchases above $15,000 additionally required CFO approval. Costs were measured using the total annual commitment, not the monthly invoice. At or below $2,500, manager and Finance approval still applied, and new software needed technical review."
+                    },
+                    {
+                        "doc_id": "ACME-018",
+                        "claim": "Under v1.4, above $15,000 additionally required CFO approval.",
+                        "quote": "## Historical rules\nUnder v1.4, software purchases above $2,500 required manager, Finance, IT Operations, and Procurement review. Purchases above $15,000 additionally required CFO approval. Costs were measured using the total annual commitment, not the monthly invoice. At or below $2,500, manager and Finance approval still applied, and new software needed technical review."
+                    }
+                ]
+            }
+        },
+        {
+            "case_id": "DIAG-10",
+            "category": "historical",
+            "doc_ids": [
+                "ACME-018"
+            ],
+            "benchmark": {
+                "question": "Does an uncommitted draft purchase request keep an old policy threshold after the policy changes?",
+                "expected_answer": "No. An uncommitted draft uses the policy effective when commitment occurs; already approved and committed requests preserve their original approval record.",
+                "criteria": [
+                    {
+                        "doc_id": "ACME-018",
+                        "claim": "An uncommitted draft must use the policy effective at commitment.",
+                        "quote": "## Records in transition\nRequests approved and committed before August 1 preserve their original approval record. An uncommitted draft request must use the policy effective when commitment occurs. Do not retroactively erase a historical approval just because the threshold changed."
+                    },
+                    {
+                        "doc_id": "ACME-018",
+                        "claim": "Requests already approved and committed before August 1 preserve their original approval record.",
+                        "quote": "## Records in transition\nRequests approved and committed before August 1 preserve their original approval record. An uncommitted draft request must use the policy effective when commitment occurs. Do not retroactively erase a historical approval just because the threshold changed."
+                    }
+                ]
+            }
+        },
+        {
+            "case_id": "DIAG-11",
+            "category": "conflict",
+            "doc_ids": [
+                "ACME-028"
+            ],
+            "benchmark": {
+                "question": "Do the August 7 office-hours notes change the software CFO threshold to $10,000?",
+                "expected_answer": "No. The notes were not approved policy; the controlled policy and matrix require additional CFO approval above $20,000.",
+                "criteria": [
+                    {
+                        "doc_id": "ACME-028",
+                        "claim": "The $10,000 office-hours statement is not an approved policy change.",
+                        "quote": "## Follow-up needed\nThe $10,000 statement conflicts with the controlled August 1 policy and approval matrix, which require additional CFO approval above $20,000. No signed exception or revised matrix accompanies this note. Ravi must correct the office-hours summary; until then, the controlled policy governs new requests."
+                    },
+                    {
+                        "doc_id": "ACME-028",
+                        "claim": "The controlled policy requires additional CFO approval above $20,000.",
+                        "quote": "## Follow-up needed\nThe $10,000 statement conflicts with the controlled August 1 policy and approval matrix, which require additional CFO approval above $20,000. No signed exception or revised matrix accompanies this note. Ravi must correct the office-hours summary; until then, the controlled policy governs new requests."
+                    }
+                ]
+            }
+        },
+        {
+            "case_id": "DIAG-12",
+            "category": "conflict",
+            "doc_ids": [
+                "ACME-044"
+            ],
+            "benchmark": {
+                "question": "Is the Beacon draft's 180-day audit-event retention an approved exception?",
+                "expected_answer": "No. The unapproved draft conflicts with the controlled 365-day standard; it is not an accepted exception.",
+                "criteria": [
+                    {
+                        "doc_id": "ACME-044",
+                        "claim": "The 180-day draft wording is not an accepted exception.",
+                        "quote": "## Draft retention wording\nThe current draft text states: 'Application audit events are retained for 180 days.' This wording conflicts with Data Retention Standard v2, which requires 365 days. The discrepancy is retained here for review and has not been accepted as an exception."
+                    },
+                    {
+                        "doc_id": "ACME-044",
+                        "claim": "The controlled standard requires 365-day audit-event retention.",
+                        "quote": "## Draft retention wording\nThe current draft text states: 'Application audit events are retained for 180 days.' This wording conflicts with Data Retention Standard v2, which requires 365 days. The discrepancy is retained here for review and has not been accepted as an exception."
+                    }
+                ]
+            }
+        },
+        {
+            "case_id": "DIAG-13",
+            "category": "boundary",
+            "doc_ids": [
+                "ACME-037"
+            ],
+            "benchmark": {
+                "question": "Does five Harbor delivery attempts mean five retries after the initial attempt?",
+                "expected_answer": "No. It means one initial attempt plus four retries, with no sixth automatic attempt.",
+                "criteria": [
+                    {
+                        "doc_id": "ACME-037",
+                        "claim": "Harbor permits five delivery attempts total.",
+                        "quote": "## Decision\nPermit at most five delivery attempts total: the initial attempt plus four retries. Wait 1, 2, 4, and 8 minutes after the first four failures. After the fifth failed attempt, send the event to the dead-letter queue and open an operational alert. There is no sixth automatic attempt."
+                    },
+                    {
+                        "doc_id": "ACME-037",
+                        "claim": "Five attempts means one initial attempt and four retries.",
+                        "quote": "## Decision\nPermit at most five delivery attempts total: the initial attempt plus four retries. Wait 1, 2, 4, and 8 minutes after the first four failures. After the fifth failed attempt, send the event to the dead-letter queue and open an operational alert. There is no sixth automatic attempt."
+                    },
+                    {
+                        "doc_id": "ACME-037",
+                        "claim": "There is no sixth automatic attempt.",
+                        "quote": "## Decision\nPermit at most five delivery attempts total: the initial attempt plus four retries. Wait 1, 2, 4, and 8 minutes after the first four failures. After the fifth failed attempt, send the event to the dead-letter queue and open an operational alert. There is no sixth automatic attempt."
+                    }
+                ]
+            }
+        },
+        {
+            "case_id": "DIAG-14",
+            "category": "procedure",
+            "doc_ids": [
+                "ACME-037"
+            ],
+            "benchmark": {
+                "question": "Should Harbor automatically retry authentication failures or invalid payloads?",
+                "expected_answer": "No. These failures require investigation; the operator must correct the cause and authorize replay.",
+                "criteria": [
+                    {
+                        "doc_id": "ACME-037",
+                        "claim": "Authentication failures and invalid payloads require investigation rather than automatic retry.",
+                        "quote": "## Error classes\nRetry timeouts and temporary server failures. Authentication failures and invalid payloads require investigation instead of repeated identical attempts. The operator must correct the cause and authorize replay from the dead-letter queue. Replay preserves the event identity so tenant-scoped deduplication can prevent duplicate side effects."
+                    },
+                    {
+                        "doc_id": "ACME-037",
+                        "claim": "The operator must correct the cause and authorize replay.",
+                        "quote": "## Error classes\nRetry timeouts and temporary server failures. Authentication failures and invalid payloads require investigation instead of repeated identical attempts. The operator must correct the cause and authorize replay from the dead-letter queue. Replay preserves the event identity so tenant-scoped deduplication can prevent duplicate side effects."
+                    }
+                ]
+            }
+        },
+        {
+            "case_id": "DIAG-15",
+            "category": "boundary",
+            "doc_ids": [
+                "ACME-021"
+            ],
+            "benchmark": {
+                "question": "Does Project Ledger authorize automatic production merges of proposed vendor duplicates?",
+                "expected_answer": "No. Finance must review proposed pairs; no automatic production merges are authorized.",
+                "criteria": [
+                    {
+                        "doc_id": "ACME-021",
+                        "claim": "No automatic production vendor merges are authorized.",
+                        "quote": "## Method\nNormalize names and tax-reference placeholders in a staging report, then ask Finance to review each proposed pair. No automatic production merges are authorized. Keep the surviving identifier, source identifiers, reviewer, and reason in the merge log. Historical purchase-order references must remain resolvable."
+                    },
+                    {
+                        "doc_id": "ACME-021",
+                        "claim": "Finance must review each proposed duplicate pair.",
+                        "quote": "## Method\nNormalize names and tax-reference placeholders in a staging report, then ask Finance to review each proposed pair. No automatic production merges are authorized. Keep the surviving identifier, source identifiers, reviewer, and reason in the merge log. Historical purchase-order references must remain resolvable."
+                    }
+                ]
+            }
+        },
+        {
+            "case_id": "DIAG-16",
+            "category": "historical",
+            "doc_ids": [
+                "ACME-023"
+            ],
+            "benchmark": {
+                "question": "Does Cedar's September 22 rollout forecast prove that rollout has happened?",
+                "expected_answer": "No. It is a forecast subject to release gates, not evidence that rollout occurred.",
+                "criteria": [
+                    {
+                        "doc_id": "ACME-023",
+                        "claim": "September 22 is a forecast subject to release gates.",
+                        "quote": "## Reporting snapshot\nAs of September 4, Cedar is amber. The rollout forecast is September 22, 2026, replacing the September 15 planning target in the August snapshot. Priya approved the revised forecast in the September 3 steering meeting. This is a forecast subject to release gates, not proof that rollout has occurred."
+                    },
+                    {
+                        "doc_id": "ACME-023",
+                        "claim": "The forecast does not prove rollout has occurred.",
+                        "quote": "## Reporting snapshot\nAs of September 4, Cedar is amber. The rollout forecast is September 22, 2026, replacing the September 15 planning target in the August snapshot. Priya approved the revised forecast in the September 3 steering meeting. This is a forecast subject to release gates, not proof that rollout has occurred."
+                    }
+                ]
+            }
+        },
+        {
+            "case_id": "DIAG-17",
+            "category": "gap",
+            "doc_ids": [
+                "ACME-038"
+            ],
+            "benchmark": {
+                "question": "What is the approved physical European hosting region for Beacon?",
+                "expected_answer": "No approved physical region is specified; the architecture decision remains proposed and unresolved. Do not guess a region.",
+                "criteria": [
+                    {
+                        "doc_id": "ACME-038",
+                        "claim": "The physical European hosting region remains unspecified.",
+                        "quote": "## Unanswered questions\nThe physical European hosting region, cross-region recovery target, and migration sequence remain unspecified. No vendor quote in this corpus resolves those decisions. When asked where European customer data will be stored, describe the proposal status and the missing decision; do not guess a common cloud region from product branding or workshop remarks."
+                    },
+                    {
+                        "doc_id": "ACME-038",
+                        "claim": "An answer must acknowledge the missing decision rather than guess a region.",
+                        "quote": "## Unanswered questions\nThe physical European hosting region, cross-region recovery target, and migration sequence remain unspecified. No vendor quote in this corpus resolves those decisions. When asked where European customer data will be stored, describe the proposal status and the missing decision; do not guess a common cloud region from product branding or workshop remarks."
+                    }
+                ]
+            }
+        },
+        {
+            "case_id": "DIAG-18",
+            "category": "gap",
+            "doc_ids": [
+                "ACME-017"
+            ],
+            "benchmark": {
+                "question": "What mileage reimbursement rate does Acme's travel policy establish?",
+                "expected_answer": "No mileage rate is established; ask People Operations for an approved rule.",
+                "criteria": [
+                    {
+                        "doc_id": "ACME-017",
+                        "claim": "The policy establishes no mileage rate.",
+                        "quote": "## Exclusions\nNo international per-diem schedule, mileage rate, visa policy, or family-travel allowance is established here. Ask People Operations for an approved rule rather than extending the meal cap to unrelated categories. Exceptions require a documented Finance decision before reimbursement. Synthetic examples must not include real receipts or payment details."
+                    },
+                    {
+                        "doc_id": "ACME-017",
+                        "claim": "People Operations should be asked for an approved rule.",
+                        "quote": "## Exclusions\nNo international per-diem schedule, mileage rate, visa policy, or family-travel allowance is established here. Ask People Operations for an approved rule rather than extending the meal cap to unrelated categories. Exceptions require a documented Finance decision before reimbursement. Synthetic examples must not include real receipts or payment details."
+                    }
+                ]
+            }
+        },
+        {
+            "case_id": "DIAG-19",
+            "category": "gap",
+            "doc_ids": [
+                "ACME-043"
+            ],
+            "benchmark": {
+                "question": "What public price or unlimited transaction allowance does the Atlas guide promise?",
+                "expected_answer": "Neither is defined. Capacity commitments require an approved commercial agreement.",
+                "criteria": [
+                    {
+                        "doc_id": "ACME-043",
+                        "claim": "No public pricing table or unlimited transaction allowance is defined.",
+                        "quote": "## Limits and exclusions\nCustomer-defined scripting, a dedicated mobile application, and replacement of external finance systems are outside the current service scope. The guide defines no public pricing table or unlimited transaction allowance. Capacity promises must come from an approved commercial agreement."
+                    },
+                    {
+                        "doc_id": "ACME-043",
+                        "claim": "Capacity promises must come from an approved commercial agreement.",
+                        "quote": "## Limits and exclusions\nCustomer-defined scripting, a dedicated mobile application, and replacement of external finance systems are outside the current service scope. The guide defines no public pricing table or unlimited transaction allowance. Capacity promises must come from an approved commercial agreement."
+                    }
+                ]
+            }
+        },
+        {
+            "case_id": "DIAG-20",
+            "category": "gap",
+            "doc_ids": [
+                "ACME-050"
+            ],
+            "benchmark": {
+                "question": "How much cash has been paid on the projects according to the September budget register?",
+                "expected_answer": "The register cannot answer cash paid; it reports commitments and does not include payment timing.",
+                "criteria": [
+                    {
+                        "doc_id": "ACME-050",
+                        "claim": "The register does not provide cash-paid figures.",
+                        "quote": "## Review rule\nProject leads report new commitments and forecast changes at the weekly review. Available envelope is not permission to skip Procurement Policy v2.1. A question about cash paid cannot be answered from this register because payment timing is not included. No real financial accounts or customer invoices are represented."
+                    },
+                    {
+                        "doc_id": "ACME-050",
+                        "claim": "Payment timing is absent from the register.",
+                        "quote": "## Review rule\nProject leads report new commitments and forecast changes at the weekly review. Available envelope is not permission to skip Procurement Policy v2.1. A question about cash paid cannot be answered from this register because payment timing is not included. No real financial accounts or customer invoices are represented."
+                    }
+                ]
+            }
+        }
+    ]
+}

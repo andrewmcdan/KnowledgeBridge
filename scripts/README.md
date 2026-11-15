@@ -6,7 +6,7 @@ Scripts should be non-interactive where practical, document prerequisites and pa
 
 ## Synthesis quality evaluation
 
-Run `python -B scripts/evaluate_synthesis.py --count 5 --queries-per-doc 3 --seed 42` to evaluate 15 questions across five ingested synthetic documents. Each case generates a question, queries synthesis, verifies its source citation, and has an AI judge assess the answer against the actual references. Repeated `--doc-id` selects specific documents; `--combined` retains the original single question across multiple sources. See [evaluation instructions](../evaluation/README.md) for authentication, selection, pass/fail gates, checkpointed reports, provider charges, and offline tests. This command is opt-in and is not part of normal test runs or CI.
+Run `python -B scripts/evaluate_synthesis.py --count 5 --queries-per-doc 3 --seed 42` to evaluate 15 questions across five ingested synthetic documents. Each case generates a question, validates the benchmark in a separate AI call before submission, queries synthesis, verifies its source citation, and has an AI judge assess the answer against the actual references. Repeated `--doc-id` selects specific documents; `--combined` retains the original single question across multiple sources. See [evaluation instructions](../evaluation/README.md) for authentication, selection, pass/fail gates, checkpointed reports, provider charges, and offline tests. This command is opt-in and is not part of normal test runs or CI.
 
 The evaluator prefers `OPENROUTER_API_KEY`; if absent or blank, it uses `OPENAI_API_KEY` directly with OpenAI model defaults. The selected provider/models appear in the console and run report.
 
@@ -24,7 +24,7 @@ With the canonical Markdown documents already ingested and the usual evaluator/a
 python -B scripts/evaluate_synthetic_corpus.py --queries-per-doc 3
 ```
 
-This plans 150 queries across all 50 documents. `--queries-per-doc` accepts 1-10 and defaults to 1. The script inherits the evaluator's sequential execution, source/citation checks, per-case checkpoints, model/provider selection and pass/fail gates. It never uploads documents, clears caches or retries paid requests. Each completed case normally makes two evaluator AI calls and one application synthesis request, so the example can make 300 evaluator calls plus 150 synthesis requests and incur provider charges.
+This plans 150 queries across all 50 documents. `--queries-per-doc` accepts 1-10 and defaults to 1. The script inherits the evaluator's sequential execution, source/citation checks, per-case checkpoints, model/provider selection and pass/fail gates. It never uploads documents, clears caches or retries paid requests. Each completed generated case normally makes three evaluator AI calls and one application synthesis request, so the example can make 450 evaluator calls plus 150 synthesis requests and incur provider charges.
 
 The default output directory is ignored `evaluation/runs/corpus-<timestamp>-<unique-id>/`, containing `results.json` and `report.pdf`. Use `--output-dir <directory>` to choose another location; existing artifacts are never overwritten. Custom destinations should also stay outside version control. The PDF contains overall results, methodology, per-document totals and average scores, every planned query's accuracy/grounding/completeness scores, and questions, judge reasoning, criterion verdicts, consistency adjustments, citation failures and errors. Complete answers, evidence and provider usage remain in the JSON audit report.
 
@@ -53,6 +53,14 @@ python -B synthetic-data/tools/validate.py
 ```
 
 PDF tests require ReportLab; the optional PDF text-extraction test also uses `pypdf` when installed. Tests never contact the application or an AI provider.
+
+### Fixed diagnostics, evidence tracing and model comparisons
+
+Use `python -B scripts/evaluate_synthesis.py --suite evaluation/diagnostic-suite.json --dry-run` for the reviewed 20-case plan. The fixed suite skips question generation and benchmark validation, keeping identical reviewed questions and criteria between arms. Rubric v5 reports strict passes, answer-quality passes and exact-target citation coverage separately.
+
+`compare_synthesis.py --model openai:gpt-4o-mini --model openrouter:anthropic/claude-haiku-4.5` runs the suite across both models and corpus/workspace evidence scopes, writes a JSON/PDF per arm and a frozen-suite comparison manifest, and calculates model deltas only when actual context hashes match. Add `--dry-run` for an offline preview, `--scope corpus` for one scope, or repeated `--case-id DIAG-09 --case-id DIAG-13` for a small regression. Tracing requires an existing ADMIN account, explicit opt-in/allowed models and rebuilt gbrain/backend settings; it makes real paid requests when not dry-run. See the [diagnostic workflow](../evaluation/README.md#diagnostic-rubric-v5-and-controlled-comparisons) for scope semantics, trace fields and setup.
+
+`reconcile_synthetic_imports.py --doc-id ACME-011` previews formatting-only import differences. Its explicit `--apply` imports a canonical Markdown copy while preserving old records; it refuses substantive changes and skips already-matching copies. It does not alter evaluation source files or answer keys.
 
 ## Local development launcher
 

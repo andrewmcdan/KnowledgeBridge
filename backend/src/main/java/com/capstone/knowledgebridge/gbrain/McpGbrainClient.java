@@ -219,6 +219,10 @@ class McpGbrainClient implements GbrainClient {
 	public GbrainSynthesisResult synthesize(GbrainSynthesisRequest request) {
 		JsonNode payload = transport.callTool(GbrainTool.SYNTHESIZE, Map.of("question", request.question()))
 				.payload();
+		return parseSynthesis(payload);
+	}
+
+	static GbrainSynthesisResult parseSynthesis(JsonNode payload) {
 		GbrainSynthesisResult.Status status = switch (payload.path("synthesis_status").asString("")) {
 			case "ok" -> GbrainSynthesisResult.Status.SYNTHESIZED;
 			case "extractive_fallback" -> GbrainSynthesisResult.Status.EXTRACTIVE_FALLBACK;

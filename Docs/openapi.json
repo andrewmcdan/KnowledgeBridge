@@ -892,6 +892,65 @@
                 }
             }
         },
+        "/api/query/evaluate": {
+            "post": {
+                "summary": "Admin-only uncached synthesis diagnostics (explicit opt-in)",
+                "description": "Requires KNOWLEDGEBRIDGE_EVALUATION_ENABLED and an allowed GBRAIN_EVALUATION_MODELS route. Does not use the answer cache. Empty allowedItemIds uses workspace evidence; a nonempty list restricts evidence after native gather and before prompt assembly. Traces include the exact system/user prompts and pre-filter candidates; store outside version control.",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/EvaluationRequest"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Normal synthesis response and actual engine trace",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "required": [
+                                        "synthesis",
+                                        "trace"
+                                    ],
+                                    "properties": {
+                                        "synthesis": {
+                                            "$ref": "#/components/schemas/SynthesisResponse"
+                                        },
+                                        "trace": {
+                                            "type": "object",
+                                            "description": "version, candidates, selected_pages, system_prompt, user_message, context_sha256, scope and filtering_stage"
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid request or model not in the allowlist"
+                    },
+                    "401": {
+                        "description": "Authentication required"
+                    },
+                    "403": {
+                        "description": "ADMIN required"
+                    },
+                    "404": {
+                        "description": "Diagnostics disabled"
+                    },
+                    "409": {
+                        "description": "A scoped/referenced item is unavailable"
+                    },
+                    "503": {
+                        "description": "Engine unavailable or trace protocol mismatch"
+                    }
+                }
+            }
+        },
         "/api/integrations/jira/status": {
             "get": {
                 "summary": "Report whether Jira is configured and reachable",
@@ -2034,6 +2093,35 @@
                     },
                     "name": {
                         "type": "string"
+                    }
+                }
+            },
+            "EvaluationRequest": {
+                "type": "object",
+                "required": [
+                    "question",
+                    "model",
+                    "allowedItemIds"
+                ],
+                "properties": {
+                    "question": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 2000
+                    },
+                    "model": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 255
+                    },
+                    "allowedItemIds": {
+                        "type": "array",
+                        "maxItems": 100,
+                        "items": {
+                            "type": "integer",
+                            "format": "int64",
+                            "minimum": 1
+                        }
                     }
                 }
             },
