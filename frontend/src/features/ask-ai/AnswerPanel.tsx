@@ -3,6 +3,7 @@ import { MarkdownContent } from "../../components/ui/MarkdownContent";
 import { parseDocumentMarkdown } from "../../components/ui/documentPreview";
 import type { Detail } from "../../types/models";
 import { citationDetail, citedPassages } from "./citations";
+import { resultKeys } from "./resultKeys";
 import type { AskAiMode, QueryResult, SearchResponse, SynthesisResponse } from "./askAiApi";
 
 interface AnswerPanelProps {
@@ -60,6 +61,7 @@ export function AnswerPanel({ mode, result, submitting, error, pendingQuestion, 
 }
 
 function SearchResults({ result, question, onOpenDetail }: { result: SearchResponse; question?: string; onOpenDetail: (detail: Detail) => void }) {
+    const keys = resultKeys(result.hits, (hit) => [hit.itemKey, hit.externalId, hit.snippet]);
     return (
         <>
             {result.retrieval.degraded && <p className="query-warning">Some semantic retrieval signals were unavailable for this search.</p>}
@@ -70,7 +72,7 @@ function SearchResults({ result, question, onOpenDetail }: { result: SearchRespo
                     const title = hit.title || detail?.title || "Untitled document";
                     const excerpt = parseDocumentMarkdown(hit.snippet).markdown.trim();
                     return (
-                        <article className="query-hit" key={`${hit.itemKey}-${index}`}>
+                        <article className="query-hit" key={keys[index]}>
                             <header className="search-hit-header">
                                 <span className="search-hit-rank" aria-label={`Result ${index + 1}`}>
                                     {index + 1}
@@ -114,6 +116,7 @@ function SearchResults({ result, question, onOpenDetail }: { result: SearchRespo
 }
 
 function SynthesisAnswer({ result, question, onOpenDetail }: { result: SynthesisResponse; question?: string; onOpenDetail: (detail: Detail) => void }) {
+    const keys = resultKeys(result.citations, (citation) => [citation.itemKey, citation.externalId]);
     const sources = result.citations.map((citation, index) => {
         const detail = citationDetail(citation);
         return { citation, number: index + 1, detail: detail ? { ...detail, focus: { kind: "synthesis" as const, passages: citedPassages(result.answer, index + 1, citation.externalId), question } } : null };
@@ -128,7 +131,7 @@ function SynthesisAnswer({ result, question, onOpenDetail }: { result: Synthesis
             {result.citations.length ? (
                 <ol className="query-citations">
                     {sources.map(({ citation, detail, number }) => (
-                        <li key={`${citation.externalId}-${number}`}>
+                        <li key={keys[number - 1]}>
                             {detail ? (
                                 <button className="citation-document-link" type="button" aria-label={`Open document: ${detail.title}`} onClick={() => onOpenDetail(detail)}>
                                     {detail.title}
