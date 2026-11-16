@@ -1,0 +1,4 @@
+# ReportLab is already used by the repository's evaluation PDF reports.
+reportlab>=4.0,<5
+# Parse Markdown structure rather than discarding formatting with regular expressions.
+markdown-it-py>=3.0,<5
