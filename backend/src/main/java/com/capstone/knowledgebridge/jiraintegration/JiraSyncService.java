@@ -121,9 +121,10 @@ public class JiraSyncService {
 
 	/** A Jira failure stops the run; anything wrong with one work item only fails that item. */
 	private JiraSyncOutcome sync(JiraIssue issue, long ownerId) {
+		KnowledgeItem item = null;
 		try {
 			Optional<KnowledgeItem> existing = items.findByExternalSourceAndExternalKey(SOURCE, issue.key());
-			Optional<KnowledgeItem> unchanged = existing.filter(item -> isUnchanged(item, issue));
+			Optional<KnowledgeItem> unchanged = existing.filter(candidate -> isUnchanged(candidate, issue));
 			if (unchanged.isPresent()) {
 				workItems.save(JiraWorkItem.from(unchanged.get().getId(), issue));
 				return JiraSyncOutcome.UNCHANGED;
@@ -131,7 +132,7 @@ public class JiraSyncService {
 			String title = JiraMarkdownConverter.title(issue);
 			String type = Objects.requireNonNullElse(issue.type(), "work-item");
 			String body = JiraMarkdownConverter.toMarkdown(issue, comments(issue));
-			KnowledgeItem item = existing.orElse(null);
+			item = existing.orElse(null);
 			if (item == null) {
 				item = KnowledgeItem.external(title, type, ownerId, body, KnowledgeSourceKind.JIRA, issue.key(),
 						issue.browseUrl(), issue.updated());
@@ -149,6 +150,10 @@ public class JiraSyncService {
 		} catch (JiraException exception) {
 			throw exception;
 		} catch (RuntimeException exception) {
+			if (item != null && item.getId() != null) {
+				item.markFailed();
+				items.save(item);
+			}
 			log.warn("Could not sync Jira work item {}", issue.key(), exception);
 			return JiraSyncOutcome.FAILED;
 		}

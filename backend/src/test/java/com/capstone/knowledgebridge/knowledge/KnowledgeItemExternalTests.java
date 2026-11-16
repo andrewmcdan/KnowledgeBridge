@@ -30,6 +30,7 @@ class KnowledgeItemExternalTests {
 		KnowledgeItem item = KnowledgeItem.external("Old", "task", 3L, "old", KnowledgeSourceKind.JIRA, "ACME-5",
 				"https://old.example/ACME-5", first);
 		Instant contentUpdatedAt = item.getContentUpdatedAt();
+		item.markCompleted("slug");
 
 		item.applyExternalUpdate("New", "bug", "new body", "https://new.example/ACME-5", second);
 
@@ -40,6 +41,8 @@ class KnowledgeItemExternalTests {
 		assertThat(item.getExternalUrl()).isEqualTo("https://new.example/ACME-5");
 		assertThat(item.getExternalUpdatedAt()).isEqualTo(second);
 		assertThat(item.getRevision()).isEqualTo(2);
+		assertThat(item.getStatus()).isEqualTo(KnowledgeItemStatus.PENDING);
+		assertThat(item.getIngestionStage()).isEqualTo(IngestionStage.QUEUED);
 		assertThat(item.getContentUpdatedAt()).isAfterOrEqualTo(contentUpdatedAt);
 	}
 

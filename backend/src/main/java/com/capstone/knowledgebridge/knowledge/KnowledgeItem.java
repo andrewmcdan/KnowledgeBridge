@@ -185,6 +185,8 @@ public class KnowledgeItem {
 		this.externalUrl = externalUrl;
 		this.externalUpdatedAt = externalUpdatedAt;
 		this.revision++;
+		// Persist a retryable state with the new timestamp before contacting the engine.
+		markQueued();
 		this.contentUpdatedAt = Instant.now();
 		this.updatedAt = this.contentUpdatedAt;
 	}
