@@ -47,6 +47,48 @@ class QueryServiceTests {
 			knowledgeRevisionService);
 
 	@Test
+	void numericAliasesUseTheSameAvailableItemAndLocalMetadata() {
+		KnowledgeItem item = new KnowledgeItem("Shared title", "Policy", 7L, "Body");
+		ReflectionTestUtils.setField(item, "id", 42L);
+		item.markCompleted("knowledgebridge/42");
+		when(knowledgeItemRepository.findAllById(List.of(42L))).thenReturn(List.of(item));
+		var keys = List.of("42", "042", "+42");
+		when(gbrainClient.search(any())).thenReturn(new GbrainSearchResult(keys.stream()
+				.map(key -> new GbrainSearchHit(key, "knowledgebridge/42", "Stale engine title", "old-type", "Text", 1))
+				.toList(), new GbrainRetrieval(true, true, true, List.of())));
+		assertThat(queryService.search("Q", null).hits()).hasSize(3).allSatisfy(hit -> {
+			assertThat(hit.itemKey()).isEqualTo("42");
+			assertThat(hit.title()).isEqualTo("Shared title");
+			assertThat(hit.documentType()).isEqualTo("Policy");
+		});
+		when(gbrainClient.synthesize(any())).thenReturn(new GbrainSynthesisResult("Answer",
+				GbrainSynthesisResult.Status.SYNTHESIZED, keys.stream()
+						.map(key -> new GbrainSynthesisResult.GbrainCitation(key, "knowledgebridge/42")).toList(),
+				List.of(), null, List.of()));
+		assertThat(queryService.synthesize("Q").citations()).hasSize(3).allSatisfy(citation -> {
+			assertThat(citation.itemKey()).isEqualTo("42");
+			assertThat(citation.title()).isEqualTo("Shared title");
+		});
+	}
+
+	@Test
+	void cachedAnswersRecheckAvailabilityBeforeDisclosingMetadataOrAnswerText() {
+		KnowledgeItem item = new KnowledgeItem("Hidden title", "Private type", 7L, "Hidden text");
+		ReflectionTestUtils.setField(item, "id", 42L);
+		when(knowledgeItemRepository.findAllById(List.of(42L))).thenReturn(List.of(item));
+		var cached = new QueryService.SynthesisResponse("Hidden answer", true, false,
+				List.of(new QueryService.CitationResponse("042", "knowledgebridge/42", "Hidden title", "Private type")),
+				List.of(), List.of(), null, false);
+		when(queryCache.lookup(anyString(), eq(QueryMode.SYNTHESIS), anyLong(),
+				eq(QueryService.SynthesisResponse.class)))
+				.thenReturn(Optional.of(cached));
+		assertThatThrownBy(() -> queryService.synthesize("Q"))
+				.isInstanceOf(org.springframework.web.server.ResponseStatusException.class)
+				.hasMessageNotContaining("Hidden");
+		verify(gbrainClient, never()).synthesize(any());
+	}
+
+	@Test
 	void searchUsesTheDefaultLimitAndReturnsRetrievalEvidence() {
 		KnowledgeItem available = new KnowledgeItem("Benefits Policy", "Policy", 1L, "Benefits");
 		ReflectionTestUtils.setField(available, "id", 42L);

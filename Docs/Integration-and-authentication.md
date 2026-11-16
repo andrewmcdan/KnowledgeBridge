@@ -15,6 +15,8 @@
 
 The backend enforces these permissions. Ingestion writes are rejected in the security filter before JSON or uploaded content is parsed, and method-level authorization remains in place. Frontend navigation and route guards provide the corresponding user experience. A normal user's Knowledge Base can now call the list API; the server filters it to completed items. List ordering is descending creation time, then descending ID. There are no server-side list filters or pagination yet.
 
+The knowledge corpus is intentionally shared across signed-in users. `ownerId` records the contributor; it does not create a private document or an owner-only query scope. There is currently no per-item private/share setting. Search and synthesis (including cached answers) may reference only active, completed items, even for administrators. Inactive, trashed, failed, pending, missing, and malformed references do not disclose metadata. Search omits excluded hits; synthesis fails closed with HTTP 409 because its answer may already contain excluded source content. Numeric item keys are resolved canonically, so `42`, `042`, and `+42` refer to the same application item.
+
 ## Shared errors
 
 Every application API error uses JSON with these two fields:

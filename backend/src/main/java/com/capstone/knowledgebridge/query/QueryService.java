@@ -84,14 +84,11 @@ public class QueryService {
 	public SearchResponse search(String question, Integer limit) {
 		int requestedLimit = limit == null ? DEFAULT_SEARCH_LIMIT : limit;
 		GbrainSearchResult result = gbrainClient.search(new GbrainSearchRequest(question, requestedLimit, null));
-		Map<String, KnowledgeItem> available = knowledgeItemRepository.findAllById(result.hits().stream()
-				.map(GbrainSearchHit::itemKey).map(QueryService::parseItemId).flatMap(Optional::stream).distinct()
-				.toList())
-				.stream().collect(Collectors.toMap(item -> Long.toString(item.getId()), Function.identity()));
+		Map<Long, KnowledgeItem> available = availableItems(
+				result.hits().stream().map(GbrainSearchHit::itemKey).toList());
 		List<SearchHitResponse> hits = result.hits().stream()
-				.filter(hit -> Optional.ofNullable(available.get(hit.itemKey())).map(KnowledgeItem::isAvailable)
-						.orElse(false))
-				.map(QueryService::toSearchHit).toList();
+				.filter(hit -> findItem(available, hit.itemKey()) != null)
+				.map(hit -> toSearchHit(hit, findItem(available, hit.itemKey()))).toList();
 		return new SearchResponse(hits, new RetrievalResponse(result.retrieval().vectorEnabled(),
 				result.retrieval().projectionReady(), !result.retrieval().healthy()));
 	}
@@ -107,6 +104,8 @@ public class QueryService {
 		Optional<SynthesisResponse> cached = queryCache.lookup(question, QueryMode.SYNTHESIS, revision,
 				SynthesisResponse.class);
 		if (cached.isPresent()) {
+			// Availability can change while an external update is pending, before the revision is bumped.
+			requireCitationItems(cached.get().citations().stream().map(CitationResponse::itemKey).toList());
 			return cached.get().asCacheHit();
 		}
 		SynthesisResponse response = askGbrain(question);
@@ -125,16 +124,10 @@ public class QueryService {
 
 	/** Maps an uncached diagnostic result through the same availability and accounting checks. */
 	public SynthesisResponse toSynthesisResponse(String question, GbrainSynthesisResult result) {
-		Map<String, KnowledgeItem> itemsById = knowledgeItemRepository.findAllById(itemIds(result.citations()))
-				.stream()
-				.collect(Collectors.toMap(item -> Long.toString(item.getId()), Function.identity()));
-		if (result.citations().stream().anyMatch(citation -> !Optional.ofNullable(itemsById.get(citation.itemKey()))
-				.map(KnowledgeItem::isAvailable).orElse(false))) {
-			throw new ResponseStatusException(HttpStatus.CONFLICT,
-					"A referenced document is no longer available. Retry the question.");
-		}
+		Map<Long, KnowledgeItem> itemsById = requireCitationItems(result.citations().stream()
+				.map(GbrainSynthesisResult.GbrainCitation::itemKey).toList());
 		List<CitationResponse> citations = result.citations().stream()
-				.map(citation -> toCitation(citation, itemsById.get(citation.itemKey())))
+				.map(citation -> toCitation(citation, findItem(itemsById, citation.itemKey())))
 				.toList();
 		GbrainSynthesisResult.Usage usage = result.usage();
 		TokenUsage responseUsage = null;
@@ -153,13 +146,25 @@ public class QueryService {
 				result.warnings(), responseUsage, false);
 	}
 
-	private static List<Long> itemIds(List<GbrainSynthesisResult.GbrainCitation> citations) {
-		return citations.stream()
-				.map(GbrainSynthesisResult.GbrainCitation::itemKey)
-				.map(QueryService::parseItemId)
-				.flatMap(java.util.Optional::stream)
-				.distinct()
-				.toList();
+	/** The corpus is shared by signed-in users; only active, completed items may be queried. */
+	private Map<Long, KnowledgeItem> availableItems(List<String> keys) {
+		return knowledgeItemRepository.findAllById(keys.stream().map(QueryService::parseItemId)
+				.flatMap(Optional::stream).distinct().toList()).stream().filter(KnowledgeItem::isAvailable)
+				.collect(Collectors.toMap(KnowledgeItem::getId, Function.identity()));
+	}
+
+	private Map<Long, KnowledgeItem> requireCitationItems(List<String> keys) {
+		Map<Long, KnowledgeItem> items = availableItems(keys);
+		if (keys.stream().anyMatch(key -> findItem(items, key) == null)) {
+			// Dropping metadata alone would still disclose the answer derived from an excluded source.
+			throw new ResponseStatusException(HttpStatus.CONFLICT,
+					"A referenced document is no longer available. Retry the question.");
+		}
+		return items;
+	}
+
+	private static KnowledgeItem findItem(Map<Long, KnowledgeItem> items, String key) {
+		return parseItemId(key).map(items::get).orElse(null);
 	}
 
 	private static java.util.Optional<Long> parseItemId(String itemKey) {
@@ -170,13 +175,15 @@ public class QueryService {
 		}
 	}
 
-	private static SearchHitResponse toSearchHit(GbrainSearchHit hit) {
-		return new SearchHitResponse(hit.itemKey(), hit.externalId(), hit.title(), hit.documentType(), hit.snippet(),
+	private static SearchHitResponse toSearchHit(GbrainSearchHit hit, KnowledgeItem item) {
+		return new SearchHitResponse(Long.toString(item.getId()), hit.externalId(), item.getTitle(), item.getType(),
+				hit.snippet(),
 				hit.score());
 	}
 
 	private static CitationResponse toCitation(GbrainSynthesisResult.GbrainCitation citation, KnowledgeItem item) {
-		return new CitationResponse(citation.itemKey(), citation.externalId(), item.getTitle(), item.getType());
+		return new CitationResponse(Long.toString(item.getId()), citation.externalId(), item.getTitle(),
+				item.getType());
 	}
 
 }
