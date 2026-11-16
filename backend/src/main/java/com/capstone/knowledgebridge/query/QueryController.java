@@ -2,6 +2,9 @@ package com.capstone.knowledgebridge.query;
 
 import java.util.List;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -12,6 +15,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.servlet.HandlerMapping;
 
 import tools.jackson.databind.JsonNode;
 
@@ -32,10 +36,12 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
+import jakarta.servlet.http.HttpServletRequest;
 
 @RestController
 @RequestMapping("/api/query")
 public class QueryController {
+	private static final Logger log = LoggerFactory.getLogger(QueryController.class);
 
 	public record SearchRequest(
 			@NotBlank(message = "Question is required.") @Size(max = GbrainSearchRequest.MAX_QUERY_LENGTH, message = "Search questions must be at most 1000 characters.") @Pattern(regexp = "[^\\x00]*", message = "Question must not contain NUL characters.") String question,
@@ -109,7 +115,22 @@ public class QueryController {
 	}
 
 	@ExceptionHandler(GbrainException.class)
-	ResponseEntity<ApiError> handleGbrainException(GbrainException exception) {
+	ResponseEntity<ApiError> handleGbrainException(GbrainException exception, HttpServletRequest request) {
+		Object mapping = request.getAttribute(HandlerMapping.BEST_MATCHING_PATTERN_ATTRIBUTE);
+		String operation = mapping instanceof String pattern ? pattern : "/api/query";
+		String action = switch (exception.code()) {
+			case UNAUTHORIZED -> "Check backend gbrain OAuth credentials and scopes";
+			case CONFIGURATION -> "Check backend gbrain adapter environment settings";
+			case PROTOCOL -> "Check gbrain endpoint and protocol compatibility";
+			case ENGINE -> "Check gbrain engine health and provider configuration";
+			case NOT_FOUND -> "Check gbrain document indexing and availability";
+			case RATE_LIMITED -> "Check gbrain and provider quota before retrying";
+			case TIMEOUT, UNAVAILABLE -> "Check connectivity and gbrain service health";
+			case VALIDATION -> "Check query validation and adapter input rules";
+		};
+		// Do not log the exception, cause, raw URI, or upstream text: they can contain credentials or content.
+		log.warn("Knowledge service request failed: operation={}, category={}, action={}", operation, exception.code(),
+				action);
 		HttpStatus status = switch (exception.code()) {
 			case VALIDATION -> HttpStatus.BAD_REQUEST;
 			case UNAUTHORIZED -> HttpStatus.BAD_GATEWAY;

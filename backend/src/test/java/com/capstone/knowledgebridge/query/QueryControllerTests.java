@@ -11,6 +11,12 @@ import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.oauth2.jwt.Jwt;
+import org.springframework.mock.web.MockHttpServletRequest;
+import org.springframework.web.servlet.HandlerMapping;
+import org.slf4j.LoggerFactory;
+import ch.qos.logback.classic.Logger;
+import ch.qos.logback.core.read.ListAppender;
+import ch.qos.logback.classic.spi.ILoggingEvent;
 
 import com.capstone.knowledgebridge.gbrain.GbrainErrorCode;
 import com.capstone.knowledgebridge.gbrain.GbrainException;
@@ -99,10 +105,42 @@ class QueryControllerTests {
 
 	private void assertError(GbrainErrorCode code, HttpStatus expectedStatus, String expectedMessage) {
 		ResponseEntity<ApiError> response = controller
-				.handleGbrainException(new GbrainException(code, "internal"));
+				.handleGbrainException(new GbrainException(code, "internal"), new MockHttpServletRequest());
 
 		assertThat(response.getStatusCode()).isEqualTo(expectedStatus);
 		assertThat(response.getBody()).isEqualTo(new ApiError(code.name(), expectedMessage));
+	}
+
+	@Test
+	void everyHandledFailureLogsOneSafeCategoryOperationAndAction() {
+		Logger logger = (Logger) LoggerFactory.getLogger(QueryController.class);
+		ListAppender<ILoggingEvent> appender = new ListAppender<>();
+		appender.start();
+		logger.addAppender(appender);
+		try {
+			for (String operation : List.of("search", "synthesize", "evaluate")) {
+				for (var code : GbrainErrorCode.values()) {
+					var request = new MockHttpServletRequest("POST", "/secret-token-and-question");
+					request.setAttribute(HandlerMapping.BEST_MATCHING_PATTERN_ATTRIBUTE, "/api/query/" + operation);
+					var exception = new GbrainException(code, "secret-token-and-question", "secret-upstream-content",
+							null,
+							new IllegalStateException("secret-cause"));
+					var response = controller.handleGbrainException(exception, request);
+					assertThat(response.getBody().message()).doesNotContain("secret");
+					ILoggingEvent event = appender.list.getLast();
+					assertThat(event.getLevel()).isEqualTo(ch.qos.logback.classic.Level.WARN);
+					assertThat(event.getFormattedMessage())
+							.contains("operation=/api/query/" + operation, "category=" + code,
+									"action=Check")
+							.doesNotContain("secret");
+					assertThat(event.getThrowableProxy()).isNull();
+				}
+			}
+			assertThat(appender.list).hasSize(GbrainErrorCode.values().length * 3);
+		} finally {
+			logger.detachAppender(appender);
+			appender.stop();
+		}
 	}
 
 }
