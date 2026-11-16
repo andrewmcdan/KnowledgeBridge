@@ -1,19 +1,24 @@
 import type { FormEvent } from "react";
 import { Icon } from "../../components/ui/Icon";
 import type { AskAiMode } from "./askAiApi";
+import { DEFAULT_SEARCH_LIMIT, normalizeQuestion, questionError, validSearchLimit } from "./queryInput";
 
 interface QuestionFormProps {
     question: string;
     mode: AskAiMode;
+    limit?: number;
     submitting: boolean;
     canceled: boolean;
     onQuestionChange: (value: string) => void;
     onModeChange: (value: AskAiMode) => void;
+    onLimitChange?: (value: number) => void;
     onSubmit: (event: FormEvent) => void;
     onCancel: () => void;
 }
 
-export function QuestionForm({ question, mode, submitting, canceled, onQuestionChange, onModeChange, onSubmit, onCancel }: QuestionFormProps) {
+export function QuestionForm({ question, mode, limit = DEFAULT_SEARCH_LIMIT, submitting, canceled, onQuestionChange, onModeChange, onLimitChange, onSubmit, onCancel }: QuestionFormProps) {
+    const validationError = (question ? questionError(mode, question) : null) ?? (mode === "Search" && !validSearchLimit(limit) ? "Search result limit must be an integer from 1 to 50." : null);
+    const canSubmit = !submitting && Boolean(normalizeQuestion(question)) && !validationError;
     const resizeTextarea = (element: HTMLTextAreaElement | null) => {
         if (!element) return;
         element.style.height = "auto";
@@ -29,7 +34,7 @@ export function QuestionForm({ question, mode, submitting, canceled, onQuestionC
                     ref={resizeTextarea}
                     value={question}
                     placeholder="Ask about indexed knowledge…"
-                    aria-describedby="question-keyboard-help"
+                    aria-describedby={validationError ? "question-keyboard-help question-validation-error" : "question-keyboard-help"}
                     onChange={(event) => {
                         resizeTextarea(event.currentTarget);
                         onQuestionChange(event.target.value);
@@ -38,10 +43,10 @@ export function QuestionForm({ question, mode, submitting, canceled, onQuestionC
                         // Composition confirmation must not send a partially entered question.
                         if (event.key !== "Enter" || event.shiftKey || event.nativeEvent.isComposing || event.nativeEvent.keyCode === 229) return;
                         event.preventDefault();
-                        if (!submitting && question.trim() && !event.repeat) event.currentTarget.form?.requestSubmit();
+                        if (canSubmit && !event.repeat) event.currentTarget.form?.requestSubmit();
                     }}
                 />
-                <button className="send-button" aria-label="Submit question" disabled={submitting || !question.trim()}>
+                <button className="send-button" aria-label="Submit question" disabled={!canSubmit}>
                     <Icon name="send" size={18} />
                 </button>
             </div>
@@ -59,6 +64,28 @@ export function QuestionForm({ question, mode, submitting, canceled, onQuestionC
                     ))}
                 </div>
             </fieldset>
+            {mode === "Search" && (
+                <label>
+                    Result limit (1–50)
+                    <input
+                        aria-label="Result limit"
+                        aria-invalid={!validSearchLimit(limit)}
+                        aria-describedby={!validSearchLimit(limit) ? "question-validation-error" : undefined}
+                        type="number"
+                        min={1}
+                        max={50}
+                        step={1}
+                        value={limit}
+                        disabled={submitting}
+                        onChange={(event) => onLimitChange?.(Number(event.target.value))}
+                    />
+                </label>
+            )}
+            {validationError && (
+                <p id="question-validation-error" className="query-error" role="alert">
+                    {validationError}
+                </p>
+            )}
             <p id="question-keyboard-help" className="question-keyboard-help">
                 Enter to send · Shift+Enter for a new line
             </p>

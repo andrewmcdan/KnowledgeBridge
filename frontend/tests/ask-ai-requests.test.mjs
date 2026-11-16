@@ -54,7 +54,7 @@ function pageHarness() {
         },
         "./QuestionForm": { QuestionForm },
         "./AnswerPanel": { AnswerPanel },
-        "./askAiApi": { submitQuestion: (mode, question, signal) => new Promise((resolve, reject) => requests.push({ mode, question, signal, resolve, reject })) },
+        "./askAiApi": { submitQuestion: (mode, question, signal, limit) => new Promise((resolve, reject) => requests.push({ mode, question, signal, limit, resolve, reject })) },
     });
     const render = () => {
         cursor = 0;
@@ -276,9 +276,74 @@ test("Shift+Enter stays native while blank, busy, repeating, and composing input
             });
             assert.equal(submitted, 0, JSON.stringify(scenario));
             assert.equal(prevented, scenario.prevented, JSON.stringify(scenario));
-            assert.equal(textarea.props["aria-describedby"], "question-keyboard-help");
+            assert.ok(textarea.props["aria-describedby"].includes("question-keyboard-help"));
         }
     }
+});
+
+test("selected result limit is forwarded and invalid direct submissions retain the editable question", async () => {
+    const page = pageHarness();
+    page.render().form.onModeChange("Search");
+    page.render().form.onLimitChange(25);
+    const pending = submit(page.render().form);
+    assert.equal(page.requests[0].limit, 25);
+    page.requests[0].resolve({ mode: "Search", response: {} });
+    await pending;
+    for (const limit of [0, 51, 1.5]) {
+        page.render().form.onQuestionChange("Question");
+        page.render().form.onLimitChange(limit);
+        await submit(page.render().form);
+        assert.equal(page.requests.length, 1);
+        assert.equal(page.render().form.question, "Question");
+        assert.match(page.render().answer.error, /integer from 1 to 50/);
+    }
+    page.unmount();
+});
+
+test("question normalization agrees with shared backend examples and UTF-16 length boundaries", () => {
+    const { normalizeQuestion, questionError } = load("queryInput.ts");
+    const cases = JSON.parse(readFileSync(new URL("../../config/query-normalization-cases.json", import.meta.url), "utf8"));
+    for (const example of cases) {
+        assert.equal(normalizeQuestion(example.question), example.normalized);
+        for (const mode of ["Search", "Synthesis"]) assert.equal(questionError(mode, example.question) === null, example.valid);
+    }
+    for (const mode of ["Search", "Synthesis"]) {
+        const max = mode === "Search" ? 1000 : 2000;
+        assert.equal(questionError(mode, ` \u2003${"x".repeat(max)}\u001c `), null);
+        assert.match(questionError(mode, "x".repeat(max + 1)), /at most/);
+        assert.equal(questionError(mode, "😀".repeat(max / 2)), null);
+        assert.match(questionError(mode, "😀".repeat(max / 2) + "x"), /at most/);
+    }
+});
+
+test("the result-limit input is labeled, bounded, and absent from synthesis", () => {
+    const { QuestionForm } = load("QuestionForm.tsx", { "../../components/ui/Icon": { Icon: () => null } });
+    const props = { question: "Question", mode: "Search", limit: 25, submitting: false, canceled: false, onQuestionChange() {}, onModeChange() {}, onLimitChange() {}, onSubmit() {}, onCancel() {} };
+    const html = renderToStaticMarkup(createElement(QuestionForm, props));
+    assert.match(html, /aria-label="Result limit"[^>]*min="1"[^>]*max="50"[^>]*step="1"[^>]*value="25"/);
+    assert.doesNotMatch(renderToStaticMarkup(createElement(QuestionForm, { ...props, mode: "Synthesis" })), /aria-label="Result limit"/);
+    assert.match(renderToStaticMarkup(createElement(QuestionForm, { ...props, limit: 51 })), /role="alert"/);
+    assert.match(renderToStaticMarkup(createElement(QuestionForm, { ...props, limit: 51 })), /aria-label="Result limit"[^>]*aria-invalid="true"[^>]*aria-describedby="question-validation-error"/);
+});
+
+test("the search API serializes the chosen limit and normalized question and rejects invalid payloads before fetching", async () => {
+    const calls = [];
+    const { submitQuestion } = load(
+        "askAiApi.ts",
+        { "../../api/apiError": {} },
+        {
+            sessionStorage: { getItem: () => "token" },
+            fetch: async (url, options) => {
+                calls.push({ url, body: JSON.parse(options.body) });
+                return { ok: true, json: async () => ({ hits: [], retrieval: { vectorEnabled: true, projectionReady: true, degraded: false } }) };
+            },
+        },
+    );
+    await submitQuestion("Search", " \u2003Question\u001c ", undefined, 25);
+    assert.deepEqual(calls[0].body, { question: "Question", limit: 25 });
+    for (const limit of [0, 51, 1.5, NaN]) await assert.rejects(submitQuestion("Search", "Question", undefined, limit));
+    for (const question of [" \n", "NUL\u0000", "x".repeat(1001)]) await assert.rejects(submitQuestion("Search", question));
+    assert.equal(calls.length, 1);
 });
 
 test("API forwards cancellation, aborts fetch, and does not dispatch a pre-aborted request", async () => {

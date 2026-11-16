@@ -1,0 +1,9 @@
+[
+    { "question": "  What changed?\n", "normalized": "What changed?", "valid": true },
+    { "question": "\u001c\u2003Question\u3000", "normalized": "Question", "valid": true },
+    { "question": "\u00a0Question\u00a0", "normalized": "\u00a0Question\u00a0", "valid": true },
+    { "question": "\u2007Question\u202f", "normalized": "\u2007Question\u202f", "valid": true },
+    { "question": "First\n  second", "normalized": "First\n  second", "valid": true },
+    { "question": " \t\n\u2003", "normalized": "", "valid": false },
+    { "question": "NUL\u0000question", "normalized": "NUL\u0000question", "valid": false }
+]
