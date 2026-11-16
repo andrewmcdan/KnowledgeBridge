@@ -8,6 +8,9 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Function;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import com.capstone.knowledgebridge.jira.model.JiraComment;
 import com.capstone.knowledgebridge.jira.model.JiraIssue;
 import com.capstone.knowledgebridge.jira.model.JiraIssueLink;
@@ -18,6 +21,7 @@ import tools.jackson.databind.JsonNode;
 
 /** Turns Atlassian's JSON into application records, so the rest of the adapter never sees Jira field names. */
 final class JiraResponseMapper {
+	private static final Logger log = LoggerFactory.getLogger(JiraResponseMapper.class);
 
 	private static final DateTimeFormatter JIRA_TIME = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss.SSSZ");
 
@@ -32,12 +36,21 @@ final class JiraResponseMapper {
 	}
 
 	JiraSearchPage searchPage(JsonNode data) {
+		if (!data.path("issues").isArray()) {
+			throw protocol("Jira search returned no issue array");
+		}
 		List<JiraIssue> issues = new ArrayList<>();
+		int failed = 0;
 		for (JsonNode issue : data.path("issues")) {
-			issues.add(issue(issue));
+			try {
+				issues.add(issue(issue));
+			} catch (JiraException exception) {
+				failed++;
+				log.warn("Skipping malformed Jira search item: {}", exception.code());
+			}
 		}
 		return new JiraSearchPage(issues, data.path("nextPageToken").asString(null),
-				data.path("isLast").asBoolean(true));
+				data.path("isLast").asBoolean(true), failed);
 	}
 
 	JiraIssue issue(JsonNode node) {

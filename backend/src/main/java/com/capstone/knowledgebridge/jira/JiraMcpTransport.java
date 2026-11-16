@@ -181,7 +181,7 @@ final class JiraMcpTransport {
 		long limit = properties.maxResponseSize().toBytes();
 		byte[] bytes = body.readNBytes(Math.toIntExact(limit + 1));
 		if (bytes.length > limit) {
-			throw protocol("Jira MCP response exceeded " + limit + " bytes");
+			throw new JiraResponseTooLargeException(limit);
 		}
 		return bytes;
 	}

@@ -320,6 +320,27 @@ class JiraSyncServiceTests {
 	}
 
 	@Test
+	void missingOrMalformedCommentsFailOnlyTheirItemAndLaterItemsStillSync() {
+		for (var code : List.of(JiraErrorCode.NOT_FOUND, JiraErrorCode.VALIDATION, JiraErrorCode.PROTOCOL)) {
+			doThrow(new JiraException(code, "item unavailable")).when(jira).listComments("ACME-1");
+			onePage(issue("ACME-1", UPDATED, "Task", List.of(), 3), issue("ACME-2", UPDATED, "Task", List.of(), 0));
+			service.start("ACME", 7L);
+		}
+		assertCounts(3, 0, 0, 3);
+		assertThat(run.getStatus()).isEqualTo(JiraSyncRunStatus.COMPLETED);
+	}
+
+	@Test
+	void recordsMalformedAndOversizedPageItemsAsFailuresAndFollowsLaterPages() {
+		when(jira.searchIssues(JQL, null)).thenReturn(new JiraSearchPage(List.of(), "next", false, 2));
+		when(jira.searchIssues(JQL, "next")).thenReturn(
+				new JiraSearchPage(List.of(issue("ACME-2", UPDATED, "Task", List.of(), 0)), null, true));
+		service.start("ACME", 7L);
+		assertCounts(1, 0, 0, 2);
+		assertThat(run.getStatus()).isEqualTo(JiraSyncRunStatus.COMPLETED);
+	}
+
+	@Test
 	void anUnexpectedFailureEndsTheRunWithASafeMessage() {
 		when(jira.searchIssues(any(), isNull())).thenThrow(new IllegalStateException("secret detail"));
 
