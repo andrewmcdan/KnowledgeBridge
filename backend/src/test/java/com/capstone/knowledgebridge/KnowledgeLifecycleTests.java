@@ -42,6 +42,8 @@ class KnowledgeLifecycleTests {
 	JdbcTemplate jdbc;
 	@Autowired
 	JsonMapper json;
+	@Autowired
+	org.springframework.context.ApplicationContext context;
 	@MockitoBean
 	GbrainClient engine;
 	@Autowired
@@ -188,6 +190,47 @@ class KnowledgeLifecycleTests {
 		mvc.perform(delete("/api/knowledge-items/{id}", id).header("Authorization", admin))
 				.andExpect(status().isServiceUnavailable());
 		assertThat(state(id)).isEqualTo("ACTIVE");
+	}
+
+	@Test
+	void jiraResyncPersistsItsBusyStateBeforeLifecycleRequestsCanReachTheEngine() throws Exception {
+		var items = context.getBean(com.capstone.knowledgebridge.knowledge.KnowledgeItemRepository.class);
+		var updated = java.time.Instant.parse("2026-11-05T22:37:59Z");
+		var item = com.capstone.knowledgebridge.knowledge.KnowledgeItem.external("Old", "Task", 1L, "Old body",
+				com.capstone.knowledgebridge.knowledge.KnowledgeSourceKind.JIRA, "GUARD-1",
+				"https://example.atlassian.net/browse/GUARD-1", updated.minusSeconds(60));
+		item.markCompleted("slug");
+		long id = items.saveAndFlush(item).getId();
+		var jira = mock(com.capstone.knowledgebridge.jira.JiraClient.class);
+		when(jira.status())
+				.thenReturn(new com.capstone.knowledgebridge.jira.model.JiraConnectionStatus(true, true, null));
+		var issue = new com.capstone.knowledgebridge.jira.model.JiraIssue("1", "GUARD-1", "New", "GUARD", "Guard",
+				"Task", "Open", "High", List.of(), null, "Reporter", null, null, updated, updated, "New body",
+				List.of(), 0, List.of(), "https://example.atlassian.net/browse/GUARD-1");
+		when(jira.searchIssues(anyString(), isNull())).thenReturn(
+				new com.capstone.knowledgebridge.jira.model.JiraSearchPage(List.of(issue), null, true));
+		doAnswer(call -> {
+			assertThat(jdbc.queryForObject("SELECT status FROM knowledge_item WHERE id = ?", String.class, id))
+					.isEqualTo("PENDING");
+			mvc.perform(post("/api/knowledge-items/{id}/deactivate", id).header("Authorization", admin))
+					.andExpect(status().isConflict());
+			mvc.perform(delete("/api/knowledge-items/{id}", id).header("Authorization", admin))
+					.andExpect(status().isConflict());
+			return new GbrainWriteResult("knowledgebridge/" + id, GbrainWriteResult.Status.WRITTEN, 1);
+		}).when(engine).upsertDocument(any());
+		var sync = new com.capstone.knowledgebridge.jiraintegration.JiraSyncService(jira,
+				context.getBean(com.capstone.knowledgebridge.jiraintegration.JiraSyncRunRepository.class), items,
+				context.getBean(com.capstone.knowledgebridge.jiraintegration.JiraWorkItemRepository.class),
+				context.getBean(com.capstone.knowledgebridge.ingestion.IngestionService.class),
+				new org.springframework.core.task.SyncTaskExecutor());
+		var run = sync.start("GUARD", 1L).orElseThrow();
+		assertThat(sync.findRun(run.getId()).orElseThrow().getUpdatedCount()).isEqualTo(1);
+		assertThat(state(id)).isEqualTo("ACTIVE");
+		assertThat(items.findById(id).orElseThrow().isAvailable()).isTrue();
+		verify(engine, never()).deleteDocument(Long.toString(id));
+		mvc.perform(post("/api/knowledge-items/{id}/deactivate", id).header("Authorization", admin))
+				.andExpect(status().isNoContent());
+		assertThat(state(id)).isEqualTo("INACTIVE");
 	}
 
 	private String state(long id) {
