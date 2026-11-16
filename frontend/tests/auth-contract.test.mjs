@@ -4,11 +4,13 @@ import { createRequire } from "node:module";
 import test from "node:test";
 import { runInNewContext } from "node:vm";
 import ts from "typescript";
+import { createElement } from "react";
+import { renderToStaticMarkup } from "react-dom/server";
 
 const packageRequire = createRequire(import.meta.url);
 
-function loadApi(file, fetch) {
-    const window = new EventTarget();
+function loadApi(file, fetch, environment = {}) {
+    const window = environment.window ?? new EventTarget();
     const modules = new Map();
     function load(url) {
         if (modules.has(url.href)) return modules.get(url.href);
@@ -29,6 +31,7 @@ function loadApi(file, fetch) {
             URLSearchParams,
             sessionStorage: { getItem: () => "signed-token" },
             localStorage: { getItem: () => null },
+            ...environment,
         });
         return module.exports;
     }
@@ -51,16 +54,22 @@ test("login and me agree on the identity and role contract", async () => {
     assert.equal(calls[1].options.headers.Authorization, "Bearer signed-token");
 });
 
-function setupAuthProvider(getCurrentUser = async () => user) {
+function setupAuthProvider(getCurrentUser = async () => user, remember = false) {
     const window = new EventTarget();
     const stored = new Map([["knowledgebridge.auth.token", "old-token"]]);
+    const otherStored = new Map();
+    const storageFor = (values) => ({
+        getItem: (key) => values.get(key) ?? null,
+        setItem: (key, value) => values.set(key, value),
+        removeItem: (key) => values.delete(key),
+    });
     const storage = {
         getItem: (key) => stored.get(key) ?? null,
         setItem: (key, value) => stored.set(key, value),
         removeItem: (key) => stored.delete(key),
     };
-    const sessionStorage = storage;
-    const localStorage = { getItem: () => null, removeItem: () => {} };
+    const sessionStorage = remember ? storageFor(otherStored) : storage;
+    const localStorage = remember ? storage : storageFor(otherStored);
     const state = [];
     const effects = [];
     let actions;
@@ -73,6 +82,9 @@ function setupAuthProvider(getCurrentUser = async () => user) {
         Event,
         CustomEvent,
     });
+    const sessionModule = { exports: {} };
+    const sessionSource = readFileSync(new URL("../src/features/auth/authSession.ts", import.meta.url), "utf8");
+    runInNewContext(ts.transpileModule(sessionSource, { compilerOptions: { module: ts.ModuleKind.CommonJS } }).outputText, { module: sessionModule, exports: sessionModule.exports, sessionStorage, localStorage });
     const providerModule = { exports: {} };
     const source = readFileSync(new URL("../src/features/auth/AuthProvider.tsx", import.meta.url), "utf8");
     runInNewContext(ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.CommonJS, jsx: ts.JsxEmit.ReactJSX } }).outputText, {
@@ -96,6 +108,7 @@ function setupAuthProvider(getCurrentUser = async () => user) {
             if (specifier === "react/jsx-runtime") return { jsx: () => null };
             if (specifier === "./AuthContext") return { authContext: { Provider: () => null } };
             if (specifier === "../../api/apiError") return apiModule.exports;
+            if (specifier === "./authSession") return sessionModule.exports;
             if (specifier === "./authApi") {
                 return {
                     getCurrentUser,
@@ -111,7 +124,7 @@ function setupAuthProvider(getCurrentUser = async () => user) {
     });
     providerModule.exports.AuthProvider({ children: null });
     const cleanups = effects.map((effect) => effect());
-    return { actions, state, stored, api: apiModule.exports, cleanup: () => cleanups.forEach((cleanup) => cleanup?.()) };
+    return { actions, state, stored, environment: { window, sessionStorage, localStorage }, api: apiModule.exports, cleanup: () => cleanups.forEach((cleanup) => cleanup?.()) };
 }
 
 test("a delayed 401 from an old session cannot sign out a newer login", async () => {
@@ -151,6 +164,70 @@ test("a rejected session-restore request cannot clear a replacement login", asyn
     assert.equal(auth.state[0], "authenticated");
     assert.equal(auth.state[1].role, "ADMIN");
     auth.cleanup();
+});
+
+test("both API clients expire session and remembered tokens safely on concurrent 401 responses", async () => {
+    for (const remember of [false, true]) {
+        for (const client of ["features/ask-ai/askAiApi", "features/knowledge/knowledgeApi"]) {
+            const auth = setupAuthProvider(undefined, remember);
+            await new Promise((resolve) => setImmediate(resolve));
+            const { api } = loadApi(
+                client,
+                async (_url, options) => {
+                    assert.equal(options.headers.Authorization, "Bearer old-token");
+                    return Response.json({ code: "UNAUTHENTICATED", message: "Session expired." }, { status: 401 });
+                },
+                auth.environment,
+            );
+            const request = () => (client.includes("askAi") ? api.submitQuestion("Search", "Question") : api.getKnowledgeItems());
+            const results = await Promise.allSettled([request(), request()]);
+            assert.ok(results.every((result) => result.status === "rejected"));
+            assert.equal(auth.stored.size, 0);
+            assert.equal(auth.state[0], "unauthenticated");
+            assert.equal(auth.state[1], null);
+            assert.equal(auth.state[2], true);
+            auth.cleanup();
+        }
+    }
+});
+
+test("permission, server and network failures in either client retain the active session", async () => {
+    for (const client of ["features/ask-ai/askAiApi", "features/knowledge/knowledgeApi"]) {
+        for (const status of [403, 502, null]) {
+            const auth = setupAuthProvider();
+            await new Promise((resolve) => setImmediate(resolve));
+            const { api } = loadApi(
+                client,
+                async () => {
+                    if (status === null) throw new Error("Network unavailable");
+                    return Response.json({ code: "FAILED", message: "Request failed." }, { status });
+                },
+                auth.environment,
+            );
+            await assert.rejects(client.includes("askAi") ? api.submitQuestion("Search", "Question") : api.getKnowledgeItems());
+            assert.equal(auth.stored.get("knowledgebridge.auth.token"), "old-token");
+            assert.equal(auth.state[0], "authenticated");
+            assert.equal(auth.state[2], false);
+            auth.cleanup();
+        }
+    }
+});
+
+test("the sign-in screen explains an expired session", () => {
+    const module = { exports: {} };
+    const source = readFileSync(new URL("../src/features/auth/LoginPage.tsx", import.meta.url), "utf8");
+    runInNewContext(ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.CommonJS, jsx: ts.JsxEmit.ReactJSX } }).outputText, {
+        module,
+        exports: module.exports,
+        require: (specifier) => {
+            if (specifier === "react") return { useState: (value) => [value, () => {}] };
+            if (specifier === "react-router-dom") return { useNavigate: () => () => {}, Link: ({ children }) => createElement("a", null, children) };
+            if (specifier === "./useAuth") return { useAuth: () => ({ sessionExpired: true }) };
+            if (specifier === "./AuthPageLayout") return { AuthPageLayout: ({ children }) => children };
+            return packageRequire(specifier);
+        },
+    });
+    assert.match(renderToStaticMarkup(createElement(module.exports.LoginPage)), /role="status">Your session expired\. Sign in again to continue\./);
 });
 
 test("logout uses POST with the captured token and accepts an empty 204", async () => {

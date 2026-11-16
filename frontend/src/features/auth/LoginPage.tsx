@@ -5,7 +5,7 @@ import { useAuth } from "./useAuth";
 
 export function LoginPage() {
     const navigate = useNavigate();
-    const { signIn } = useAuth();
+    const { signIn, sessionExpired } = useAuth();
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
     const [showPassword, setShowPassword] = useState(false);
@@ -36,6 +36,8 @@ export function LoginPage() {
                     <h1 id="sign-in-heading">Sign in to KnowledgeBridge</h1>
                     <p>Enter your details to access your workspace.</p>
                 </div>
+
+                {sessionExpired && <p role="status">Your session expired. Sign in again to continue.</p>}
 
                 <label htmlFor="email">Email address</label>
                 <input id="email" name="email" type="email" autoComplete="email" placeholder="you@company.com" value={email} onChange={(event) => setEmail(event.target.value)} required />
