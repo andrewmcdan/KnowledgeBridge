@@ -6,6 +6,10 @@
 
 ## Overview
 
+Sync recovery counts malformed search entries and item-level missing/invalid comment responses in `failed_count`, then continues to later work items and pages. Authentication, configuration, exhausted rate-limit/outage retries, and timeouts still stop the run. Oversized search responses are retried at the same cursor with progressively smaller pages. If a single item is still too large, a minimal-field request obtains its next cursor and counts it as failed; incomplete content is never indexed. If that cursor request also fails, the run stops rather than silently skipping an unknown range.
+
+`JIRA_MAX_RESPONSE_SIZE` (default `4MB`) bounds each response and `JIRA_PAGE_SIZE` (default `50`, range 1–100) controls the requested search page size. Both are passed through Docker Compose and can be configured in root `.env`.
+
 KnowledgeBridge syncs Jira work items into gbrain as knowledge pages so Ask AI can search, synthesize, and cite them like any other document. Administrators start a sync from the Knowledge Base page. API routes serve synced work items for a future Jira View.
 
 Two backend packages carry the work:

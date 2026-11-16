@@ -102,6 +102,9 @@ public class JiraSyncService {
 			JiraSearchPage page;
 			do {
 				page = jiraClient.searchIssues(jql, token);
+				for (int failed = 0; failed < page.failedCount(); failed++) {
+					run.record(JiraSyncOutcome.FAILED);
+				}
 				for (JiraIssue issue : page.issues()) {
 					run.record(sync(issue, run.getTriggeredBy()));
 				}
@@ -119,7 +122,7 @@ public class JiraSyncService {
 		runs.save(run);
 	}
 
-	/** A Jira failure stops the run; anything wrong with one work item only fails that item. */
+	/** Connection-wide failures stop the run; missing or malformed individual work items do not. */
 	private JiraSyncOutcome sync(JiraIssue issue, long ownerId) {
 		KnowledgeItem item = null;
 		try {
@@ -148,7 +151,13 @@ public class JiraSyncService {
 			}
 			return existing.isPresent() ? JiraSyncOutcome.UPDATED : JiraSyncOutcome.CREATED;
 		} catch (JiraException exception) {
-			throw exception;
+			return switch (exception.code()) {
+				case NOT_FOUND, VALIDATION, PROTOCOL -> {
+					log.warn("Could not sync Jira work item {}: {}", issue.key(), exception.code());
+					yield JiraSyncOutcome.FAILED;
+				}
+				default -> throw exception;
+			};
 		} catch (RuntimeException exception) {
 			if (item != null && item.getId() != null) {
 				item.markFailed();

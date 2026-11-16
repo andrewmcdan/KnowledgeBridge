@@ -325,6 +325,57 @@ class McpJiraClientTests {
 	}
 
 	@Test
+	void reducesOversizedSearchPagesWithoutAdvancingTheirCursor() {
+		server.onTool("searchJiraIssuesUsingJql", arguments -> arguments.path("maxResults").asInt() > 2
+				? "{\"data\":{\"issues\":[],\"padding\":\"" + "x".repeat(3000) + "\"}}"
+				: "{\"data\":{\"issues\":[],\"isLast\":true}}");
+		var small = MockJiraMcpServer.client(server.properties(1024, Duration.ofSeconds(2)));
+		assertThat(small.searchIssues("project = ACME", "same-token").last()).isTrue();
+		var calls = server.requests.stream().filter(request -> request.method().equals("tools/call"))
+				.map(request -> request.body().path("params").path("arguments")).toList();
+		assertThat(calls).extracting(node -> node.path("maxResults").asInt()).containsExactly(10, 5, 2);
+		assertThat(calls).allSatisfy(node -> assertThat(node.path("nextPageToken").asString()).isEqualTo("same-token"));
+	}
+
+	@Test
+	void skipsOneOversizedItemUsingOnlyItsCursorAndNeverIndexesThePartialContent() {
+		server.onTool("searchJiraIssuesUsingJql",
+				arguments -> arguments.path("fields").toString().contains("description")
+						? "{\"data\":{\"issues\":[],\"padding\":\"" + "x".repeat(3000) + "\"}}"
+						: "{\"data\":{\"issues\":[" + minimalIssue("ACME-1")
+								+ "],\"nextPageToken\":\"next\",\"isLast\":false}}");
+		var small = MockJiraMcpServer.client(server.properties(1024, Duration.ofSeconds(2)));
+		var page = small.searchIssues("project = ACME", "same-token");
+		assertThat(page.issues()).isEmpty();
+		assertThat(page.failedCount()).isEqualTo(1);
+		assertThat(page.nextPageToken()).isEqualTo("next");
+		assertThat(page.last()).isFalse();
+		assertThat(server.requests.stream().filter(request -> request.method().equals("tools/call")))
+				.hasSize(5).allSatisfy(request -> assertThat(request.body().path("params").path("arguments")
+						.path("nextPageToken").asString()).isEqualTo("same-token"));
+	}
+
+	@Test
+	void countsMalformedSearchItemsAndKeepsLaterItemsAndTheNextCursor() {
+		server.onTool("searchJiraIssuesUsingJql", arguments -> "{\"data\":{\"issues\":[" + minimalIssue("ACME-1")
+				+ ",{\"id\":\"bad\",\"key\":\"BAD\",\"fields\":{}}," + minimalIssue("ACME-2")
+				+ "],\"nextPageToken\":\"next\",\"isLast\":false}}");
+		var page = client.searchIssues("project = ACME", null);
+		assertThat(page.issues()).extracting(JiraIssue::key).containsExactly("ACME-1", "ACME-2");
+		assertThat(page.failedCount()).isEqualTo(1);
+		assertThat(page.nextPageToken()).isEqualTo("next");
+		server.onTool("searchJiraIssuesUsingJql", arguments -> "{\"data\":{\"issues\":null}}");
+		assertFails(() -> client.searchIssues("project = ACME", null), JiraErrorCode.PROTOCOL);
+	}
+
+	private static String minimalIssue(String key) {
+		return """
+				{"id":"1","key":"%s","fields":{"summary":"S","created":"2026-11-05T17:38:23.757-0500",
+				"updated":"2026-11-05T17:38:23.757-0500"}}
+				""".formatted(key);
+	}
+
+	@Test
 	void retriesARateLimitAfterTheDelayJiraAskedFor() {
 		server.onTool("listJiraProjects", arguments -> PROJECTS);
 		AtomicInteger calls = new AtomicInteger();

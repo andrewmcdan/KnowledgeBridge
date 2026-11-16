@@ -63,6 +63,8 @@ services:
       JIRA_ENABLED: ${JIRA_ENABLED:-false}
       JIRA_MODE: ${JIRA_MODE:-mcp}
       JIRA_MCP_URL: ${JIRA_MCP_URL:-https://mcp.atlassian.com/v2/mcp}
+      JIRA_MAX_RESPONSE_SIZE: ${JIRA_MAX_RESPONSE_SIZE:-4MB}
+      JIRA_PAGE_SIZE: ${JIRA_PAGE_SIZE:-50}
       JIRA_SITE_URL: ${JIRA_SITE_URL:-}
       JIRA_EMAIL: ${JIRA_EMAIL:-}
       JIRA_API_TOKEN: ${JIRA_API_TOKEN:-}
