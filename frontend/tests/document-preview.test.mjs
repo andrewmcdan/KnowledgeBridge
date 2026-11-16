@@ -38,6 +38,7 @@ const { AnswerPanel } = load("../../features/ask-ai/AnswerPanel.tsx", {
     "../../components/ui/MarkdownContent": { MarkdownContent },
     "../../components/ui/documentPreview": { parseDocumentMarkdown },
     "./citations": { citationDetail, citedPassages },
+    "./resultKeys": load("../../features/ask-ai/resultKeys.ts"),
 });
 const { DocumentEntitiesPanel } = load("DocumentEntitiesPanel.tsx");
 const plain = (value) => JSON.parse(JSON.stringify(value));
