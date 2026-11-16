@@ -1,4 +1,5 @@
 import { readApiError } from "../../api/apiError";
+import { DEFAULT_SEARCH_LIMIT, normalizeQuestion, questionError, validSearchLimit } from "./queryInput";
 
 export type AskAiMode = "Search" | "Synthesis";
 
@@ -117,14 +118,18 @@ async function readError(response: Response, requestAuthorization: string): Prom
     return readApiError(response, "We could not complete your question. Please try again.", requestAuthorization);
 }
 
-export async function submitQuestion(mode: AskAiMode, question: string, signal?: AbortSignal): Promise<QueryResult> {
+export async function submitQuestion(mode: AskAiMode, question: string, signal?: AbortSignal, limit = DEFAULT_SEARCH_LIMIT): Promise<QueryResult> {
     signal?.throwIfAborted();
+    const validationError = questionError(mode, question);
+    if (validationError) throw new Error(validationError);
+    if (mode === "Search" && !validSearchLimit(limit)) throw new Error("Search result limit must be an integer from 1 to 50.");
+    question = normalizeQuestion(question);
     const endpoint = mode === "Search" ? "/api/query/search" : "/api/query/synthesize";
     const headers = getAuthorizationHeader();
     const response = await fetch(endpoint, {
         method: "POST",
         headers: { ...headers, "Content-Type": "application/json" },
-        body: JSON.stringify({ question }),
+        body: JSON.stringify(mode === "Search" ? { question, limit } : { question }),
         signal,
     });
     signal?.throwIfAborted();

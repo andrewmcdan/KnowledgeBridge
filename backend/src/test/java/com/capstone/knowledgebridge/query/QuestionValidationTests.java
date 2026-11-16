@@ -21,6 +21,24 @@ import tools.jackson.databind.json.JsonMapper;
 class QuestionValidationTests {
 
 	@Test
+	void sharedFrontendExamplesMatchTheApiRequestPolicy() throws Exception {
+		var cases = JsonMapper.builder().build().readTree(java.nio.file.Files.readString(
+				java.nio.file.Path.of("../config/query-normalization-cases.json")));
+		try (var factory = Validation.buildDefaultValidatorFactory()) {
+			for (var example : cases) {
+				var search = new QueryController.SearchRequest(example.path("question").asString(), 10);
+				var synthesis = new QueryController.SynthesisRequest(example.path("question").asString());
+				assertThat(search.question()).isEqualTo(example.path("normalized").asString());
+				assertThat(synthesis.question()).isEqualTo(search.question());
+				assertThat(factory.getValidator().validate(search).isEmpty())
+						.isEqualTo(example.path("valid").asBoolean());
+				assertThat(factory.getValidator().validate(synthesis).isEmpty())
+						.isEqualTo(example.path("valid").asBoolean());
+			}
+		}
+	}
+
+	@Test
 	void invalidQuestionsUseSafeApplicationErrorsBeforeCallingTheService() throws Exception {
 		QueryService service = mock(QueryService.class);
 		var mvc = MockMvcBuilders.standaloneSetup(new QueryController(service, mock(UsageService.class),
