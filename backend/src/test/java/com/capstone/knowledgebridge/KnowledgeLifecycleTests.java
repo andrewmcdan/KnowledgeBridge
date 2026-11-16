@@ -129,6 +129,36 @@ class KnowledgeLifecycleTests {
 	}
 
 	@Test
+	void queriesEnforceSharedCorpusAccessAcrossUsersAndRejectExcludedSources() throws Exception {
+		long id = create();
+		for (String key : List.of(Long.toString(id), "0" + id, "+" + id)) {
+			when(engine.synthesize(any())).thenReturn(new GbrainSynthesisResult("Shared answer",
+					GbrainSynthesisResult.Status.SYNTHESIZED,
+					List.of(new GbrainSynthesisResult.GbrainCitation(key, "knowledgebridge/" + id)), List.of(), null,
+					List.of()));
+			for (String caller : List.of(user, admin)) {
+				mvc.perform(
+						post("/api/query/synthesize").header("Authorization", caller).contentType("application/json")
+								.content(json.writeValueAsString(
+										Map.of("question", "shared " + caller.substring(caller.length() - 8) + key))))
+						.andExpect(status().isOk())
+						.andExpect(jsonPath("$.citations[0].itemKey").value(Long.toString(id)))
+						.andExpect(jsonPath("$.citations[0].title").value("Lifecycle fixture"));
+			}
+		}
+		mvc.perform(post("/api/query/synthesize").contentType("application/json").content("{\"question\":\"shared\"}"))
+				.andExpect(status().isUnauthorized());
+		mvc.perform(post("/api/knowledge-items/{id}/deactivate", id).header("Authorization", admin))
+				.andExpect(status().isNoContent());
+		for (String caller : List.of(user, admin)) {
+			mvc.perform(post("/api/query/synthesize").header("Authorization", caller).contentType("application/json")
+					.content("{\"question\":\"excluded\"}"))
+					.andExpect(status().isConflict()).andExpect(jsonPath("$.citations").doesNotExist())
+					.andExpect(jsonPath("$.answer").doesNotExist());
+		}
+	}
+
+	@Test
 	void trashRestoresPreviousStateAndPermanentDeletionCleansOnlyAssociatedMetadata() throws Exception {
 		long id = create();
 		long other = create();
