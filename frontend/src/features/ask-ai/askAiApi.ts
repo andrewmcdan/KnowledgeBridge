@@ -1,4 +1,5 @@
 import { readApiError } from "../../api/apiError";
+import { getAuthorizationHeader } from "../auth/authSession";
 
 export type AskAiMode = "Search" | "Synthesis";
 
@@ -43,12 +44,6 @@ export interface SynthesisResponse {
 }
 
 export type QueryResult = ({ mode: "Search"; response: SearchResponse } | { mode: "Synthesis"; response: SynthesisResponse }) & { question?: string };
-
-function getAuthorizationHeader(): Record<string, string> {
-    const token = sessionStorage.getItem("knowledgebridge.auth.token") ?? localStorage.getItem("knowledgebridge.auth.token");
-    if (!token) throw new Error("Your sign-in session is no longer valid.");
-    return { Authorization: `Bearer ${token}` };
-}
 
 function isRecord(value: unknown): value is Record<string, unknown> {
     return typeof value === "object" && value !== null;
