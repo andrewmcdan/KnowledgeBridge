@@ -40,6 +40,8 @@ Every application API error uses JSON with these two fields:
 
 Query failures retain the existing engine categories such as `TIMEOUT`, `RATE_LIMITED`, and `UNAVAILABLE`, using the same `{code, message}` envelope. Clients must tolerate additional codes. The HTTP status is authoritative. Reverse-proxy/network failures may not carry application JSON; the frontend shows a safe fallback rather than raw HTML.
 
+Query questions are normalized with Java `String.strip()` before validation, cache lookup, and engine calls. Leading and trailing characters for which `Character.isWhitespace` is true are removed; internal whitespace is retained. Length counts UTF-16 code units after normalization: search accepts 1–1000, synthesis and evaluation accept 1–2000. Blank text and NUL characters are rejected with HTTP 400 and a `VALIDATION_ERROR` message. Search `limit` is an integer from 1 to 50 (default 10); synthesis does not take a limit.
+
 ## Authentication
 
 Visitors can choose **Create account** below **Sign in**, or open `/register`. Authenticated visitors opening `/register` go to Ask AI.
