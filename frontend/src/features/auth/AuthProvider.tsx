@@ -2,29 +2,25 @@ import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { authContext, type AuthContextValue, type AuthStatus } from "./AuthContext";
 import { getCurrentUser, login, logout, register, type AuthUser, type LoginResponse } from "./authApi";
 import { AUTH_EXPIRED_EVENT } from "../../api/apiError";
-
-const SESSION_TOKEN_KEY = "knowledgebridge.auth.token";
-
-function getStoredToken(): string | null {
-    return sessionStorage.getItem(SESSION_TOKEN_KEY) ?? localStorage.getItem(SESSION_TOKEN_KEY);
-}
-
-function clearStoredToken() {
-    sessionStorage.removeItem(SESSION_TOKEN_KEY);
-    localStorage.removeItem(SESSION_TOKEN_KEY);
-}
+import { clearStoredToken, getStoredToken, storeToken } from "./authSession";
 
 export function AuthProvider({ children }: { children: ReactNode }) {
     const [status, setStatus] = useState<AuthStatus>(() => (getStoredToken() ? "loading" : "unauthenticated"));
     const [user, setUser] = useState<AuthUser | null>(null);
+    const [sessionExpired, setSessionExpired] = useState(false);
+
+    const endSession = (expired: boolean) => {
+        clearStoredToken();
+        setUser(null);
+        setStatus("unauthenticated");
+        setSessionExpired(expired);
+    };
 
     useEffect(() => {
         const expireSession = (event: Event) => {
             // Ignore a delayed response from a token that has already been replaced by a new login.
             if ((event as CustomEvent<string>).detail !== `Bearer ${getStoredToken()}`) return;
-            clearStoredToken();
-            setUser(null);
-            setStatus("unauthenticated");
+            endSession(true);
         };
         window.addEventListener(AUTH_EXPIRED_EVENT, expireSession);
         return () => window.removeEventListener(AUTH_EXPIRED_EVENT, expireSession);
@@ -43,8 +39,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             })
             .catch(() => {
                 if (cancelled || getStoredToken() !== token) return;
-                clearStoredToken();
-                setStatus("unauthenticated");
+                endSession(true);
             });
 
         return () => {
@@ -54,14 +49,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     const value = useMemo<AuthContextValue>(() => {
         const acceptSession = (response: LoginResponse, remember: boolean) => {
-            clearStoredToken();
-            (remember ? localStorage : sessionStorage).setItem(SESSION_TOKEN_KEY, response.token);
+            storeToken(response.token, remember);
+            setSessionExpired(false);
             setUser(response.user);
             setStatus("authenticated");
         };
         return {
             status,
             user,
+            sessionExpired,
             async signIn(email, password, remember) {
                 acceptSession(await login(email, password), remember);
             },
@@ -70,14 +66,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             },
             async signOut() {
                 const token = getStoredToken();
-                clearStoredToken();
-                setUser(null);
-                setStatus("unauthenticated");
+                endSession(false);
                 // Local sign-out must complete even when the stateless API is unreachable.
                 if (token) await logout(token).catch(() => undefined);
             },
         };
-    }, [status, user]);
+    }, [status, user, sessionExpired]);
 
     return <authContext.Provider value={value}>{children}</authContext.Provider>;
 }

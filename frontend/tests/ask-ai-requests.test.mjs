@@ -18,7 +18,7 @@ function load(name, overrides = {}, globals = {}) {
         AbortController,
         Error,
         ...globals,
-        require: (specifier) => overrides[specifier] ?? packageRequire(specifier),
+        require: (specifier) => overrides[specifier] ?? (specifier.startsWith(".") ? load(`${specifier}.ts`, overrides, globals) : packageRequire(specifier)),
     });
     return module.exports;
 }

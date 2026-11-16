@@ -1,5 +1,8 @@
 import { readApiError } from "../../api/apiError";
+import { getAuthorizationHeader } from "../auth/authSession";
 import { uploadKind } from "./uploadFiles";
+
+export { getAuthorizationHeader } from "../auth/authSession";
 
 export type IngestionStatus = "PENDING" | "PROCESSING" | "COMPLETED" | "FAILED";
 export type KnowledgeLifecycle = "ACTIVE" | "INACTIVE" | "TRASH";
@@ -30,12 +33,6 @@ export interface KnowledgeItem {
     createdAt: string;
     updatedAt: string;
     sourceKind: "MANUAL" | "MARKDOWN" | "DOCX" | "PDF" | "VIDEO" | "JIRA";
-}
-
-export function getAuthorizationHeader(): Record<string, string> {
-    const token = sessionStorage.getItem("knowledgebridge.auth.token") ?? localStorage.getItem("knowledgebridge.auth.token");
-    if (!token) throw new Error("Your sign-in session is no longer valid.");
-    return { Authorization: `Bearer ${token}` };
 }
 
 function isIngestionStatus(value: unknown): value is IngestionStatus {
