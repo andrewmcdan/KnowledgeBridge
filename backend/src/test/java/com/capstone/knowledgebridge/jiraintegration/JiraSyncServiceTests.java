@@ -7,6 +7,7 @@ import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
@@ -153,6 +154,61 @@ class JiraSyncServiceTests {
 
 		verify(ingestion).ingest(existing);
 		assertCounts(0, 1, 0, 0);
+	}
+
+	@Test
+	void persistsPendingBeforeIngestionAndRetriesAnInterruptedUpdate() {
+		KnowledgeItem existing = existing(UPDATED.minusSeconds(60));
+		existing.markCompleted("slug");
+		onePage(issue("ACME-1", UPDATED, "Task", List.of(), 0));
+		doAnswer(invocation -> {
+			KnowledgeItem item = invocation.getArgument(0);
+			ReflectionTestUtils.setField(item, "id", 5L);
+			assertThat(item.getStatus()).isEqualTo(KnowledgeItemStatus.PENDING);
+			return item;
+		}).when(items).save(any());
+		doAnswer(invocation -> {
+			// A process crash cannot run the catch block or final save.
+			throw new AssertionError("simulated process interruption");
+		}).when(ingestion).ingest(any());
+		assertThatThrownBy(() -> service.start("ACME", 7L)).isInstanceOf(AssertionError.class);
+		assertThat(existing.getExternalUpdatedAt()).isEqualTo(UPDATED);
+		assertThat(existing.getStatus()).isEqualTo(KnowledgeItemStatus.PENDING);
+
+		doAnswer(invocation -> invocation.getArgument(0)).when(items).save(any());
+		doAnswer(invocation -> {
+			invocation.<KnowledgeItem>getArgument(0).markCompleted("slug");
+			return null;
+		}).when(ingestion).ingest(any());
+		service.start("ACME", 7L);
+		assertCounts(0, 1, 0, 0);
+		verify(ingestion, times(2)).ingest(any());
+	}
+
+	@Test
+	void persistsFailedAfterAnUnexpectedIngestionException() {
+		KnowledgeItem existing = existing(UPDATED.minusSeconds(60));
+		existing.markCompleted("slug");
+		ReflectionTestUtils.setField(existing, "id", 5L);
+		onePage(issue("ACME-1", UPDATED, "Task", List.of(), 0));
+		doAnswer(invocation -> {
+			existing.markProcessing();
+			throw new IllegalStateException("ingestion failed");
+		}).when(ingestion).ingest(any());
+		service.start("ACME", 7L);
+		assertThat(existing.getStatus()).isEqualTo(KnowledgeItemStatus.FAILED);
+		verify(items, times(2)).save(existing);
+		assertCounts(0, 0, 0, 1);
+	}
+
+	@Test
+	void aRejectedInitialSaveDoesNotTryToPersistAnUnidentifiedItemAgain() {
+		onePage(issue("ACME-1", UPDATED, "Task", List.of(), 0));
+		doThrow(new DataIntegrityViolationException("invalid item")).when(items).save(any());
+		service.start("ACME", 7L);
+		verify(items).save(any());
+		verify(ingestion, never()).ingest(any());
+		assertCounts(0, 0, 0, 1);
 	}
 
 	@Test
