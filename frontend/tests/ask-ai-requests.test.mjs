@@ -323,6 +323,7 @@ test("the result-limit input is labeled, bounded, and absent from synthesis", ()
     assert.match(html, /aria-label="Result limit"[^>]*min="1"[^>]*max="50"[^>]*step="1"[^>]*value="25"/);
     assert.doesNotMatch(renderToStaticMarkup(createElement(QuestionForm, { ...props, mode: "Synthesis" })), /aria-label="Result limit"/);
     assert.match(renderToStaticMarkup(createElement(QuestionForm, { ...props, limit: 51 })), /role="alert"/);
+    assert.match(renderToStaticMarkup(createElement(QuestionForm, { ...props, limit: 51 })), /aria-label="Result limit"[^>]*aria-invalid="true"[^>]*aria-describedby="question-validation-error"/);
 });
 
 test("the search API serializes the chosen limit and normalized question and rejects invalid payloads before fetching", async () => {

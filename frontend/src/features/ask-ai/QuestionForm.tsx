@@ -67,7 +67,18 @@ export function QuestionForm({ question, mode, limit = DEFAULT_SEARCH_LIMIT, sub
             {mode === "Search" && (
                 <label>
                     Result limit (1–50)
-                    <input aria-label="Result limit" type="number" min={1} max={50} step={1} value={limit} disabled={submitting} onChange={(event) => onLimitChange?.(Number(event.target.value))} />
+                    <input
+                        aria-label="Result limit"
+                        aria-invalid={!validSearchLimit(limit)}
+                        aria-describedby={!validSearchLimit(limit) ? "question-validation-error" : undefined}
+                        type="number"
+                        min={1}
+                        max={50}
+                        step={1}
+                        value={limit}
+                        disabled={submitting}
+                        onChange={(event) => onLimitChange?.(Number(event.target.value))}
+                    />
                 </label>
             )}
             {validationError && (
