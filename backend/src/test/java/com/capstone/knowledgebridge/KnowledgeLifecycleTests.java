@@ -224,7 +224,11 @@ class KnowledgeLifecycleTests {
 				context.getBean(com.capstone.knowledgebridge.ingestion.IngestionService.class),
 				new org.springframework.core.task.SyncTaskExecutor());
 		var run = sync.start("GUARD", 1L).orElseThrow();
-		assertThat(sync.findRun(run.getId()).orElseThrow().getUpdatedCount()).isEqualTo(1);
+		var completed = sync.findRun(run.getId()).orElseThrow();
+		assertThat(completed.getUpdatedCount()).isEqualTo(1);
+		assertThat(completed.getFailedCount()).isZero();
+		assertThat(completed.getStatus())
+				.isEqualTo(com.capstone.knowledgebridge.jiraintegration.JiraSyncRunStatus.COMPLETED);
 		assertThat(state(id)).isEqualTo("ACTIVE");
 		assertThat(items.findById(id).orElseThrow().isAvailable()).isTrue();
 		verify(engine, never()).deleteDocument(Long.toString(id));
