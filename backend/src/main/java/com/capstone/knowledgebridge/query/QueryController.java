@@ -19,6 +19,8 @@ import com.capstone.knowledgebridge.cache.QueryMode;
 import com.capstone.knowledgebridge.common.ApiError;
 import com.capstone.knowledgebridge.gbrain.GbrainEvaluationService;
 import com.capstone.knowledgebridge.gbrain.GbrainException;
+import com.capstone.knowledgebridge.gbrain.model.GbrainSearchRequest;
+import com.capstone.knowledgebridge.gbrain.model.GbrainSynthesisRequest;
 import com.capstone.knowledgebridge.usage.UsageService;
 import com.capstone.knowledgebridge.query.QueryService.SearchResponse;
 import com.capstone.knowledgebridge.query.QueryService.SynthesisResponse;
@@ -28,21 +30,39 @@ import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 
 @RestController
 @RequestMapping("/api/query")
 public class QueryController {
 
-	public record SearchRequest(@NotBlank @Size(max = 1000) String question, @Min(1) @Max(50) Integer limit) {
+	public record SearchRequest(
+			@NotBlank(message = "Question is required.") @Size(max = GbrainSearchRequest.MAX_QUERY_LENGTH, message = "Search questions must be at most 1000 characters.") @Pattern(regexp = "[^\\x00]*", message = "Question must not contain NUL characters.") String question,
+			@Min(1) @Max(50) Integer limit) {
+		public SearchRequest {
+			question = normalize(question);
+		}
 	}
 
-	public record SynthesisRequest(@NotBlank @Size(max = 2000) String question) {
+	public record SynthesisRequest(
+			@NotBlank(message = "Question is required.") @Size(max = GbrainSynthesisRequest.MAX_QUESTION_LENGTH, message = "Synthesis questions must be at most 2000 characters.") @Pattern(regexp = "[^\\x00]*", message = "Question must not contain NUL characters.") String question) {
+		public SynthesisRequest {
+			question = normalize(question);
+		}
 	}
 
-	public record EvaluationRequest(@NotBlank @Size(max = 2000) String question,
+	public record EvaluationRequest(
+			@NotBlank(message = "Question is required.") @Size(max = GbrainSynthesisRequest.MAX_QUESTION_LENGTH, message = "Synthesis questions must be at most 2000 characters.") @Pattern(regexp = "[^\\x00]*", message = "Question must not contain NUL characters.") String question,
 			@NotBlank @Size(max = 255) String model,
 			@NotNull @Size(max = 100) List<@NotNull @Min(1) Long> allowedItemIds) {
+		public EvaluationRequest {
+			question = normalize(question);
+		}
+	}
+
+	private static String normalize(String question) {
+		return question == null ? null : question.strip();
 	}
 
 	public record EvaluationResponse(SynthesisResponse synthesis, JsonNode trace) {

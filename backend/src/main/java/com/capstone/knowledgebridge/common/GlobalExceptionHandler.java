@@ -1,5 +1,7 @@
 package com.capstone.knowledgebridge.common;
 
+import java.util.stream.Collectors;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpHeaders;
@@ -8,6 +10,7 @@ import org.springframework.http.HttpStatusCode;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
+import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.context.request.WebRequest;
 import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExceptionHandler;
@@ -22,6 +25,15 @@ import com.capstone.knowledgebridge.jira.JiraException;
 public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
 
 	private static final Logger log = LoggerFactory.getLogger(GlobalExceptionHandler.class);
+
+	@Override
+	protected ResponseEntity<Object> handleMethodArgumentNotValid(MethodArgumentNotValidException exception,
+			HttpHeaders headers, HttpStatusCode status, WebRequest request) {
+		// Constraint messages are application-owned templates; never include rejected values.
+		String message = exception.getBindingResult().getAllErrors().stream()
+				.map(error -> error.getDefaultMessage()).sorted().distinct().collect(Collectors.joining(" "));
+		return new ResponseEntity<>(new ApiError("VALIDATION_ERROR", message), headers, status);
+	}
 
 	@Override
 	protected ResponseEntity<Object> handleExceptionInternal(Exception exception, Object body, HttpHeaders headers,
